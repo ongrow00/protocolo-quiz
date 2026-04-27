@@ -4,6 +4,7 @@
 	import { quizStore } from '$lib/stores/quiz.store';
 	import { trackQuizStart, trackQuestionAnswer } from '$lib/services/analytics.service';
 	import Logo from '$lib/components/ui/Logo.svelte';
+	import SocialProof from '$lib/components/ui/SocialProof.svelte';
 	import QuestionCard from '$lib/components/quiz/QuestionCard.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
@@ -49,6 +50,9 @@
 	{#if goalQuestion}
 		<main class="flex-1 flex flex-col min-h-0 max-w-lg mx-auto w-full px-4 pt-8 pb-8">
 			<QuestionCard question={goalQuestion} selectedValue={undefined} onSelect={handleSelect} />
+			<div class="w-full flex justify-center mt-auto pt-8 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+				<SocialProof bordered={false} />
+			</div>
 		</main>
 	{/if}
 </div>

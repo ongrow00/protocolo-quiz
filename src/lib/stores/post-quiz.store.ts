@@ -4,13 +4,16 @@ import { writable } from 'svelte/store';
 export interface PostQuizState {
 	name: string;
 	whatsapp: string;
+	/** Clicou no CTA "COMEÇAR AGORA" no bloco de preço (results). */
+	clickedComecarAgora: boolean;
 }
 
 const SESSION_KEY = 'lotz-post-quiz-state';
 
 const INITIAL: PostQuizState = {
 	name: '',
-	whatsapp: ''
+	whatsapp: '',
+	clickedComecarAgora: false
 };
 
 function loadFromSession(): PostQuizState {
@@ -18,7 +21,12 @@ function loadFromSession(): PostQuizState {
 	try {
 		const raw = sessionStorage.getItem(SESSION_KEY);
 		if (!raw) return INITIAL;
-		return JSON.parse(raw) as PostQuizState;
+		const parsed = JSON.parse(raw) as Partial<PostQuizState>;
+		return {
+			name: typeof parsed.name === 'string' ? parsed.name : '',
+			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
+			clickedComecarAgora: parsed.clickedComecarAgora === true
+		};
 	} catch {
 		return INITIAL;
 	}
@@ -50,6 +58,10 @@ function createPostQuizStore() {
 
 		setWhatsapp(value: string) {
 			update((s) => persist({ ...s, whatsapp: value }));
+		},
+
+		markComecarAgoraClicked() {
+			update((s) => (s.clickedComecarAgora ? s : persist({ ...s, clickedComecarAgora: true })));
 		},
 
 		reset() {

@@ -131,8 +131,15 @@
 		opacity: 0;
 		cursor: pointer;
 	}
-	/* Quando vazio, texto do input transparente para ver o placeholder customizado */
-	:global(.date-input-white-icon.is-empty) {
+	/* Vazio e sem foco: texto invisível para o placeholder absoluto aparecer */
+	:global(.date-input-white-icon.is-empty:not(:focus)) {
 		color: transparent;
+	}
+	/* Com foco (digitando no desktop): sempre cor visível — senão teclas ficam invisíveis enquanto value ainda é "" */
+	:global(.date-input-white-icon.is-empty:focus) {
+		color: var(--color-body);
+	}
+	.date-input-wrapper:focus-within .date-input-placeholder {
+		opacity: 0;
 	}
 </style>

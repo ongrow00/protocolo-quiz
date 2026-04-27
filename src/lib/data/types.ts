@@ -105,6 +105,15 @@ export interface LeadData {
 	profileId: string;
 	scores: Scores;
 	answers: Answers;
+	visitedQuestions?: string[];
+	startedAt?: number | null;
+	completedAt?: number | null;
+	/** Telefone do pós-quiz (ex.: E.164 55...) */
+	whatsapp?: string;
+	/** Objetivo principal (rótulo), derivado de goal_type */
+	objective?: string;
+	/** Clicou no CTA "COMEÇAR AGORA" na oferta */
+	clickedComecarAgora?: boolean;
 	utm?: UtmParams;
 	offer?: string | null;
 }

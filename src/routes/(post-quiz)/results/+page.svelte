@@ -176,6 +176,12 @@
 	function scrollToPreco() {
 		document.getElementById('bloco-preco')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
+
+	function scrollToProtocoloSection() {
+		document
+			.getElementById('secao-acessar-protocolo')
+			?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+	}
 </script>
 
 <svelte:head>
@@ -229,6 +235,13 @@
 		alt="Assista o vídeo para acessar seu protocolo"
 		class="w-full max-w-md mx-auto rounded-2xl"
 	/>
+	<button
+		type="button"
+		onclick={scrollToProtocoloSection}
+		class="w-full max-w-md mx-auto mt-4 h-[52px] flex items-center justify-center rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+	>
+		Acessar Protocolo
+	</button>
 	<h2 class="text-2xl font-extrabold text-heading leading-6 text-center">
 		{#if name.trim()}
 			<span class="text-accent">{name.trim()}</span>, seu protocolo
@@ -265,7 +278,7 @@
 		</div>
 	{/if}
 
-	<div class="flex flex-col gap-4">
+	<div id="secao-acessar-protocolo" class="flex flex-col gap-4 scroll-mt-4">
 		<div class="flex justify-center">
 			<AvatarStack initials={nameInitials} size="md" />
 		</div>
@@ -458,6 +471,7 @@
 			rel={checkoutUrl ? 'noopener noreferrer' : undefined}
 			class="mx-0.5 mb-0.5 flex items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
 			onclick={(e) => {
+				postQuizStore.markComecarAgoraClicked();
 				if (!checkoutUrl) e.preventDefault();
 			}}
 		>
@@ -641,6 +655,14 @@
 			{/each}
 		</div>
 	</section>
+
+	<button
+		type="button"
+		onclick={scrollToProtocoloSection}
+		class="w-full max-w-md mx-auto mt-2 h-[52px] flex items-center justify-center rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+	>
+		Acessar Protocolo
+	</button>
 </div>
 
 <style>

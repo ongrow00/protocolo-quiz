@@ -1,27 +1,30 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { quizStore } from '$lib/stores/quiz.store';
+	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { leadStore } from '$lib/stores/lead.store';
 	import { resultProfile } from '$lib/stores/result.store';
 	import { sessionStore } from '$lib/stores/session.store';
 	import { submitLead } from '$lib/services/lead.service';
 	import { trackLeadSubmit } from '$lib/services/analytics.service';
 	import { validateLeadForm } from '$lib/utils/validation';
+	import { primaryObjectiveLabel } from '$lib/utils/primary-objective';
 	import FormField from './FormField.svelte';
 	import SubmitButton from './SubmitButton.svelte';
 	import ErrorMessage from '$lib/components/ui/ErrorMessage.svelte';
 
-	const state = $derived($leadStore);
+	const leadState = $derived($leadStore);
 	const profile = $derived($resultProfile);
 	const quiz = $derived($quizStore);
 	const session = $derived($sessionStore);
+	const postQuiz = $derived($postQuizStore);
 
-	let fieldErrors = $state<Record<string, string>>({});
+	let fieldErrors = $state({} as Record<string, string>);
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
-		const { valid, errors } = validateLeadForm(state.name, state.email);
+		const { valid, errors } = validateLeadForm(leadState.name, leadState.email);
 		fieldErrors = errors;
 		if (!valid) return;
 
@@ -33,12 +36,19 @@
 		leadStore.setLoading(true);
 
 		try {
+			const objective = primaryObjectiveLabel(quiz.answers);
 			await submitLead({
-				name: state.name.trim(),
-				email: state.email.trim().toLowerCase(),
+				name: leadState.name.trim(),
+				email: leadState.email.trim().toLowerCase(),
 				profileId: profile.id,
 				scores: quiz.scores,
 				answers: quiz.answers,
+				visitedQuestions: quiz.visitedQuestions,
+				startedAt: quiz.startedAt,
+				completedAt: quiz.completedAt,
+				whatsapp: postQuiz.whatsapp?.trim() || undefined,
+				objective: objective,
+				clickedComecarAgora: postQuiz.clickedComecarAgora,
 				utm: Object.keys(session.utm).length > 0 ? session.utm : undefined,
 				offer: session.offer ?? undefined
 			});
@@ -47,8 +57,9 @@
 			leadStore.setSubmitted();
 			quizStore.reset();
 			await goto('/obrigado');
-		} catch {
-			leadStore.setError('Algo deu errado. Por favor, tente novamente.');
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : 'Algo deu errado. Por favor, tente novamente.';
+			leadStore.setError(msg);
 		}
 	}
 </script>
@@ -64,7 +75,7 @@
 	<FormField
 		id="name"
 		label="Seu nome"
-		value={state.name}
+		value={leadState.name}
 		placeholder="Como podemos te chamar?"
 		autocomplete="given-name"
 		error={fieldErrors.name}
@@ -75,18 +86,18 @@
 		id="email"
 		label="Seu melhor e-mail"
 		type="email"
-		value={state.email}
+		value={leadState.email}
 		placeholder="voce@exemplo.com"
 		autocomplete="email"
 		error={fieldErrors.email}
 		oninput={(v) => leadStore.setField('email', v)}
 	/>
 
-	{#if state.error}
-		<ErrorMessage message={state.error} />
+	{#if leadState.error}
+		<ErrorMessage message={leadState.error} />
 	{/if}
 
-	<SubmitButton loading={state.loading} />
+	<SubmitButton loading={leadState.loading} />
 
 	<p class="text-xs text-center text-muted">
 		Sem spam. Você pode cancelar a qualquer momento.
