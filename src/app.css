@@ -48,6 +48,22 @@ body {
 	padding-right: var(--safe-right);
 }
 
+@layer base {
+	h2 {
+		line-height: 1.2;
+	}
+	p {
+		line-height: 1.2;
+	}
+}
+
+@layer utilities {
+	/* Many screens use Tailwind's leading-relaxed for body copy */
+	.leading-relaxed {
+		line-height: 1.2;
+	}
+}
+
 @keyframes shimmer {
 	0% {
 		transform: translateX(-100%);

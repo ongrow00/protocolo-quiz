@@ -2,6 +2,12 @@
 	import { onMount, onDestroy } from 'svelte';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 
+	interface Props {
+		bordered?: boolean;
+	}
+
+	let { bordered = true }: Props = $props();
+
 	const START = 2500;
 	const TARGET = 3000;
 	// +2 a cada ~3s com variação aleatória de ±0.5s
@@ -25,7 +31,7 @@
 </script>
 
 <div
-	class="inline-flex items-center gap-3 px-4 py-3 rounded-full border border-white/15 bg-transparent"
+	class="inline-flex items-center gap-3 px-4 py-3 rounded-full bg-transparent {bordered ? 'border border-white/15' : 'border-0'}"
 >
 	<!-- Apenas avatares sobrepostos, ordem randomizada a cada carregamento -->
 	<AvatarStack variant="default" />

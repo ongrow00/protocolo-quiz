@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Question } from '$lib/data/types';
 	import RulerPickerH from './RulerPickerH.svelte';
+	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
 	/** BMI saudável (OMS): 18,5–24,9 */
 	const BMI_MIN_HEALTHY = 18.5;
@@ -56,7 +57,7 @@
 	}
 
 	const displayNum = $derived(String(Math.round(rulerValue)));
-	const hint = $derived('Arraste para ajustar');
+	const hint = $derived('← Arraste para ajustar →');
 
 	// Altura em cm (pergunta height_cm vem antes do objetivo de peso)
 	const heightCm = $derived.by(() => {
@@ -242,13 +243,16 @@
 		/>
 	</div>
 
-	<p class="text-xs text-muted text-center">{hint}</p>
+	<div class="flex flex-col items-center justify-center gap-1">
+		<p class="text-xs text-white text-center">{hint}</p>
+		<SwipeRightIcon />
+	</div>
 
 	<!-- Legenda (só texto) — aparece quando há seleção de meta -->
 	{#if goalLegend && value !== undefined && value !== ''}
 		<div class="w-full flex items-center justify-center gap-3 pt-5 pb-5" role="status" aria-live="polite">
 			<span class="text-lg shrink-0 mt-0.5" aria-hidden="true">{goalLegend.icon}</span>
-			<p class="text-sm text-heading leading-snug min-w-0">
+			<p class="text-[12px] text-heading leading-[1.2] min-w-0">
 				{goalLegend.title}
 				<span
 					class="font-semibold {goalLegend.highlightColor === 'green'

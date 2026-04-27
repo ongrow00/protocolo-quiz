@@ -9,6 +9,7 @@
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
+	import SocialProof from '$lib/components/ui/SocialProof.svelte';
 
 	const FIRST_CHECKPOINT_ID = 'mr-1'; // Checkpoint: Objetivo definido
 
@@ -28,6 +29,8 @@
 	const isMr2Screen = $derived(question?.id === 'mr-2');
 	const isMr3Screen = $derived(question?.id === 'mr-3');
 	const isMr5Screen = $derived(question?.id === 'mr-5');
+	const isGoalTypeScreen = $derived(question?.id === 'goal_type');
+	const hideHeaderUi = $derived(hideProgressAndCount || isGoalTypeScreen);
 
 	// setContext chamado uma vez na inicialização com getter reativo
 	// (não usar $effect para setContext — setContext só é válido na inicialização do componente)
@@ -87,13 +90,13 @@
 
 <!-- DOM order: header (0), main (1), spacer (2), slot content (3) so quiz content div is 4th child of root -->
 <header class="sticky top-0 z-10 bg-bg px-4 pt-4 pb-3">
-	<!-- Row 1: Back ← | Logo (centralizada na tela) | Contagem -->
-	<div class="relative flex items-center justify-between mb-3">
-		{#if !isMr5Screen}
+	<!-- Row 1: Back ← | Logo | Contagem (oculta na mr-1; na mr-1 vai para o conteúdo) -->
+	<div class="flex items-center justify-between mb-3">
+		{#if !isGoalTypeScreen && !isMr5Screen}
 			<button
 				onclick={handleBack}
 				disabled={navigating.from != null || goingBack}
-				class="w-9 h-9 flex items-center justify-center text-heading rounded-xl transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none shrink-0"
+				class="w-9 h-9 flex items-center justify-center text-heading rounded-xl transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none"
 				aria-label="Voltar"
 			>
 				<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -101,16 +104,14 @@
 				</svg>
 			</button>
 		{:else}
-			<div class="w-9 h-9 shrink-0" aria-hidden="true"></div>
+			<div class="w-9 h-9" aria-hidden="true"></div>
 		{/if}
 
-		<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-			<Logo />
-		</div>
+		<Logo />
 
-		{#if !isMr1Screen && !isMr2Screen && !isMr3Screen && !isMr5Screen}
+		{#if !hideHeaderUi && !isMr1Screen && !isMr2Screen && !isMr3Screen && !isMr5Screen}
 			<div
-				class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-transparent shrink-0"
+				class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-transparent"
 				aria-label="Contagem"
 			>
 				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-accent shrink-0" aria-hidden="true">
@@ -134,17 +135,17 @@
 				</span>
 			</div>
 		{:else}
-			<div class="w-[59px] shrink-0" aria-hidden="true"></div>
+			<div class="w-[59px]" aria-hidden="true"></div>
 		{/if}
 	</div>
 
 	<!-- Row 2: Section label (oculto na tela de checkpoint e info medicamento) -->
-	{#if section && !hideProgressAndCount}
+	{#if section && !hideHeaderUi}
 		<p class="text-xs text-muted text-center mb-2 tracking-wide">{section}</p>
 	{/if}
 
 	<!-- Row 3: Step progress bar (oculto na tela de checkpoint e info medicamento) -->
-	{#if !hideProgressAndCount}
+	{#if !hideHeaderUi}
 		<StepProgressBar percent={$progressPercent} steps={5} />
 	{/if}
 </header>
@@ -154,3 +155,13 @@
 <div aria-hidden="true" class="hidden" style="display: none"></div>
 
 {@render children()}
+
+{#if isGoalTypeScreen}
+	<div class="fixed bottom-0 left-0 right-0 z-[60] bg-bg">
+		<div class="max-w-lg mx-auto w-full px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+			<div class="flex justify-center">
+				<SocialProof bordered={false} />
+			</div>
+		</div>
+	</div>
+{/if}

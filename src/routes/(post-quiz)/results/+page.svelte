@@ -247,6 +247,8 @@
 		bodyFatLevel={bodyFatLevel}
 		bodyFatGoal={bodyFatGoal}
 		genderAnswer={genderAnswer}
+		weightCurrentKg={currentKg}
+		weightGoalKg={goalKg}
 	/>
 
 	{#if currentKg != null && goalKg != null}
@@ -569,12 +571,50 @@
 		</p>
 		<div class="w-full flex flex-col text-left border-t border-line/50">
 			{#each [
-				{ q: 'Isso é só mais um curso ou planilha?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-				{ q: 'Vou ter acompanhamento individual mesmo?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-				{ q: 'Já tentei de tudo… por que isso seria diferente?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-				{ q: 'Funciona para quem tem pouco tempo?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-				{ q: 'Existe garantia se eu não tiver resultado?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-				{ q: 'Quais são as formas de pagamento?', a: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' }
+				{
+					q: 'Isso é só mais um curso ou planilha?',
+					a: 'Não. Aqui você não está comprando conteúdo genérico. Você recebe um protocolo construído do zero com base nas suas respostas, considerando seu corpo, sua rotina e o seu objetivo. E mais importante: você não fica sozinho. Existe acompanhamento individual no WhatsApp e ajustes ao longo do processo. Curso você abandona. Planilha você ignora. Aqui você é acompanhado até o resultado.'
+				},
+				{
+					q: 'Vou ter acompanhamento individual mesmo?',
+					a: 'Sim, de verdade. Você vai ter uma pessoa do nosso time falando com você diretamente no WhatsApp. Não é grupo, não é robô. É alguém acompanhando seu processo, tirando dúvidas, ajustando o plano e garantindo que você continue avançando, mesmo quando a motivação oscila.'
+				},
+				{
+					q: 'Já tentei de tudo… por que isso seria diferente?',
+					a: 'Porque dessa vez o ponto de partida muda. Tudo que você tentou antes provavelmente era genérico, feito para qualquer pessoa. Aqui o protocolo é construído a partir das suas respostas, entendendo como o seu corpo funciona e qual é a sua rotina real. Não é mais uma tentativa. É a primeira vez que o método se adapta a você, e não o contrário.'
+				},
+				{
+					q: 'Funciona para quem tem pouco tempo?',
+					a: 'Funciona principalmente para quem tem pouco tempo. O protocolo é ajustado com base na sua disponibilidade real. Quantos dias você pode treinar, quanto tempo você tem e como é a sua rotina. A ideia não é encaixar sua vida no treino, é encaixar o treino na sua vida. E o mais importante: resultado não vem de treinar mais, vem de treinar certo.'
+				},
+				{
+					q: 'Existe garantia se eu não tiver resultado?',
+					a: 'Sim. Você tem duas garantias. A primeira é de 7 dias, onde você pode pedir 100% do seu dinheiro de volta por qualquer motivo. A segunda é a garantia de resultado. Se você seguir o protocolo durante os 90 dias e não tiver evolução, nós devolvemos o seu dinheiro. Ou seja, o risco fica todo com a gente.'
+				},
+				{
+					q: 'Quais são as formas de pagamento?',
+					a: 'Você pode pagar com cartão de crédito, podendo parcelar, ou via PIX à vista. Assim que o pagamento for confirmado, o acesso já é liberado e você recebe todas as instruções.'
+				},
+				{
+					q: 'Em quanto tempo começo a ver resultado?',
+					a: 'Os primeiros sinais aparecem rápido. Você começa a sentir mais disposição, melhor recuperação e a sensação de que o treino está funcionando de verdade. As mudanças no corpo começam a aparecer nas primeiras semanas e evoluem ao longo dos 90 dias.'
+				},
+				{
+					q: 'Preciso treinar em academia?',
+					a: 'Não precisa. O protocolo é adaptado para o ambiente que você tem disponível. Pode ser academia, casa ou condomínio. Tudo é ajustado para a sua realidade.'
+				},
+				{
+					q: 'Preciso fazer dieta restritiva?',
+					a: 'Não. Você recebe um plano alimentar personalizado, pensado para o seu objetivo e sua rotina. A ideia não é cortar tudo, é criar uma estratégia que você consiga manter e que funcione no longo prazo.'
+				},
+				{
+					q: 'E se eu perder a motivação no meio do caminho?',
+					a: 'Você não depende só de motivação. Quando você abre o app e já sabe exatamente o que fazer, fica muito mais fácil seguir. E além disso, você tem acompanhamento no WhatsApp para ajustar o plano e te manter em movimento. E tem uma coisa importante: quando você começa a ver resultado, a motivação aparece naturalmente.'
+				},
+				{
+					q: 'Quando eu começo depois da compra?',
+					a: 'Na hora. Assim que o pagamento é aprovado, você já recebe acesso ao aplicativo e as instruções por WhatsApp e email. No próximo dia útil, seu coach entra em contato e o seu protocolo começa a ser montado. A partir daí, o seu acompanhamento já começa.'
+				}
 			] as faq, i}
 				<details
 					class="group border-b border-line/50"

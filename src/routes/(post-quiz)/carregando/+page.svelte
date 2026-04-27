@@ -104,7 +104,20 @@
 			{@const isActive = i <= activeIndex}
 			<div class="flex flex-col gap-2 w-full">
 				<div class="flex justify-between items-baseline gap-2">
-					<span class="text-sm font-medium {isActive ? 'text-white' : 'text-muted'}">{step.label}</span>
+					<span class="text-sm font-medium {isActive ? 'text-white' : 'text-muted'}">
+						<span class="inline-flex items-center gap-2">
+							<span>{step.label}</span>
+							{#if stepProgress >= 100}
+								<svg class="w-4 h-4 text-green-500 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+									<path
+										fill-rule="evenodd"
+										d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.3a1 1 0 0 1-1.42.003L3.29 9.257a1 1 0 1 1 1.415-1.414l4.04 4.04 6.543-6.594a1 1 0 0 1 1.416 0Z"
+										clip-rule="evenodd"
+									/>
+								</svg>
+							{/if}
+						</span>
+					</span>
 					<span class="text-sm tabular-nums font-medium {isActive ? 'text-white' : 'text-muted'}">{Math.round(stepProgress)}%</span>
 				</div>
 				<div class="w-full h-2 rounded-full bg-surface-2 overflow-hidden" role="progressbar" aria-valuenow={stepProgress} aria-valuemin={0} aria-valuemax={100}>

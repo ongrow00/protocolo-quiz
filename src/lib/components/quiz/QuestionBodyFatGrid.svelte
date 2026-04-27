@@ -4,6 +4,7 @@
 	import { BODY_FAT_IMAGES } from '$lib/assets/body-fat-images';
 	import { BODY_FAT_STAGES, BODY_FAT_LABELS } from '$lib/assets/body-fat-config';
 	import arrowsBetweenUrl from '$lib/assets/body-fat/arrows-between.png';
+	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
 	/** Map gender answer to image prefix: gender-m -> H, gender-f -> M */
 	const GENDER_PREFIX: Record<string, string> = {
@@ -69,6 +70,8 @@
 	const afterImageKey = $derived(stageIndex + 1);
 	/** Label do estágio atual (ex: "11-12%") para o box abaixo do slider. */
 	const currentLabel = $derived(BODY_FAT_LABELS[stageIndex] ?? '');
+	/** Posição do balão (10% a 90%) alinhada ao step selecionado */
+	const bubblePct = $derived.by(() => (STAGES <= 1 ? 50 : 10 + (80 * stageIndex) / (STAGES - 1)));
 
 	function getImageSrc(key: number) {
 		return BODY_FAT_IMAGES[`${prefix}_${key}`] ?? '';
@@ -169,6 +172,16 @@
 	<!-- Slider: 6 estágios — abaixo da imagem, sem sobrepor -->
 	<div class="relative flex flex-col gap-3 w-full mt-0">
 		<div class="relative w-full h-8 flex items-center">
+			<!-- Balão do step selecionado -->
+			<div
+				class="absolute -top-9 z-20 -translate-x-1/2 left-0 pointer-events-none"
+				style="left: {bubblePct}%"
+				aria-hidden="true"
+			>
+				<div class="px-3 py-1 rounded-full bg-black/80 text-white text-xs font-semibold shadow-md ring-1 ring-white/10 backdrop-blur-sm whitespace-nowrap">
+					{currentLabel}
+				</div>
+			</div>
 			<input
 				type="range"
 				min={0}
@@ -195,15 +208,9 @@
 			</div>
 		</div>
 		<!-- Legenda: menor % | Arraste para ajustar | maior % -->
-		<div class="flex items-center text-xs text-muted font-medium">
-			<span class="shrink-0 w-12 text-left">{BODY_FAT_LABELS[0]}</span>
-			<span class="flex-1 text-center">Arraste para ajustar</span>
-			<span class="shrink-0 w-12 text-right">{BODY_FAT_LABELS[STAGES - 1]}</span>
-		</div>
-		<!-- Percentual selecionado — só texto, sem bg nem borda -->
-		<div class="text-center mt-[25px] p-[25px]" aria-live="polite">
-			<span class="text-sm font-medium text-muted pr-2.5">Gordura corporal </span>
-			<span class="text-lg font-bold text-heading">{currentLabel}</span>
+		<div class="flex flex-col items-center justify-center gap-1">
+			<p class="text-xs text-white text-center">← Arraste para ajustar →</p>
+			<SwipeRightIcon />
 		</div>
 	</div>
 </div>

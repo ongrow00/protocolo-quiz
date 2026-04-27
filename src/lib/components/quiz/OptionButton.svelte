@@ -12,10 +12,22 @@
 		horizontal?: boolean;
 		/** Checkbox on top, text below (e.g. grid de dias) */
 		stacked?: boolean;
+		/** Reserve a 1:1 image slot above the content (even without imageUrl) */
+		reserveImageTop?: boolean;
 		onclick: (optionId: string) => void;
 	}
 
-	let { option, selected, type = 'single', disabled = false, minimal = false, horizontal = false, stacked = false, onclick }: Props = $props();
+	let {
+		option,
+		selected,
+		type = 'single',
+		disabled = false,
+		minimal = false,
+		horizontal = false,
+		stacked = false,
+		reserveImageTop = false,
+		onclick
+	}: Props = $props();
 
 	// Single = radio (circle only). Multiple = checkbox (square with check).
 	const isCheckbox = $derived(type === 'multiple');
@@ -40,7 +52,7 @@
 	aria-disabled={disabled}
 	disabled={disabled}
 	onclick={() => !disabled && onclick(option.id)}
-	class="text-left transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg
+	class="{reserveImageTop ? 'text-center' : 'text-left'} transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg
 		{horizontal ? 'flex-1 min-w-0 flex flex-col overflow-hidden py-0 rounded-xl' : 'w-full px-5 py-4 rounded-2xl'}
 		{horizontal && !imageOnTop ? 'items-center justify-center py-4' : ''}
 		{minimal ? 'border-0 rounded-xl bg-surface-2/50 py-3' : 'border-2'}
@@ -49,6 +61,16 @@
 		: minimal ? 'bg-surface-2/50 text-body hover:bg-surface-2' : 'border-line bg-surface text-body hover:border-accent/50 hover:bg-surface-2'}
 		{disabled ? ' opacity-50 pointer-events-none' : ''}"
 >
+	{#if reserveImageTop && !imageOnTop}
+		{#if option.imageUrl}
+			<div class="w-full aspect-square rounded-xl overflow-hidden bg-transparent">
+				<img src={option.imageUrl} alt="" class="w-full h-full object-cover" loading="lazy" />
+			</div>
+		{:else}
+			<div class="w-full aspect-square rounded-xl bg-transparent"></div>
+		{/if}
+	{/if}
+
 	{#if imageOnTop}
 		<!-- Imagem 100% da largura, altura proporcional -->
 		<img src={option.imageUrl} alt="" class="w-full h-auto object-cover shrink-0" loading="lazy" />
@@ -70,7 +92,7 @@
 			<span class="font-medium leading-snug text-center text-sm">{title}</span>
 		</div>
 	{:else}
-		<div class="flex items-center gap-3">
+		<div class="{reserveImageTop ? 'flex flex-col items-center gap-2 pt-3' : 'flex items-center gap-3'}">
 			{#if isCheckbox}
 				<span
 					class="shrink-0 flex items-center justify-center w-5 h-5 border-2 rounded-md transition-colors
@@ -83,14 +105,14 @@
 					{/if}
 				</span>
 			{/if}
-			<div class="flex flex-col gap-0.5 min-w-0">
-				<span class="font-medium leading-snug">{title}</span>
+			<div class="{reserveImageTop ? 'flex flex-col items-center gap-0.5 min-w-0' : 'flex flex-col gap-0.5 min-w-0'}">
+				<span class="font-medium leading-snug {reserveImageTop ? 'text-sm' : ''}">{title}</span>
 				{#if hasDescription}
 					<span class="text-sm opacity-90 leading-snug {selected ? 'text-bg/90' : 'text-muted'}">{description}</span>
 				{/if}
 			</div>
 		</div>
-		{#if option.imageUrl}
+		{#if option.imageUrl && !reserveImageTop}
 			<img src={option.imageUrl} alt="" class="mt-3 rounded-xl w-full object-cover max-h-32" loading="lazy" />
 		{/if}
 	{/if}

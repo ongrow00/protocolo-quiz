@@ -9,13 +9,13 @@ export const questions: Question[] = [
 		order: 1,
 		section: 'Objetivo',
 		text: 'Qual é seu objetivo principal hoje?',
-		subtext: 'Queremos entender onde você está para montar um plano que realmente funcione pra sua vida.',
+		subtext: 'Para iniciar, selecione um objetivo.',
 		type: 'single',
 		required: true,
 		variable: 'goal_type',
 		options: [
-			{ id: 'goal-emagrecer', text: 'Quero Emagrecer', scores: emptyScores },
-			{ id: 'goal-massa', text: 'Quero ganhar massa', scores: emptyScores }
+			{ id: 'goal-emagrecer', text: 'Emagrecer', scores: emptyScores, imageUrl: '/assets/emagrecer.png' },
+			{ id: 'goal-massa', text: 'Ganhar Massa', scores: emptyScores, imageUrl: '/assets/ganhar-massa.png' }
 		]
 	},
 	{

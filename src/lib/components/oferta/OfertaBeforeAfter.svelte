@@ -14,11 +14,20 @@
 		bodyFatLevel: number | null; // 0..5 "agora"
 		bodyFatGoal: number | null;   // 0..5 "depois"
 		genderAnswer: string | undefined;
+		weightCurrentKg?: number | null;
+		weightGoalKg?: number | null;
 		/** Accent color for arrows and bars: 'accent' (green) or 'coral' */
 		accentVariant?: 'accent' | 'coral';
 	}
 
-	let { bodyFatLevel, bodyFatGoal, genderAnswer, accentVariant = 'accent' }: Props = $props();
+	let {
+		bodyFatLevel,
+		bodyFatGoal,
+		genderAnswer,
+		weightCurrentKg = null,
+		weightGoalKg = null,
+		accentVariant = 'accent'
+	}: Props = $props();
 
 	const prefix = $derived(GENDER_PREFIX[genderAnswer ?? ''] ?? 'H');
 
@@ -36,8 +45,9 @@
 	const bodyFatAfterPercent = $derived(BODY_FAT_LABELS[afterStage] ?? '');
 
 	/** 5 segments: "before" filled = 5 - stage (more fat = fewer filled); "after" = 5 - stage */
-	const muscleSegmentsBefore = $derived(Math.min(5, Math.max(0, 5 - beforeStage)));
-	const muscleSegmentsAfter = $derived(Math.min(5, Math.max(0, 5 - afterStage)));
+	// Nunca mostrar 0 segmentos (percepção: todo mundo tem alguma massa muscular).
+	const muscleSegmentsBefore = $derived(Math.min(5, Math.max(1, 5 - beforeStage)));
+	const muscleSegmentsAfter = $derived(Math.min(5, Math.max(1, 5 - afterStage)));
 </script>
 
 <div class="oferta-before-after w-full rounded-2xl overflow-hidden">
@@ -93,15 +103,24 @@
 			<p class="text-heading text-lg font-bold mt-0.5">{bodyFatBeforePercent}</p>
 			<div class="h-px w-full bg-line my-2" aria-hidden="true"></div>
 			<p class="text-heading text-sm font-medium mt-3">Massa Muscular</p>
-			<div class="flex gap-1 mt-1.5" aria-hidden="true">
+			<div class="flex w-full gap-1 mt-1.5" aria-hidden="true">
 				{#each Array(5) as _, i}
 					<span
-						class="h-2.5 w-8 rounded-sm shrink-0 {i < muscleSegmentsBefore
+						class="h-2.5 flex-1 min-w-0 rounded-sm {i < muscleSegmentsBefore
 							? 'bg-accent'
 							: 'bg-[#333333]'}"
 					></span>
 				{/each}
 			</div>
+			<div class="h-px w-full bg-line my-3" aria-hidden="true"></div>
+			<p class="text-heading text-sm font-medium">Peso atual</p>
+			<p class="text-heading text-lg font-bold mt-0.5">
+				{#if weightCurrentKg != null}
+					{weightCurrentKg} kg
+				{:else}
+					—
+				{/if}
+			</p>
 		</div>
 		<div class="bg-line self-stretch min-h-[80px]" aria-hidden="true"></div>
 		<div class="flex flex-col items-start justify-center py-4 px-4">
@@ -109,15 +128,24 @@
 			<p class="text-heading text-lg font-bold mt-0.5">{bodyFatAfterPercent}</p>
 			<div class="h-px w-full bg-line my-2" aria-hidden="true"></div>
 			<p class="text-heading text-sm font-medium mt-3">Massa Muscular</p>
-			<div class="flex gap-1 mt-1.5" aria-hidden="true">
+			<div class="flex w-full gap-1 mt-1.5" aria-hidden="true">
 				{#each Array(5) as _, i}
 					<span
-						class="h-2.5 w-8 rounded-sm shrink-0 {i < muscleSegmentsAfter
+						class="h-2.5 flex-1 min-w-0 rounded-sm {i < muscleSegmentsAfter
 							? 'bg-accent'
 							: 'bg-[#333333]'}"
 					></span>
 				{/each}
 			</div>
+			<div class="h-px w-full bg-line my-3" aria-hidden="true"></div>
+			<p class="text-heading text-sm font-medium">Peso objetivo</p>
+			<p class="text-heading text-lg font-bold mt-0.5">
+				{#if weightGoalKg != null}
+					{weightGoalKg} kg
+				{:else}
+					—
+				{/if}
+			</p>
 		</div>
 	</div>
 

@@ -2,6 +2,7 @@
 	import type { Question } from '$lib/data/types';
 	import RulerPicker from './RulerPicker.svelte';
 	import RulerPickerH from './RulerPickerH.svelte';
+	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
 	interface Props {
 		question: Question;
@@ -14,7 +15,7 @@
 	const isHeight = $derived(question.unit === 'cm');
 	const isWeight = $derived(question.unit === 'kg');
 	const isAge = $derived(question.unit === 'anos');
-	const isHorizontal = $derived(isWeight || isAge);
+	const isHorizontal = $derived(isWeight || isAge || isHeight);
 
 	const baseDefault = $derived(
 		isHeight ? 170 : isWeight ? 70 : isAge ? 25 : question.min ?? 30
@@ -45,7 +46,7 @@
 	const displayNum = $derived(String(Math.round(rulerValue)));
 	const displayUnit = $derived(question.unit ?? '');
 	const unitLabel = $derived(isAge ? 'anos' : displayUnit);
-	const hint = $derived('Arraste para ajustar');
+	const hint = $derived('← Arraste para ajustar →');
 </script>
 
 <div class="flex flex-col items-center gap-3">
@@ -87,5 +88,8 @@
 		{/if}
 	</div>
 
-	<p class="text-xs text-muted text-center">{hint}</p>
+	<div class="flex flex-col items-center justify-center gap-1">
+		<p class="text-xs text-white text-center">{hint}</p>
+		<SwipeRightIcon />
+	</div>
 </div>

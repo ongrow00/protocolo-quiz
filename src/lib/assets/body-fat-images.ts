@@ -21,7 +21,7 @@ import M_31_40 from '$lib/assets/body-fat/M_31-40-3e9ed073-432e-4cf2-93ca-52bb38
 export const BODY_FAT_IMAGES: Record<string, string> = {
 	H_1: H_11_12,
 	H_2: H_13_15,
-	H_3: H_13_15, // 16-19% reusa 13-15
+	H_3: H_16_19,
 	H_4: H_20_24,
 	H_5: H_25_30,
 	H_6: H_31_40,

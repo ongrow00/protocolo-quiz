@@ -66,9 +66,14 @@
 <div class="flex flex-col gap-6">
 	<!-- Title block -->
 	<div class="space-y-2">
-		<h2 class="text-2xl font-extrabold text-heading leading-tight">{displayTitle}</h2>
-		{#if displaySubtext}
-			<p class="text-sm text-body leading-relaxed">{displaySubtext}</p>
+		{#if displaySubtext && question.id === 'goal_type'}
+			<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
+			<h2 class="text-2xl font-extrabold text-heading leading-tight text-center">{displayTitle}</h2>
+		{:else}
+			<h2 class="text-2xl font-extrabold text-heading leading-tight">{displayTitle}</h2>
+			{#if displaySubtext}
+				<p class="text-sm text-body leading-relaxed">{displaySubtext}</p>
+			{/if}
 		{/if}
 	</div>
 
@@ -77,11 +82,13 @@
 		class="flex flex-col gap-1 {question.optionsLayout === 'horizontal' || question.optionsLayout === 'grid' ? 'w-full' : ''}"
 	>
 		<div
-			class="flex gap-2 {question.optionsLayout === 'horizontal'
-				? 'flex-row w-full'
-				: question.optionsLayout === 'grid'
-					? 'grid grid-cols-4 gap-2'
-					: 'flex-col gap-3'}"
+			class="{question.id === 'goal_type'
+				? 'grid grid-cols-2 gap-3'
+				: question.optionsLayout === 'horizontal'
+					? 'flex flex-row w-full gap-2'
+					: question.optionsLayout === 'grid'
+						? 'grid grid-cols-4 gap-2'
+						: 'flex flex-col gap-3'}"
 		>
 			{#each (question.options ?? []) as option (option.id)}
 				<OptionButton
@@ -92,6 +99,7 @@
 					minimal={question.optionsLayout === 'minimal'}
 					horizontal={question.optionsLayout === 'horizontal'}
 					stacked={question.optionsLayout === 'grid'}
+					reserveImageTop={question.id === 'goal_type'}
 					onclick={handleOptionClick}
 				/>
 			{/each}
@@ -103,4 +111,21 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if question.id === 'goal_type'}
+		<div class="flex flex-col items-center justify-center mt-2 gap-1.5">
+			<p class="inline-flex items-center gap-1.5 text-[12px] text-accent bg-accent/10 px-3 py-1.5 rounded-full">
+				<svg class="w-3.5 h-3.5 shrink-0 text-accent" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+				</svg>
+				Limitado a 1 por pessoa
+			</p>
+			<p class="flex items-center justify-center gap-1.5 text-[10px] text-muted">
+				<svg class="w-3 h-3 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+					<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
+				</svg>
+				100% seguro
+			</p>
+		</div>
+	{/if}
 </div>
