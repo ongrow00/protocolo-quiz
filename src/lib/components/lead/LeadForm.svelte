@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { untrack } from 'svelte';
 	import { quizStore } from '$lib/stores/quiz.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { leadStore } from '$lib/stores/lead.store';
@@ -21,10 +22,20 @@
 
 	let fieldErrors = $state({} as Record<string, string>);
 
+	/** Nome em /nome fica no postQuizStore; o formulário usa leadStore — alinhar para não enviar vazio ao Supabase */
+	$effect(() => {
+		const fromPost = postQuiz.name.trim();
+		const inLead = leadState.name.trim();
+		if (fromPost && !inLead) {
+			untrack(() => leadStore.setField('name', fromPost));
+		}
+	});
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
-		const { valid, errors } = validateLeadForm(leadState.name, leadState.email);
+		const resolvedName = leadState.name.trim() || postQuiz.name.trim();
+		const { valid, errors } = validateLeadForm(resolvedName, leadState.email);
 		fieldErrors = errors;
 		if (!valid) return;
 
@@ -37,8 +48,15 @@
 
 		try {
 			const objective = primaryObjectiveLabel(quiz.answers);
+			const waRaw = (postQuiz.whatsapp || '').replace(/\D/g, '');
+			const waLocal =
+				waRaw.startsWith('55') && waRaw.length > 2 ? waRaw.slice(2) : waRaw;
+			const whatsappPayload =
+				waLocal.length >= 10 && waLocal.length <= 11 ? waRaw.slice(0, 32) : undefined;
+
 			await submitLead({
-				name: leadState.name.trim(),
+				...(quiz.funnelSessionId ? { funnelSessionId: quiz.funnelSessionId } : {}),
+				name: resolvedName,
 				email: leadState.email.trim().toLowerCase(),
 				profileId: profile.id,
 				scores: quiz.scores,
@@ -46,7 +64,7 @@
 				visitedQuestions: quiz.visitedQuestions,
 				startedAt: quiz.startedAt,
 				completedAt: quiz.completedAt,
-				whatsapp: postQuiz.whatsapp?.trim() || undefined,
+				whatsapp: whatsappPayload,
 				objective: objective,
 				clickedComecarAgora: postQuiz.clickedComecarAgora,
 				utm: Object.keys(session.utm).length > 0 ? session.utm : undefined,
@@ -66,7 +84,7 @@
 
 <form onsubmit={handleSubmit} novalidate class="flex flex-col gap-5">
 	<div class="space-y-1">
-		<h2 class="text-xl font-bold text-heading">Receba seu plano personalizado</h2>
+		<h2 class="text-xl font-bold text-heading leading-snug">Receba seu plano personalizado</h2>
 		<p class="text-sm text-muted">
 			Enviamos seu resultado completo + próximos passos diretamente no seu e-mail.
 		</p>

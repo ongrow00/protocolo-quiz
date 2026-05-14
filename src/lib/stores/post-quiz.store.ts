@@ -6,6 +6,11 @@ export interface PostQuizState {
 	whatsapp: string;
 	/** Clicou no CTA "COMEÇAR AGORA" no bloco de preço (results). */
 	clickedComecarAgora: boolean;
+	/**
+	 * /results: mesmo gatilho do VTurb que exibe `.results-vturb-delay` (revealHiddenAfterPlayback).
+	 * Não vai para sessionStorage — só memória na visita atual.
+	 */
+	resultsContentRevealed: boolean;
 }
 
 const SESSION_KEY = 'lotz-post-quiz-state';
@@ -13,7 +18,8 @@ const SESSION_KEY = 'lotz-post-quiz-state';
 const INITIAL: PostQuizState = {
 	name: '',
 	whatsapp: '',
-	clickedComecarAgora: false
+	clickedComecarAgora: false,
+	resultsContentRevealed: false
 };
 
 function loadFromSession(): PostQuizState {
@@ -25,7 +31,8 @@ function loadFromSession(): PostQuizState {
 		return {
 			name: typeof parsed.name === 'string' ? parsed.name : '',
 			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
-			clickedComecarAgora: parsed.clickedComecarAgora === true
+			clickedComecarAgora: parsed.clickedComecarAgora === true,
+			resultsContentRevealed: false
 		};
 	} catch {
 		return INITIAL;
@@ -35,7 +42,14 @@ function loadFromSession(): PostQuizState {
 function saveToSession(state: PostQuizState): void {
 	if (!browser) return;
 	try {
-		sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+		sessionStorage.setItem(
+			SESSION_KEY,
+			JSON.stringify({
+				name: state.name,
+				whatsapp: state.whatsapp,
+				clickedComecarAgora: state.clickedComecarAgora
+			})
+		);
 	} catch {
 		// Storage quota exceeded — silently ignore
 	}
@@ -62,6 +76,14 @@ function createPostQuizStore() {
 
 		markComecarAgoraClicked() {
 			update((s) => (s.clickedComecarAgora ? s : persist({ ...s, clickedComecarAgora: true })));
+		},
+
+		markResultsContentRevealed() {
+			update((s) => (s.resultsContentRevealed ? s : { ...s, resultsContentRevealed: true }));
+		},
+
+		resetResultsContentRevealed() {
+			update((s) => (s.resultsContentRevealed ? { ...s, resultsContentRevealed: false } : s));
 		},
 
 		reset() {

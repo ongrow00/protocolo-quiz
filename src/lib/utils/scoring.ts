@@ -8,9 +8,18 @@ export function calculateScores(answers: Answers, questions: Question[]): Scores
 	for (const question of questions) {
 		if (!question.options) continue;
 		const answer = answers[question.id];
-		if (!answer) continue;
+		if (answer === undefined || answer === null) continue;
 
-		const selectedIds = Array.isArray(answer) ? answer : [answer];
+		let selectedIds: string[];
+		if (question.type === 'single') {
+			const one = Array.isArray(answer)
+				? answer.filter((id) => id != null && String(id).trim() !== '').at(-1)
+				: answer;
+			if (one == null || String(one).trim() === '') continue;
+			selectedIds = [String(one)];
+		} else {
+			selectedIds = Array.isArray(answer) ? answer : [answer];
+		}
 
 		for (const optionId of selectedIds) {
 			const option = question.options.find((o) => o.id === optionId);

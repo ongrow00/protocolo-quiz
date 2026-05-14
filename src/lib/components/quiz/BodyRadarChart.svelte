@@ -93,20 +93,20 @@
 		<!-- Axis lines -->
 		{#each PARTS as _, i}
 			{@const op = pt(i, 1)}
-			<line x1={CX} y1={CY} x2={op.x} y2={op.y} stroke="#272727" stroke-width="1" />
+			<line x1={CX} y1={CY} x2={op.x} y2={op.y} stroke="var(--color-line)" stroke-width="1" />
 		{/each}
 
 		<!-- Grid rings -->
-		<polygon points={mid2Pts} fill="none" stroke="#1E1E1E" stroke-width="1" />
-		<polygon points={mid1Pts} fill="none" stroke="#272727" stroke-width="1" />
-		<polygon points={outerPts} fill="none" stroke="#333333" stroke-width="1.5" />
+		<polygon points={mid2Pts} fill="none" stroke="var(--color-surface-2)" stroke-width="1" />
+		<polygon points={mid1Pts} fill="none" stroke="var(--color-line)" stroke-width="1" />
+		<polygon points={outerPts} fill="none" stroke="var(--color-muted)" stroke-width="1.5" />
 
 		<!-- Animated data area -->
 		<polygon
 			points={dataPts}
-			fill="#9DBB54"
+			fill="var(--color-accent)"
 			fill-opacity="0.18"
-			stroke="#9DBB54"
+			stroke="var(--color-accent)"
 			stroke-width="2"
 			stroke-linejoin="round"
 		/>
@@ -119,8 +119,8 @@
 				cx={p.x}
 				cy={p.y}
 				r={active ? 5 : 3}
-				fill={active ? '#9DBB54' : '#272727'}
-				stroke={active ? '#9DBB54' : '#333333'}
+				fill={active ? 'var(--color-accent)' : 'var(--color-line)'}
+				stroke={active ? 'var(--color-accent)' : 'var(--color-muted)'}
 				stroke-width="1"
 			/>
 		{/each}
@@ -136,7 +136,7 @@
 				dominant-baseline={dominantBaseline(i)}
 				font-size="12"
 				font-family="inherit"
-				fill={active ? '#9DBB54' : '#555555'}
+				fill={active ? 'var(--color-accent)' : 'var(--color-muted)'}
 				font-weight={active ? '700' : '400'}
 			>{part.label}</text>
 		{/each}

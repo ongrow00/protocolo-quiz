@@ -4,18 +4,41 @@
 		min: number;
 		max: number;
 		onchange?: (v: number) => void;
+		/** Números abaixo das marcas (desligar ex.: escala 1–7 kg; o valor grande já mostra a escolha) */
+		showTickNumbers?: boolean;
+		/** Largura em px por unidade na régua (maior = “passos” mais espaçados) */
+		tickWidth?: number;
+		/** Marcações verticais mais altas e legíveis (ex.: faixa curta 1–7) */
+		largeSteps?: boolean;
+		/**
+		 * Se true, ao soltar não emite onchange quando o valor arredondado não mudou
+		 * desde o início do arrasto e não houve passo inteiro durante o arrasto
+		 * (evita “confirmar” só com toque sem ajustar — ex.: peso atual + IMC).
+		 */
+		suppressOnUnchangedRelease?: boolean;
 	}
 
-	let { value = $bindable(), min, max, onchange }: Props = $props();
+	let {
+		value = $bindable(),
+		min,
+		max,
+		onchange,
+		showTickNumbers = true,
+		tickWidth: tickWidthProp,
+		largeSteps = false,
+		suppressOnUnchangedRelease = false
+	}: Props = $props();
 
-	const TICK_W = 6; // pixels per unit
-	const H = 80; // total container height
-	const LABEL_H = 22; // height reserved at bottom for labels
+	const TICK_W = $derived(tickWidthProp ?? 6);
+	const H = $derived(largeSteps ? 88 : 80);
+	const LABEL_H = $derived(showTickNumbers ? 22 : 12);
 
 	let containerWidth = $state(320);
 	let isDragging = $state(false);
 	let dragStartX = 0;
 	let dragStartRaw = 0;
+	/** Houve cruzamento de inteiro em moveDrag neste gesto (snapped !== value antes de atualizar). */
+	let dragEmittedChange = $state(false);
 	let rawValue = $state(value);
 
 	$effect(() => {
@@ -26,6 +49,7 @@
 
 	function startDrag(x: number) {
 		isDragging = true;
+		dragEmittedChange = false;
 		dragStartX = x;
 		dragStartRaw = rawValue;
 	}
@@ -37,6 +61,7 @@
 		rawValue = Math.min(max, Math.max(min, dragStartRaw + dx / TICK_W));
 		const snapped = Math.round(rawValue);
 		if (snapped !== value) {
+			dragEmittedChange = true;
 			value = snapped;
 			onchange?.(snapped);
 		}
@@ -47,18 +72,35 @@
 		isDragging = false;
 		rawValue = Math.round(rawValue);
 		value = rawValue;
+		const next = value;
+		const startSnap = Math.round(dragStartRaw);
+		if (
+			suppressOnUnchangedRelease &&
+			!dragEmittedChange &&
+			startSnap === next
+		) {
+			return;
+		}
 		onchange?.(value);
 	}
 
 	const ticks = $derived(Array.from({ length: max - min + 1 }, (_, i) => min + i));
+	/** Faixas curtas (ex.: 1–7 kg): mostrar número em cada marca */
+	const labelEveryTick = $derived(max - min <= 8);
 
 	function tickHeight(v: number): number {
+		if (largeSteps) {
+			if (v % 10 === 0) return 36;
+			if (v % 5 === 0) return 32;
+			return 28;
+		}
 		if (v % 10 === 0) return 28;
 		if (v % 5 === 0) return 17;
 		return 9;
 	}
 
 	function tickOpacity(v: number): number {
+		if (largeSteps) return 1;
 		if (v % 10 === 0) return 1;
 		if (v % 5 === 0) return 0.65;
 		return 0.35;
@@ -122,12 +164,11 @@
 						opacity: {tickOpacity(tick)};
 					"
 				></div>
-				<!-- Label for every 10th tick -->
-				{#if tick % 10 === 0}
+				{#if showTickNumbers && (labelEveryTick || tick % 10 === 0)}
 					<span
 						class="absolute text-muted tabular-nums font-medium"
 						style="
-							font-size: 9px;
+							font-size: {labelEveryTick ? '10px' : '9px'};
 							bottom: 4px;
 							left: 50%;
 							transform: translateX(-50%);
@@ -156,11 +197,11 @@
 	<!-- Left fade -->
 	<div
 		class="pointer-events-none absolute top-0 bottom-0 left-0 z-20"
-		style="width: {containerWidth / 4}px; background: linear-gradient(to right, #0E0E0E 0%, transparent 100%)"
+		style="width: {containerWidth / 4}px; background: linear-gradient(to right, var(--color-bg) 0%, transparent 100%)"
 	></div>
 	<!-- Right fade -->
 	<div
 		class="pointer-events-none absolute top-0 bottom-0 right-0 z-20"
-		style="width: {containerWidth / 4}px; background: linear-gradient(to left, #0E0E0E 0%, transparent 100%)"
+		style="width: {containerWidth / 4}px; background: linear-gradient(to left, var(--color-bg) 0%, transparent 100%)"
 	></div>
 </div>

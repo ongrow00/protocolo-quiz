@@ -2,9 +2,15 @@ import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import type { PageLoad } from './$types';
 import { quizConfig } from '$lib/data/quiz.config';
+import { QUIZ_SESSION_STORAGE_KEY } from '$lib/constants/storage-keys';
 
 export const load: PageLoad = ({ params }) => {
 	const { questionId } = params;
+
+	/** Passo mr-5 removido: URLs antigas seguem para o loading pós-quiz. */
+	if (questionId === 'mr-5') {
+		redirect(302, '/carregando');
+	}
 
 	// Validate questionId exists in config
 	const question = quizConfig.questions.find((q) => q.id === questionId);
@@ -15,7 +21,7 @@ export const load: PageLoad = ({ params }) => {
 	// Guard: if no quiz state, redirect to landing (only client-side)
 	if (browser) {
 		try {
-			const raw = sessionStorage.getItem('lotz-quiz-state');
+			const raw = sessionStorage.getItem(QUIZ_SESSION_STORAGE_KEY);
 			if (!raw) redirect(302, '/');
 			const state = JSON.parse(raw);
 			if (!state.startedAt) redirect(302, '/');

@@ -4,8 +4,10 @@ import { quizConfig } from '$lib/data/quiz.config';
 import type { Answers, CategoryKey, Question, QuizState, Scores } from '$lib/data/types';
 import { computeVisibleQuestions } from '$lib/utils/branching';
 import { calculateScores } from '$lib/utils/scoring';
+import { QUIZ_SESSION_STORAGE_KEY } from '$lib/constants/storage-keys';
+import { easeOutProgress01 } from '$lib/utils/progress-easing';
 
-const SESSION_KEY = 'lotz-quiz-state';
+const SESSION_KEY = QUIZ_SESSION_STORAGE_KEY;
 
 const INITIAL_SCORES: Scores = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
 
@@ -15,15 +17,25 @@ const INITIAL_STATE: QuizState = {
 	scores: { ...INITIAL_SCORES },
 	visitedQuestions: [],
 	startedAt: null,
-	completedAt: null
+	completedAt: null,
+	funnelSessionId: null
 };
+
+function newFunnelSessionId(): string {
+	return crypto.randomUUID();
+}
 
 function loadFromSession(): QuizState {
 	if (!browser) return INITIAL_STATE;
 	try {
 		const raw = sessionStorage.getItem(SESSION_KEY);
 		if (!raw) return INITIAL_STATE;
-		return JSON.parse(raw) as QuizState;
+		let state = JSON.parse(raw) as QuizState;
+		if (state.startedAt != null && !state.funnelSessionId) {
+			state = { ...state, funnelSessionId: newFunnelSessionId() };
+			sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+		}
+		return state;
 	} catch {
 		return INITIAL_STATE;
 	}
@@ -52,9 +64,10 @@ function createQuizStore() {
 		start() {
 			const visible = computeVisibleQuestions(quizConfig.questions, {});
 			const firstQuestion = visible[0] ?? null;
-			update((s) =>
+			update(() =>
 				persist({
 					...INITIAL_STATE,
+					funnelSessionId: newFunnelSessionId(),
 					currentQuestionId: firstQuestion?.id ?? null,
 					startedAt: Date.now()
 				})
@@ -63,7 +76,13 @@ function createQuizStore() {
 
 		answer(questionId: string, value: string | string[]) {
 			update((s) => {
-				const newAnswers = { ...s.answers, [questionId]: value };
+				const def = quizConfig.questions.find((q) => q.id === questionId);
+				let stored: string | string[] = value;
+				if (def?.type === 'single' && Array.isArray(value)) {
+					const last = value.filter((v) => v != null && String(v).trim() !== '').at(-1);
+					stored = last != null ? String(last) : '';
+				}
+				const newAnswers = { ...s.answers, [questionId]: stored };
 				const newScores = calculateScores(newAnswers, quizConfig.questions);
 
 				// Mark as visited if not already
@@ -113,36 +132,59 @@ export const currentIndex = derived(
 	([$quiz, $visible]): number => $visible.findIndex((q) => q.id === $quiz.currentQuestionId)
 );
 
-const MR_IDS = ['mr-1', 'mr-2', 'mr-3', 'mr-5'] as const;
+/**
+ * Marcos fixos de checkpoint na barra (mr-3 sem círculo).
+ * O 4.º marco é o fim do quiz (última pergunta visível), sem tela mr-5.
+ */
+const MR_PROGRESS_MILESTONE_IDS = ['mr-1', 'mr-2', 'mr-4'] as const;
+
+/** Só a última pergunta visível pode estar em 100%; abaixo disso evita barra/check cheios e arredondamento para 100. */
+const PROGRESS_MAX_BEFORE_LAST_QUESTION = 99.49;
+
+function capProgressUntilLastQuestion(percent: number, index: number, lastIx: number): number {
+	const p = Math.min(100, percent);
+	if (index < lastIx) return Math.min(p, PROGRESS_MAX_BEFORE_LAST_QUESTION);
+	return p;
+}
 
 export const progressPercent = derived(
 	[currentIndex, visibleQuestions],
 	([$index, $visible]): number => {
 		if ($visible.length === 0 || $index < 0) return 0;
-		const mrIndices = MR_IDS.map((id) => $visible.findIndex((q) => q.id === id)).filter((i) => i >= 0);
+		const lastIx = $visible.length - 1;
+		const mrIndices = MR_PROGRESS_MILESTONE_IDS.map((id) => $visible.findIndex((q) => q.id === id)).filter(
+			(i) => i >= 0
+		);
 		if (mrIndices.length === 0) {
-			return Math.round((($index + 1) / $visible.length) * 100);
+			const pct = Math.round((($index + 1) / $visible.length) * 100);
+			return capProgressUntilLastQuestion(pct, $index, lastIx);
 		}
-		// When exactly on an MR screen, return the exact checkpoint % so the dot shows complete
+		/** Índices dos 3 MR + última pergunta (4.º marco visual), únicos e ordenados. */
+		const milestoneIndices = [...new Set([...mrIndices, lastIx])].sort((a, b) => a - b);
+		const totalSegments = milestoneIndices.length;
 		const currentId = $visible[$index]?.id;
-		const mrSegment = MR_IDS.findIndex((id) => id === currentId);
-		const totalSegments = 5; // 4 checkpoints (mr-1, mr-2, mr-3, mr-5) → 5 segments
+		const mrSegment = MR_PROGRESS_MILESTONE_IDS.findIndex((id) => id === currentId);
 		if (mrSegment >= 0) {
-			return ((mrSegment + 1) / totalSegments) * 100;
+			const slot = milestoneIndices.findIndex((visIdx) => $visible[visIdx]?.id === currentId);
+			const checkpoint = slot >= 0 ? slot + 1 : mrSegment + 1;
+			const pct = Math.min(100, (checkpoint / totalSegments) * 100);
+			return capProgressUntilLastQuestion(pct, $index, lastIx);
 		}
-		// 5 segments: 0→MR-1, MR-1→MR-2, MR-2→MR-3, MR-3→MR-5, MR-5→end
 		let segment = 0;
-		if ($index <= mrIndices[0]) segment = 0;
-		else if (mrIndices[1] >= 0 && $index <= mrIndices[1]) segment = 1;
-		else if (mrIndices[2] >= 0 && $index <= mrIndices[2]) segment = 2;
-		else if (mrIndices[3] >= 0 && $index <= mrIndices[3]) segment = 3;
-		else segment = 4;
-		const segmentStart = segment === 0 ? 0 : mrIndices[segment - 1] + 1;
-		const segmentEnd = segment < 4 ? mrIndices[segment] : $visible.length - 1;
-		const segmentSize = segmentEnd - segmentStart;
-		const progressWithin = segmentSize > 0 ? ($index - segmentStart) / segmentSize : 1;
-		const percent = ((segment + progressWithin) / totalSegments) * 100;
-		return Math.min(100, percent);
+		for (let s = 0; s < milestoneIndices.length; s++) {
+			if ($index <= milestoneIndices[s]) {
+				segment = s;
+				break;
+			}
+			segment = s + 1;
+		}
+		const segmentStart = segment === 0 ? 0 : milestoneIndices[segment - 1] + 1;
+		const segmentEnd = segment < milestoneIndices.length ? milestoneIndices[segment] : lastIx;
+		const segmentSize = Math.max(1, segmentEnd - segmentStart);
+		const tLinear = ($index - segmentStart) / segmentSize;
+		const progressWithin = easeOutProgress01(tLinear);
+		const pct = ((segment + progressWithin) / totalSegments) * 100;
+		return capProgressUntilLastQuestion(pct, $index, lastIx);
 	}
 );
 

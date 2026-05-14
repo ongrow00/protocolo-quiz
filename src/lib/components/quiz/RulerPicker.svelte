@@ -127,11 +127,11 @@
 	<!-- Top fade -->
 	<div
 		class="pointer-events-none absolute inset-x-0 top-0 z-20"
-		style="height: {RULER_H / 3.5}px; background: linear-gradient(to bottom, #0E0E0E 0%, transparent 100%)"
+		style="height: {RULER_H / 3.5}px; background: linear-gradient(to bottom, var(--color-bg) 0%, transparent 100%)"
 	></div>
 	<!-- Bottom fade -->
 	<div
 		class="pointer-events-none absolute inset-x-0 bottom-0 z-20"
-		style="height: {RULER_H / 3.5}px; background: linear-gradient(to top, #0E0E0E 0%, transparent 100%)"
+		style="height: {RULER_H / 3.5}px; background: linear-gradient(to top, var(--color-bg) 0%, transparent 100%)"
 	></div>
 </div>

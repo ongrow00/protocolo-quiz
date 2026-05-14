@@ -21,6 +21,10 @@ export interface QuizOption {
 	description?: string;
 	scores: OptionScores;
 	imageUrl?: string;
+	/** Ilustração masculina (ex.: áreas do corpo quando gênero = Masculino) */
+	imageUrlMale?: string;
+	/** When set with imageUrl, thumbnail on the right of the row (default: image full width below label) */
+	imagePlacement?: 'right';
 }
 
 export interface BranchCondition {
@@ -82,6 +86,8 @@ export interface QuizState {
 	visitedQuestions: string[];
 	startedAt: number | null;
 	completedAt: number | null;
+	/** UUID gerado ao iniciar o quiz; usado para upsert incremental no Supabase */
+	funnelSessionId: string | null;
 }
 
 /** UTM params from the first URL the user landed on (campaign tracking) */
@@ -100,6 +106,8 @@ export interface SessionParams {
 }
 
 export interface LeadData {
+	/** Mesmo id do quiz no browser; faz merge da linha de progresso com o lead final */
+	funnelSessionId?: string;
 	name: string;
 	email: string;
 	profileId: string;

@@ -2,7 +2,7 @@ import type { Answers } from '$lib/data/types';
 
 const GOAL_TYPE_LABELS: Record<string, string> = {
 	'goal-emagrecer': 'Emagrecer',
-	'goal-massa': 'Ganhar massa'
+	'goal-definir': 'Definir o corpo'
 };
 
 /** Rótulo do objetivo principal (pergunta goal_type). */

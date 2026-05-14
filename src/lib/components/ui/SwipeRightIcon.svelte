@@ -5,22 +5,22 @@
 	let el: HTMLDivElement | null = $state(null);
 	let anim: { destroy: () => void } | null = null;
 
-	function forceWhiteColors(node: unknown) {
+	function forceBlackColors(node: unknown) {
 		if (!node || typeof node !== 'object') return;
 		if (Array.isArray(node)) {
-			for (const item of node) forceWhiteColors(item);
+			for (const item of node) forceBlackColors(item);
 			return;
 		}
 		const obj = node as Record<string, unknown>;
-		// Lottie colors are typically stored under shape items: { c: { k: [r,g,b,a] } }
+		// Lottie colors are typically stored under shape items: { c: { k: [r,g,b,a] } } (0–1)
 		const c = obj['c'];
 		if (c && typeof c === 'object' && !Array.isArray(c)) {
 			const ck = (c as Record<string, unknown>)['k'];
 			if (Array.isArray(ck) && ck.length === 4 && ck.every((v) => typeof v === 'number')) {
-				(c as Record<string, unknown>)['k'] = [1, 1, 1, 1];
+				(c as Record<string, unknown>)['k'] = [0, 0, 0, 1];
 			}
 		}
-		for (const key of Object.keys(obj)) forceWhiteColors(obj[key]);
+		for (const key of Object.keys(obj)) forceBlackColors(obj[key]);
 	}
 	
 	onMount(() => {
@@ -28,7 +28,7 @@
 		// Clone so we don't mutate the imported JSON module.
 		// (structuredClone isn't supported everywhere we run.)
 		const data = JSON.parse(JSON.stringify(animationData)) as unknown;
-		forceWhiteColors(data);
+		forceBlackColors(data);
 		(async () => {
 			const mod = await import('lottie-web');
 			const lottie = mod.default ?? mod;

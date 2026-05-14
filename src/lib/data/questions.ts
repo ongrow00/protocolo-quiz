@@ -2,28 +2,32 @@ import type { Question } from './types';
 
 const emptyScores = {};
 
+/**
+ * Funil Protocolo de Desbloqueio — perfil, histórico/metabolismo, rotina alimentar, personalização da dieta.
+ * Microresultados: mr-1 prova social, mr-2 projeção 14 dias, mr-3 vídeo, mr-4 composição; em seguida tela info das 4 etapas.
+ */
 export const questions: Question[] = [
-	// ——— 1. OBJETIVO ———
+	// ——— STEP 1 — PERFIL ———
 	{
 		id: 'goal_type',
 		order: 1,
-		section: 'Objetivo',
-		text: 'Qual é seu objetivo principal hoje?',
+		section: 'Perfil',
+		text: 'Qual é o seu principal objetivo?',
 		subtext: 'Para iniciar, selecione um objetivo.',
 		type: 'single',
 		required: true,
 		variable: 'goal_type',
 		options: [
 			{ id: 'goal-emagrecer', text: 'Emagrecer', scores: emptyScores, imageUrl: '/assets/emagrecer.png' },
-			{ id: 'goal-massa', text: 'Ganhar Massa', scores: emptyScores, imageUrl: '/assets/ganhar-massa.png' }
+			{ id: 'goal-definir', text: 'Definir o corpo', scores: emptyScores, imageUrl: '/assets/ganhar-massa.png' }
 		]
 	},
 	{
 		id: 'gender',
 		order: 2,
-		section: 'Objetivo',
+		section: 'Perfil',
 		text: 'Qual é o seu sexo?',
-		subtext: 'Metabolismo, hormônios e resposta ao treino funcionam de formas diferentes isso muda seu plano.',
+		subtext: 'Isso ajusta referências visuais e o protocolo ao seu perfil.',
 		type: 'single',
 		required: true,
 		variable: 'gender',
@@ -36,20 +40,16 @@ export const questions: Question[] = [
 	{
 		id: 'weight_medication_use',
 		order: 3,
-		section: 'Objetivo',
-		text: 'Você usa ou já pensou em usar medicamentos como Ozempic ou Mounjaro?',
-		subtext: 'Não há resposta certa ou errada. Isso nos ajuda a ajustar nutrição e treino para o seu contexto real.',
+		section: 'Perfil',
+		text: 'Você utiliza algum medicamento para emagrecer?',
+		subtext: 'Não há resposta certa ou errada. Isso nos ajuda a ajustar o protocolo ao seu contexto.',
 		type: 'single',
 		required: true,
 		variable: 'weight_medication_use',
-		showIf: {
-			conditions: [{ questionId: 'goal_type', operator: 'eq', value: 'goal-emagrecer' }],
-			logic: 'AND'
-		},
 		options: [
-			{ id: 'med-sim', text: 'Sim, uso atualmente', scores: emptyScores },
-			{ id: 'med-nao', text: 'Não uso', scores: emptyScores },
-			{ id: 'med-interesse', text: 'Tenho interesse em usar', scores: emptyScores }
+			{ id: 'med-glp1', text: 'Uso GLP-1', scores: emptyScores },
+			{ id: 'med-outro', text: 'Uso outro medicamento', scores: emptyScores },
+			{ id: 'med-nao', text: 'Não utilizo', scores: emptyScores }
 		]
 	},
 	{
@@ -61,235 +61,34 @@ export const questions: Question[] = [
 		type: 'info',
 		required: false,
 		showIf: {
-			conditions: [{ questionId: 'weight_medication_use', operator: 'eq', value: 'med-sim' }],
-			logic: 'AND'
+			logic: 'OR',
+			conditions: [
+				{ questionId: 'weight_medication_use', operator: 'eq', value: 'med-glp1' },
+				{ questionId: 'weight_medication_use', operator: 'eq', value: 'med-outro' }
+			]
 		},
 		copyTitle: 'Seu protocolo vai respeitar o seu tratamento.',
 		copyBody:
-			'Quem usa Ozempic, Monjaro ou similares tem necessidades específicas. Seu plano vai ser pensado pra trabalhar com o seu corpo, não contra ele.',
+			'Quem usa GLP-1 ou outros medicamentos para emagrecimento tem necessidades específicas. Seu plano será pensado para trabalhar com o seu corpo, não contra ele.',
 		ctaText: 'Continuar'
 	},
 	{
-		id: 'body_goal_emagrecer',
-		order: 6,
-		section: 'Objetivo',
-		text: 'Como você quer estar daqui a alguns meses?',
-		subtext: 'Visualizar o destino aumenta muito a consistência. Escolha o que mais representa seu objetivo.',
-		type: 'single',
+		id: 'age_years',
+		order: 5,
+		section: 'Perfil',
+		text: 'Qual é a sua idade?',
+		subtext: 'Metabolismo e recuperação mudam com a idade. Seu protocolo vai respeitar isso.',
+		type: 'ruler',
 		required: true,
-		variable: 'body_goal',
-		showIf: { conditions: [{ questionId: 'goal_type', operator: 'eq', value: 'goal-emagrecer' }], logic: 'AND' },
-		options: [
-			{ id: 'body-magro', text: 'Magro(a) e definido(a)', scores: emptyScores },
-			{ id: 'body-barriga', text: 'Menos barriga', scores: emptyScores },
-			{ id: 'body-saude', text: 'Com saúde, sem exageros', scores: emptyScores }
-		]
-	},
-	{
-		id: 'body_goal_massa',
-		order: 6,
-		section: 'Objetivo',
-		text: 'Como você quer estar daqui a alguns meses?',
-		subtext: 'Visualizar o destino aumenta muito a consistência. Escolha o que mais representa seu objetivo.',
-		type: 'single',
-		required: true,
-		variable: 'body_goal',
-		showIf: { conditions: [{ questionId: 'goal_type', operator: 'eq', value: 'goal-massa' }], logic: 'AND' },
-		options: [
-			{ id: 'body-musculo', text: 'Musculoso(a) e forte', scores: emptyScores },
-			{ id: 'body-grande', text: 'Grande e definido(a)', scores: emptyScores },
-			{ id: 'body-atletico', text: 'Atlético(a), sem exagerar no volume', scores: emptyScores }
-		]
-	},
-	{
-		id: 'success_metrics',
-		order: 7,
-		section: 'Objetivo',
-		text: 'Como você vai saber que está progredindo?',
-		subtext: 'Quem define como mede o sucesso tem 2x mais chance de manter a consistência. (até 3 opções)',
-		type: 'multiple',
-		required: true,
-		maxSelections: 3,
-		variable: 'success_metrics',
-		options: [
-			{ id: 'sm-massa', text: 'Ganho de massa muscular', scores: emptyScores },
-			{ id: 'sm-forca', text: 'Aumento de força', scores: emptyScores },
-			{ id: 'sm-resistencia', text: 'Maior resistência', scores: emptyScores },
-			{ id: 'sm-gordura', text: 'Redução de gordura corporal', scores: emptyScores },
-			{ id: 'sm-peso', text: 'Perda de peso na balança', scores: emptyScores },
-			{ id: 'sm-medidas', text: 'Medidas corporais (cintura, quadril...)', scores: emptyScores },
-			{ id: 'sm-condicionamento', text: 'Melhoria no condicionamento geral', scores: emptyScores }
-		]
-	},
-	{
-		id: 'focus_areas',
-		order: 8,
-		section: 'Objetivo',
-		text: 'Em quais partes do corpo você quer focar mais?',
-		subtext: 'Seu plano vai priorizar essas regiões sem abandonar o restante.',
-		type: 'multiple',
-		required: true,
-		variable: 'focus_areas',
-		options: [
-			{ id: 'fa-inteiro', text: 'Corpo inteiro', scores: emptyScores },
-			{ id: 'fa-ombros', text: 'Ombros', scores: emptyScores },
-			{ id: 'fa-biceps', text: 'Bíceps', scores: emptyScores },
-			{ id: 'fa-costas', text: 'Costas', scores: emptyScores },
-			{ id: 'fa-peito', text: 'Peito', scores: emptyScores },
-			{ id: 'fa-abdomen', text: 'Abdômen', scores: emptyScores },
-			{ id: 'fa-gluteos', text: 'Glúteos', scores: emptyScores },
-			{ id: 'fa-pernas', text: 'Pernas', scores: emptyScores }
-		]
-	},
-	{
-		id: 'mr-1',
-		order: 9,
-		section: 'Objetivo',
-		text: 'Checkpoint: Objetivo definido',
-		type: 'microresult',
-		required: false,
-		ctaText: 'Perfeito, continuar →'
-	},
-	// ——— 2. TREINO ———
-	{
-		id: 'workout_location',
-		order: 10,
-		section: 'Treino',
-		text: 'Onde você vai treinar?',
-		subtext:
-			'Seu ambiente define seus exercícios. Sem problema nenhum montamos planos para qualquer situação.',
-		type: 'single',
-		required: true,
-		variable: 'workout_location',
-		options: [
-			{ id: 'loc-casa', text: 'Em casa', scores: emptyScores },
-			{ id: 'loc-academia', text: 'Academia completa', scores: emptyScores },
-			{ id: 'loc-condominio', text: 'Academia pequena ou de condomínio', scores: emptyScores },
-			{ id: 'loc-varia', text: 'Varia', scores: emptyScores }
-		]
-	},
-	{
-		id: 'cardio_enabled',
-		order: 11,
-		section: 'Treino',
-		text: 'Você quer incluir cardio no seu plano?',
-		subtext:
-			'Cardio bem dosado acelera a queima de gordura e melhora condicionamento mas só incluímos se fizer sentido pra você.',
-		type: 'single',
-		required: true,
-		variable: 'cardio_enabled',
-		options: [
-			{ id: 'cardio-sim', text: 'Sim, quero incluir', scores: emptyScores },
-			{ id: 'cardio-nao', text: 'Não por enquanto', scores: emptyScores }
-		]
-	},
-	{
-		id: 'cardio_equipment',
-		order: 12,
-		section: 'Treino',
-		text: 'Quais equipamentos você tem para cardio?',
-		subtext: 'Selecione as opções que você tem disponível.',
-		type: 'multiple',
-		required: false,
-		variable: 'cardio_equipment',
-		showIf: {
-			conditions: [{ questionId: 'cardio_enabled', operator: 'eq', value: 'cardio-sim' }],
-			logic: 'AND'
-		},
-		options: [
-			{ id: 'ce-esteira', text: 'Esteira / Corrida', scores: emptyScores },
-			{ id: 'ce-bike', text: 'Bicicleta ergométrica', scores: emptyScores },
-			{ id: 'ce-eliptico', text: 'Elíptico', scores: emptyScores },
-			{ id: 'ce-caminhada', text: 'Apenas caminhada', scores: emptyScores }
-		]
-	},
-	{
-		id: 'workout_time_pref',
-		order: 13,
-		section: 'Treino',
-		text: 'Quando você costuma (ou pretende) treinar?',
-		subtext: 'Treinar no horário certo para você aumenta muito a aderência.',
-		type: 'single',
-		required: true,
-		variable: 'workout_time_pref',
-		options: [
-			{ id: 'time-manha', text: 'Manhã', scores: emptyScores },
-			{ id: 'time-tarde', text: 'Tarde', scores: emptyScores },
-			{ id: 'time-noite', text: 'Noite', scores: emptyScores },
-			{ id: 'time-varia', text: 'Varia, não tenho horário fixo', scores: emptyScores }
-		]
-	},
-	{
-		id: 'workout_duration_pref',
-		order: 14,
-		section: 'Treino',
-		text: 'Quanto tempo você tem disponível por treino?',
-		subtext: 'Seja honesto(a), um treino de 30 minutos bem feito bate qualquer treino longo feito pela metade.',
-		type: 'single',
-		required: true,
-		variable: 'workout_duration_pref',
-		options: [
-			{ id: 'dur-30', text: '30 minutos ou menos', scores: emptyScores },
-			{ id: 'dur-45', text: 'Uns 45 minutos', scores: emptyScores },
-			{ id: 'dur-60', text: 'Cerca de 1 hora', scores: emptyScores },
-			{ id: 'dur-60plus', text: 'Mais de 1 hora', scores: emptyScores }
-		]
-	},
-	{
-		id: 'workout_days',
-		order: 15,
-		section: 'Treino',
-		text: 'Em quais dias da semana você gostaria de treinar?',
-		subtext: 'Escolha os dias que melhor se encaixam na sua rotina.',
-		type: 'multiple',
-		required: true,
-		variable: 'workout_days',
-		optionsLayout: 'grid',
-		options: [
-			{ id: 'day-seg', text: 'Segunda', scores: emptyScores },
-			{ id: 'day-ter', text: 'Terça', scores: emptyScores },
-			{ id: 'day-qua', text: 'Quarta', scores: emptyScores },
-			{ id: 'day-qui', text: 'Quinta', scores: emptyScores },
-			{ id: 'day-sex', text: 'Sexta', scores: emptyScores },
-			{ id: 'day-sab', text: 'Sábado', scores: emptyScores },
-			{ id: 'day-dom', text: 'Domingo', scores: emptyScores }
-		]
-	},
-	{
-		id: 'mr-2',
-		order: 16,
-		section: 'Treino',
-		text: 'Checkpoint: Treino configurado',
-		type: 'microresult',
-		required: false,
-		ctaText: 'Continuar →'
-	},
-	// ——— 3. CORPO ———
-	{
-		id: 'body_fat_level',
-		order: 17,
-		section: 'Corpo',
-		text: 'Qual dessas imagens mais se parece com você agora?',
-		subtext: 'Não precisa ser exato. Escolha a mais próxima.',
-		type: 'body_fat_grid',
-		required: true,
-		variable: 'body_fat_level'
-		// 6 estágios. Valor salvo: índice 0..5. Imagens H_1..H_6 / M_1..M_6; labels 11-12% a 31-40%.
-	},
-	{
-		id: 'body_fat_goal',
-		order: 18,
-		section: 'Corpo',
-		text: 'Como você gostaria de se enxergar quando alcançar seu objetivo?',
-		subtext: 'O corpo que mais se aproxima do seu objetivo.',
-		type: 'body_fat_grid',
-		required: true,
-		variable: 'body_fat_goal'
+		variable: 'age_years',
+		min: 18,
+		max: 99,
+		unit: 'anos'
 	},
 	{
 		id: 'height_cm',
-		order: 19,
-		section: 'Corpo',
+		order: 6,
+		section: 'Perfil',
 		text: 'Qual é a sua altura?',
 		type: 'ruler',
 		required: true,
@@ -300,9 +99,9 @@ export const questions: Question[] = [
 	},
 	{
 		id: 'weight_current_kg',
-		order: 20,
-		section: 'Corpo',
-		text: 'Qual é o seu peso hoje?',
+		order: 7,
+		section: 'Perfil',
+		text: 'Qual é o seu peso atual?',
 		subtext: 'Esse é seu ponto de partida. Toda transformação começa com um número real.',
 		type: 'ruler',
 		required: true,
@@ -313,10 +112,11 @@ export const questions: Question[] = [
 	},
 	{
 		id: 'weight_goal_kg',
-		order: 21,
-		section: 'Corpo',
-		text: 'Qual o seu objetivo de peso?',
-		subtext: 'Vamos calcular quanto tempo e esforço será necessário para você chegar lá.',
+		order: 8,
+		section: 'Perfil',
+		text: 'Quantos quilos você deseja perder em 14 dias?',
+		subtext:
+			'Com base no seu perfil, você pode perder entre **1 e 7 kg** nos próximos **14 dias**.',
 		type: 'ruler',
 		required: true,
 		variable: 'weight_goal_kg',
@@ -325,326 +125,484 @@ export const questions: Question[] = [
 		unit: 'kg'
 	},
 	{
-		id: 'age_years',
-		order: 22,
-		section: 'Corpo',
-		text: 'Qual é a sua idade?',
-		subtext: 'Metabolismo e recuperação mudam com a idade. Seu plano vai respeitar isso.',
-		type: 'ruler',
-		required: true,
-		variable: 'age_years',
-		min: 18,
-		max: 99,
-		unit: 'anos'
-	},
-	// ——— 4. EXPERIÊNCIA (perguntas trazidas para antes do checkpoint Corpo) ———
-	{
-		id: 'fitness_level',
-		order: 23,
-		section: 'Experiência',
-		text: 'Como você se descreveria hoje, sendo bem honesto(a)?',
-		subtext: 'Sem vergonha. Quanto mais preciso, melhor seu plano.',
-		type: 'single',
-		required: true,
-		variable: 'fitness_level',
-		options: [
-			{
-				id: 'fl-iniciante',
-				text: 'Iniciante - pouco ou nenhum histórico de treino',
-				scores: emptyScores
-			},
-			{
-				id: 'fl-intermediario',
-				text: 'Intermediário - treino de vez em quando, mas sem consistência',
-				scores: emptyScores
-			},
-			{
-				id: 'fl-avancado',
-				text: 'Avançado - treino regularmente há mais de 6 meses',
-				scores: emptyScores
-			}
-		]
-	},
-	{
-		id: 'injuries',
-		order: 24,
-		section: 'Experiência',
-		text: 'Você tem alguma dor ou limitação que o treino precisa respeitar?',
-		subtext: 'Seu plano vai proteger essas regiões, não ignorar.',
+		id: 'life_change_on_goal',
+		order: 10,
+		section: 'Perfil',
+		text: 'O que mais mudaria na sua vida ao alcançar seu objetivo?',
+		subtext: 'Marque todas que se aplicam.',
 		type: 'multiple',
-		required: false,
-		variable: 'injuries',
-		options: [
-			{ id: 'inj-nenhuma', text: 'Nenhuma, estou bem', scores: emptyScores },
-			{ id: 'inj-coluna', text: 'Coluna / lombar', scores: emptyScores },
-			{ id: 'inj-joelhos', text: 'Joelhos', scores: emptyScores },
-			{ id: 'inj-ombros', text: 'Ombros', scores: emptyScores },
-			{ id: 'inj-pescoco', text: 'Pescoço', scores: emptyScores },
-			{ id: 'inj-bracos', text: 'Braços / cotovelos', scores: emptyScores },
-			{ id: 'inj-pernas', text: 'Pernas / quadril', scores: emptyScores },
-			{ id: 'inj-pes', text: 'Pés / tornozelos', scores: emptyScores }
-		]
-	},
-	{
-		id: 'mr-3',
-		order: 25,
-		section: 'Corpo',
-		text: 'Checkpoint: Ponto de partida definido',
-		type: 'microresult',
-		required: false,
-		ctaText: 'Quero chegar lá →'
-	},
-	// ——— 5. ESTILO DE VIDA ———
-	{
-		id: 'exercise_meaning',
-		order: 26,
-		section: 'Estilo de vida',
-		text: 'Quando você pensa em treinar, qual frase mais representa você?',
-		subtext: 'Responder com sinceridade ajuda a criar um plano que funcione de verdade na sua rotina.',
-		type: 'single',
 		required: true,
-		variable: 'exercise_meaning',
+		variable: 'life_change_on_goal',
 		options: [
-			{ id: 'em-dificil', text: 'Sei que preciso, mas é difícil começar', scores: emptyScores },
-			{ id: 'em-animo', text: 'Começo motivado(a), mas não consigo manter', scores: emptyScores },
-			{ id: 'em-rotina', text: 'Já faz parte da minha rotina', scores: emptyScores }
+			{ id: 'lc-autoestima', text: 'Minha autoestima', scores: emptyScores },
+			{ id: 'lc-energia', text: 'Minha energia', scores: emptyScores },
+			{ id: 'lc-aparencia', text: 'Minha aparência', scores: emptyScores },
+			{ id: 'lc-saude', text: 'Minha saúde', scores: emptyScores },
+			{ id: 'lc-confianca', text: 'Minha confiança', scores: emptyScores }
 		]
 	},
 	{
-		id: 'energy_level',
-		order: 27,
-		section: 'Estilo de vida',
-		text: 'Como você se sente na maior parte dos dias?',
-		subtext: 'Seu nível de energia influencia muito sua consistência nos treinos.',
-		type: 'single',
-		required: true,
-		variable: 'energy_level',
-		options: [
-			{ id: 'energy-cansado', text: 'Cansado(a) quase sempre', scores: emptyScores },
-			{ id: 'energy-media', text: 'Energia média', scores: emptyScores },
-			{ id: 'energy-disposto', text: 'Me sinto bem disposto(a)', scores: emptyScores }
-		]
-	},
-	{
-		id: 'daily_walk_range',
-		order: 28,
-		section: 'Estilo de vida',
-		text: 'Fora dos treinos, como é seu nível de movimento no dia a dia?',
-		subtext: 'Seu nível de atividade fora do treino influencia diretamente seus resultados.',
-		type: 'single',
-		required: true,
-		variable: 'daily_walk_range',
-		options: [
-			{ id: 'walk-sentado', text: 'Fico sentado(a) a maior parte do dia', scores: emptyScores },
-			{ id: 'walk-moderado', text: 'Me movimento moderadamente', scores: emptyScores },
-			{ id: 'walk-ativo', text: 'Sou bem ativo(a)', scores: emptyScores }
-		]
-	},
-	{
-		id: 'sleep_hours_range',
-		order: 29,
-		section: 'Estilo de vida',
-		text: 'Quantas horas você dorme por noite, em média?',
-		subtext: 'O sono influencia recuperação muscular, metabolismo e disposição.',
-		type: 'single',
-		required: true,
-		variable: 'sleep_hours_range',
-		options: [
-			{ id: 'sleep-menos5', text: 'Menos de 5 horas', scores: emptyScores },
-			{ id: 'sleep-5-6', text: '5 a 6 horas', scores: emptyScores },
-			{ id: 'sleep-7-8', text: '7 a 8 horas', scores: emptyScores },
-			{ id: 'sleep-mais8', text: 'Mais de 8 horas', scores: emptyScores }
-		]
-	},
-	{
-		id: 'stress_management',
-		order: 30,
-		section: 'Estilo de vida',
-		text: 'Quando o estresse aparece, o que você costuma fazer?',
-		subtext: 'O estresse pode impactar diretamente seus hábitos e sua alimentação.',
-		type: 'multiple',
-		required: false,
-		variable: 'stress_management',
-		options: [
-			{ id: 'st-exercicio', text: 'Me exercito ou faço algo ativo', scores: emptyScores },
-			{ id: 'st-criativo', text: 'Faço algo criativo', scores: emptyScores },
-			{ id: 'st-alcool', text: 'Bebo álcool ou fumo', scores: emptyScores },
-			{ id: 'st-comer', text: 'Como mais do que o normal', scores: emptyScores },
-			{ id: 'st-caminhar', text: 'Saio para caminhar ou ficar ao ar livre', scores: emptyScores }
-		]
-	},
-	{
-		id: 'eating_style',
-		order: 31,
-		section: 'Estilo de vida',
-		text: 'Como você descreveria sua alimentação hoje?',
-		subtext: 'Entender sua relação com a alimentação ajuda a montar um plano mais realista.',
-		type: 'single',
-		required: true,
-		variable: 'eating_style',
-		options: [
-			{ id: 'eat-emocao', text: 'Como por emoção ou ansiedade', scores: emptyScores },
-			{ id: 'eat-impulso', text: 'Como por impulso', scores: emptyScores },
-			{ id: 'eat-razoavel', text: 'Tenho uma rotina alimentar razoável', scores: emptyScores },
-			{ id: 'eat-consciente', text: 'Me alimento de forma consciente', scores: emptyScores }
-		]
-	},
-	{
-		id: 'diet_restrictions',
-		order: 32,
-		section: 'Estilo de vida',
-		text: 'Você tem alguma restrição ou preferência alimentar?',
-		subtext: 'Isso ajuda a adaptar recomendações nutricionais para você.',
-		type: 'multiple',
-		required: false,
-		variable: 'diet_restrictions',
-		options: [
-			{ id: 'diet-nenhuma', text: 'Nenhuma', scores: emptyScores },
-			{ id: 'diet-diabetes', text: 'Diabetes', scores: emptyScores },
-			{ id: 'diet-vegano', text: 'Vegetariano(a) / Vegano(a)', scores: emptyScores },
-			{ id: 'diet-gluten', text: 'Sem glúten', scores: emptyScores },
-			{ id: 'diet-lactose', text: 'Intolerância à lactose', scores: emptyScores },
-			{ id: 'diet-amendoim', text: 'Alergia a amendoim ou castanhas', scores: emptyScores }
-		]
-	},
-	{
-		id: 'mr-5',
-		order: 33,
-		section: 'Estilo de vida',
-		text: 'Checkpoint: Estilo de vida mapeado',
+		id: 'mr-1',
+		order: 11,
+		section: 'Protocolo',
+		text: 'Mulheres como você',
 		type: 'microresult',
 		required: false,
 		ctaText: 'Continuar →'
 	},
-	// ——— 6. RESULTADO ———
+	// ——— STEP 2 — HISTÓRICO E METABOLISMO ———
 	{
-		id: 'body_change_habit',
-		order: 34,
-		section: 'Resultado',
-		text: 'Quando você tenta mudar seu corpo, o que costuma acontecer?',
-		subtext: 'Queremos entender o que normalmente acontece nas suas tentativas.',
+		id: 'weight_trend_recent',
+		order: 20,
+		section: 'Histórico',
+		text: 'Nos últimos anos, seu peso:',
 		type: 'single',
 		required: true,
-		variable: 'body_change_habit',
+		variable: 'weight_trend_recent',
 		options: [
-			{ id: 'bch-animo-paro', text: 'Começo animado, mas paro', scores: emptyScores },
-			{ id: 'bch-por-tempo', text: 'Consigo por um tempo', scores: emptyScores },
-			{ id: 'bch-varias-vezes', text: 'Já tentei várias vezes', scores: emptyScores },
-			{ id: 'bch-metodo-certo', text: 'Ainda não achei o método certo', scores: emptyScores }
+			{ id: 'wt-subiu', text: 'Aumentou progressivamente', scores: emptyScores },
+			{ id: 'wt-oscilou', text: 'Oscilou bastante', scores: emptyScores },
+			{ id: 'wt-estavel', text: 'Ficou estável', scores: emptyScores },
+			{ id: 'wt-yoyo', text: 'Emagreci e voltei a ganhar', scores: emptyScores }
 		]
 	},
 	{
-		id: 'body_concerns',
-		order: 35,
-		section: 'Resultado',
-		text: 'O que mais te incomoda hoje no seu corpo?',
-		subtext: 'Marque um ou mais motivo que mais pesa para você hoje.',
-		type: 'multiple',
-		required: false,
-		variable: 'body_concerns',
-		options: [
-			{ id: 'bc-roupas', text: 'Roupas não servem mais', scores: emptyScores },
-			{ id: 'bc-espelho', text: 'Não gosto do espelho', scores: emptyScores },
-			{ id: 'bc-energia', text: 'Falta de energia', scores: emptyScores },
-			{ id: 'bc-autoestima', text: 'Autoestima baixa', scores: emptyScores },
-			{ id: 'bc-sentir-melhor', text: 'Quero me sentir melhor', scores: emptyScores }
-		]
-	},
-	{
-		id: 'plan_help_level',
-		order: 36,
-		section: 'Resultado',
-		text: 'Se tivesse um plano claro e acompanhamento, quanto isso ajudaria?',
-		subtext: 'Pessoas com suporte costumam manter mais consistência.',
+		id: 'diet_attempts_count',
+		order: 21,
+		section: 'Histórico',
+		text: 'Você já tentou emagrecer antes?',
 		type: 'single',
 		required: true,
-		variable: 'plan_help_level',
+		variable: 'diet_attempts_count',
 		options: [
-			{ id: 'phl-pouco', text: 'Ajudaria um pouco', scores: emptyScores },
-			{ id: 'phl-bastante', text: 'Ajudaria bastante', scores: emptyScores },
-			{ id: 'phl-muito', text: 'Ajudaria muito', scores: emptyScores },
-			{ id: 'phl-essencial', text: 'Seria essencial', scores: emptyScores }
+			{ id: 'da-varias', text: 'Sim, várias vezes', scores: emptyScores },
+			{ id: 'da-poucas', text: 'Sim, poucas vezes', scores: emptyScores },
+			{ id: 'da-primeira', text: 'Não, é a primeira vez', scores: emptyScores }
 		]
 	},
 	{
-		id: 'phrase_describes_you',
-		order: 37,
-		section: 'Resultado',
-		text: 'Qual frase mais descreve você hoje?',
-		subtext: 'Seja sincero(a), isso ajuda a personalizar seu plano.',
+		id: 'sticking_point_after_weeks',
+		order: 22,
+		section: 'Histórico',
+		text: 'O que normalmente acontece depois das primeiras semanas?',
 		type: 'single',
 		required: true,
-		variable: 'phrase_describes_you',
+		variable: 'sticking_point_after_weeks',
 		options: [
-			{ id: 'pd-pronto', text: 'Estou pronto para mudar', scores: emptyScores },
-			{ id: 'pd-plano-certo', text: 'Consigo com o plano certo', scores: emptyScores },
-			{ id: 'pd-metodo', text: 'Preciso de um método', scores: emptyScores },
-			{ id: 'pd-diferente', text: 'Preciso de algo diferente', scores: emptyScores }
+			{ id: 'sp-motivacao', text: 'Perco a motivação', scores: emptyScores },
+			{ id: 'sp-resultados', text: 'Não vejo resultados rápidos', scores: emptyScores },
+			{ id: 'sp-rotina', text: 'Minha rotina atrapalha', scores: emptyScores },
+			{ id: 'sp-habitos', text: 'Volto aos hábitos antigos', scores: emptyScores }
 		]
 	},
 	{
-		id: 'worry_if_no_change',
-		order: 38,
-		section: 'Resultado',
-		text: 'O que mais preocupa se nada mudar?',
-		subtext: 'Pensar nisso ajuda a entender o que realmente importa.',
+		id: 'metabolism_phrase_fit',
+		order: 23,
+		section: 'Histórico',
+		text: 'Qual dessas frases mais parece com você?',
+		type: 'single',
+		required: true,
+		variable: 'metabolism_phrase_fit',
+		options: [
+			{ id: 'mp-travou', text: 'Meu emagrecimento travou', scores: emptyScores },
+			{ id: 'mp-yoyo', text: 'Emagreço e volto a engordar', scores: emptyScores },
+			{ id: 'mp-devagar', text: 'Meu corpo responde muito devagar', scores: emptyScores },
+			{ id: 'mp-animo', text: 'Estou sem ânimo para recomeçar', scores: emptyScores }
+		]
+	},
+	{
+		id: 'health_conditions',
+		order: 24,
+		section: 'Histórico',
+		text: 'Possui alguma condição que pode influenciar seu emagrecimento?',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
+		required: true,
+		variable: 'health_conditions',
+		options: [
+			{ id: 'hc-nenhuma', text: 'Nenhuma', scores: emptyScores },
+			{ id: 'hc-sop', text: 'SOP', scores: emptyScores },
+			{ id: 'hc-hipotireoidismo', text: 'Hipotireoidismo', scores: emptyScores },
+			{ id: 'hc-diabetes', text: 'Diabetes', scores: emptyScores },
+			{ id: 'hc-ansiedade', text: 'Ansiedade', scores: emptyScores },
+			{ id: 'hc-depressao', text: 'Depressão', scores: emptyScores },
+			{ id: 'hc-outra', text: 'Outra', scores: emptyScores }
+		]
+	},
+	{
+		id: 'body_bother_areas',
+		order: 25,
+		section: 'Histórico',
+		text: 'Quais áreas do seu corpo mais te incomodam hoje?',
+		subtext: 'Opcional: marque as que se aplicam.',
 		type: 'multiple',
 		required: false,
-		variable: 'worry_if_no_change',
+		variable: 'body_bother_areas',
 		options: [
-			{ id: 'win-insatisfeito', text: 'Continuar insatisfeito', scores: emptyScores },
-			{ id: 'win-saude', text: 'Piorar a saúde', scores: emptyScores },
-			{ id: 'win-arrepender', text: 'Me arrepender depois', scores: emptyScores },
-			{ id: 'win-ciclo', text: 'Ficar no mesmo ciclo', scores: emptyScores }
+			{
+				id: 'bb-papada',
+				text: 'Papada',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-papada.png',
+				imageUrlMale: '/assets/body-bother-m-papada.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-costas',
+				text: 'Costas',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-costas.png',
+				imageUrlMale: '/assets/body-bother-m-costas.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-peito',
+				text: 'Peito',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-peito.png',
+				imageUrlMale: '/assets/body-bother-m-peito.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-barriga',
+				text: 'Barriga',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-barriga.png',
+				imageUrlMale: '/assets/body-bother-m-barriga.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-braco',
+				text: 'Braço',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-braco.png',
+				imageUrlMale: '/assets/body-bother-m-braco.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-culote',
+				text: 'Culote',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-culote.png',
+				imageUrlMale: '/assets/body-bother-m-culote.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-bumbum',
+				text: 'Bumbum',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-bumbum.png',
+				imageUrlMale: '/assets/body-bother-m-bumbum.png',
+				imagePlacement: 'right'
+			},
+			{
+				id: 'bb-perna',
+				text: 'Perna',
+				scores: emptyScores,
+				imageUrl: '/assets/body-bother-perna.png',
+				imageUrlMale: '/assets/body-bother-m-perna.png',
+				imagePlacement: 'right'
+			}
 		]
 	},
 	{
-		id: 'change_impact',
-		order: 39,
-		section: 'Resultado',
-		text: 'Se você mudasse seu corpo, o que mais mudaria?',
-		subtext: 'Imagine o impacto positivo dessa transformação.',
-		type: 'multiple',
+		id: 'body_fat_level',
+		order: 26,
+		section: 'Histórico',
+		text: 'Como você se enxerga hoje?',
+		subtext: 'Não precisa ser exato. Escolha a imagem mais próxima.',
+		type: 'body_fat_grid',
+		required: true,
+		variable: 'body_fat_level'
+	},
+	{
+		id: 'body_fat_goal',
+		order: 27,
+		section: 'Histórico',
+		text: 'Como você quer se ver após alcançar seu objetivo?',
+		subtext: 'O corpo que mais se aproxima do seu objetivo.',
+		type: 'body_fat_grid',
+		required: true,
+		variable: 'body_fat_goal'
+	},
+	{
+		id: 'mr-2',
+		order: 28,
+		section: 'Protocolo',
+		text: 'Projeção inicial',
+		type: 'microresult',
 		required: false,
-		variable: 'change_impact',
-		options: [
-			{ id: 'ci-confianca', text: 'Minha confiança', scores: emptyScores },
-			{ id: 'ci-aparencia', text: 'Minha aparência', scores: emptyScores },
-			{ id: 'ci-saude', text: 'Minha saúde', scores: emptyScores },
-			{ id: 'ci-energia', text: 'Minha energia', scores: emptyScores },
-			{ id: 'ci-vida-social', text: 'Minha vida social', scores: emptyScores }
-		]
+		ctaText: 'Continuar →'
 	},
 	{
-		id: 'event_type',
+		id: 'mr-3',
+		order: 29,
+		section: 'Protocolo',
+		text: 'Seu Protocolo de Desbloqueio',
+		type: 'microresult',
+		required: false,
+		ctaText: 'Continuar →'
+	},
+	// ——— STEP 3 — ROTINA E ALIMENTAÇÃO ———
+	{
+		id: 'routine_pace',
 		order: 40,
-		section: 'Resultado',
-		text: 'Tem algum evento importante se aproximando que aumenta sua motivação?',
+		section: 'Rotina',
+		text: 'Como é sua rotina hoje?',
 		type: 'single',
 		required: true,
-		variable: 'event_type',
+		variable: 'routine_pace',
 		options: [
-			{ id: 'event-nenhuma', text: 'Nenhum', scores: emptyScores },
-			{ id: 'event-viagem', text: 'Viagem / Férias', scores: emptyScores },
-			{ id: 'event-casamento', text: 'Casamento', scores: emptyScores },
-			{ id: 'event-aniversario', text: 'Aniversário importante', scores: emptyScores },
-			{ id: 'event-formatura', text: 'Formatura', scores: emptyScores },
-			{ id: 'event-familia', text: 'Reunião de família', scores: emptyScores },
-			{ id: 'event-outro', text: 'Outro', scores: emptyScores }
+			{ id: 'rp-corrid', text: 'Muito corrida', scores: emptyScores },
+			{ id: 'rp-agitada', text: 'Agitada', scores: emptyScores },
+			{ id: 'rp-equilibrada', text: 'Equilibrada', scores: emptyScores },
+			{ id: 'rp-tranquila', text: 'Tranquila', scores: emptyScores }
 		]
 	},
 	{
-		id: 'event_date',
+		id: 'eating_pattern',
 		order: 41,
-		section: 'Resultado',
-		text: 'Qual é a data do evento?',
-		subtext: 'Vou ajustar seu ritmo para você chegar bem até lá.',
-		type: 'date',
+		section: 'Rotina',
+		text: 'Como é o seu padrão alimentar hoje?',
+		type: 'single',
 		required: true,
-		variable: 'event_date',
-		showIf: {
-			conditions: [{ questionId: 'event_type', operator: 'neq', value: 'event-nenhuma' }],
-			logic: 'AND'
-		}
+		variable: 'eating_pattern',
+		options: [
+			{ id: 'ep-organizado', text: 'Organizado', scores: emptyScores },
+			{ id: 'ep-irregular', text: 'Irregular', scores: emptyScores },
+			{ id: 'ep-delivery', text: 'Muito delivery', scores: emptyScores },
+			{ id: 'ep-pulo', text: 'Pulo refeições', scores: emptyScores }
+		]
+	},
+	{
+		id: 'hunger_peak_times',
+		order: 42,
+		section: 'Rotina',
+		text: 'Em quais momentos do dia você sente mais fome?',
+		subtext: 'Marque todos que se aplicam.',
+		type: 'multiple',
+		required: true,
+		variable: 'hunger_peak_times',
+		options: [
+			{ id: 'hp-manha', text: 'Manhã', scores: emptyScores },
+			{ id: 'hp-almoco', text: 'Almoço', scores: emptyScores },
+			{ id: 'hp-tarde', text: 'Tarde', scores: emptyScores },
+			{ id: 'hp-noite', text: 'Noite', scores: emptyScores },
+			{ id: 'hp-madrugada', text: 'Madrugada', scores: emptyScores }
+		]
+	},
+	{
+		id: 'food_choice_drivers',
+		order: 43,
+		section: 'Rotina',
+		text: 'O que mais influencia suas escolhas alimentares?',
+		type: 'single',
+		required: true,
+		variable: 'food_choice_drivers',
+		options: [
+			{ id: 'fcd-fome', text: 'Fome', scores: emptyScores },
+			{ id: 'fcd-ansiedade', text: 'Ansiedade', scores: emptyScores },
+			{ id: 'fcd-estresse', text: 'Estresse', scores: emptyScores },
+			{ id: 'fcd-tedio', text: 'Tédio', scores: emptyScores },
+			{ id: 'fcd-disponivel', text: 'O que estiver disponível', scores: emptyScores }
+		]
+	},
+	{
+		id: 'ultraprocessed_frequency',
+		order: 44,
+		section: 'Rotina',
+		text: 'Com que frequência você consome doces ou ultraprocessados?',
+		type: 'single',
+		required: true,
+		variable: 'ultraprocessed_frequency',
+		options: [
+			{ id: 'uf-diario', text: 'Todo dia', scores: emptyScores },
+			{ id: 'uf-semana', text: 'Algumas vezes por semana', scores: emptyScores },
+			{ id: 'uf-raro', text: 'Raramente', scores: emptyScores },
+			{ id: 'uf-quase-nunca', text: 'Quase nunca', scores: emptyScores }
+		]
+	},
+	{
+		id: 'activity_level',
+		order: 45,
+		section: 'Rotina',
+		text: 'Qual é o seu nível de atividade física?',
+		type: 'single',
+		required: true,
+		variable: 'activity_level',
+		options: [
+			{ id: 'al-sedentaria', text: 'Sedentária', scores: emptyScores },
+			{ id: 'al-leve', text: 'Levemente ativa', scores: emptyScores },
+			{ id: 'al-moderada', text: 'Moderadamente ativa', scores: emptyScores },
+			{ id: 'al-muito', text: 'Muito ativa', scores: emptyScores }
+		]
+	},
+	{
+		id: 'sleep_quality',
+		order: 46,
+		section: 'Rotina',
+		text: 'Como está sua qualidade de sono?',
+		type: 'single',
+		required: true,
+		variable: 'sleep_quality',
+		options: [
+			{ id: 'sq-bem', text: 'Durmo bem', scores: emptyScores },
+			{ id: 'sq-cansada', text: 'Acordo cansada', scores: emptyScores },
+			{ id: 'sq-dificuldade', text: 'Tenho dificuldade para dormir', scores: emptyScores },
+			{ id: 'sq-pouco', text: 'Durmo pouco', scores: emptyScores }
+		]
+	},
+	{
+		id: 'water_cups_per_day',
+		order: 47,
+		section: 'Rotina',
+		text: 'Quantos copos de água você bebe por dia?',
+		type: 'single',
+		required: true,
+		variable: 'water_cups_per_day',
+		options: [
+			{ id: 'wc-menos2', text: 'Menos de 2', scores: emptyScores },
+			{ id: 'wc-2-4', text: '2 a 4', scores: emptyScores },
+			{ id: 'wc-4-6', text: '4 a 6', scores: emptyScores },
+			{ id: 'wc-mais6', text: 'Mais de 6', scores: emptyScores }
+		]
+	},
+	{
+		id: 'mr-4',
+		order: 48,
+		section: 'Protocolo',
+		text: 'Composição corporal',
+		type: 'microresult',
+		required: false,
+		ctaText: 'Continuar →'
+	},
+	{
+		id: 'protocolo_4_etapas',
+		order: 49,
+		section: 'Protocolo',
+		text: '',
+		type: 'info',
+		required: false,
+		copyTitle: 'Seu Protocolo de Desbloqueio em 4 etapas',
+		copyBody:
+			'Suas metas de calorias e proteínas são ajustadas semanalmente conforme a sua evolução.',
+		ctaText: 'Continuar'
+	},
+	// ——— STEP 4 — PERSONALIZAÇÃO DA DIETA ———
+	{
+		id: 'breakfast_in_plan',
+		order: 60,
+		section: 'Dieta',
+		text: 'Deseja incluir café da manhã no plano?',
+		type: 'single',
+		required: true,
+		variable: 'breakfast_in_plan',
+		options: [
+			{ id: 'bf-sim', text: 'Sim', scores: emptyScores },
+			{ id: 'bf-nao', text: 'Não', scores: emptyScores }
+		]
+	},
+	{
+		id: 'meals_per_day',
+		order: 61,
+		section: 'Dieta',
+		text: 'Quantas refeições prefere fazer por dia?',
+		type: 'single',
+		required: true,
+		variable: 'meals_per_day',
+		options: [
+			{ id: 'mpd-2', text: '2', scores: emptyScores },
+			{ id: 'mpd-3', text: '3', scores: emptyScores },
+			{ id: 'mpd-4', text: '4', scores: emptyScores },
+			{ id: 'mpd-5', text: '5', scores: emptyScores },
+			{ id: 'mpd-6', text: '6+', scores: emptyScores }
+		]
+	},
+	{
+		id: 'foods_like',
+		order: 62,
+		section: 'Dieta',
+		text: 'Quais alimentos você mais gosta?',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
+		required: true,
+		variable: 'foods_like',
+		options: [
+			{ id: 'fl-tudo', text: 'Como de tudo', scores: emptyScores },
+			{ id: 'fl-arroz-feijao', text: 'Arroz e feijão', scores: emptyScores },
+			{ id: 'fl-massas', text: 'Massas e pães', scores: emptyScores },
+			{ id: 'fl-frutas', text: 'Frutas', scores: emptyScores },
+			{ id: 'fl-doces', text: 'Doces', scores: emptyScores },
+			{ id: 'fl-fast', text: 'Pizza / hambúrguer', scores: emptyScores },
+			{ id: 'fl-japonesa', text: 'Comida japonesa', scores: emptyScores },
+			{ id: 'fl-arabe', text: 'Comida árabe', scores: emptyScores }
+		]
+	},
+	{
+		id: 'foods_avoid',
+		order: 63,
+		section: 'Dieta',
+		text: 'Tem alimentos que prefere evitar?',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
+		required: true,
+		variable: 'foods_avoid',
+		options: [
+			{ id: 'fa-tudo', text: 'Como de tudo', scores: emptyScores },
+			{ id: 'fa-vermelha', text: 'Carne vermelha', scores: emptyScores },
+			{ id: 'fa-frango', text: 'Frango', scores: emptyScores },
+			{ id: 'fa-ovos', text: 'Ovos', scores: emptyScores },
+			{ id: 'fa-laticinios', text: 'Laticínios', scores: emptyScores },
+			{ id: 'fa-carbo', text: 'Carboidratos', scores: emptyScores },
+			{ id: 'fa-peixe', text: 'Peixes', scores: emptyScores },
+			{ id: 'fa-nenhum', text: 'Nenhum', scores: emptyScores }
+		]
+	},
+	{
+		id: 'diet_restrictions',
+		order: 64,
+		section: 'Dieta',
+		text: 'Possui alguma restrição alimentar?',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
+		required: true,
+		variable: 'diet_restrictions',
+		options: [
+			{ id: 'diet-nenhuma', text: 'Nenhuma', scores: emptyScores },
+			{ id: 'diet-lactose', text: 'Lactose', scores: emptyScores },
+			{ id: 'diet-gluten', text: 'Glúten', scores: emptyScores },
+			{ id: 'diet-vegetariana', text: 'Vegetariana', scores: emptyScores },
+			{ id: 'diet-vegana', text: 'Vegana', scores: emptyScores },
+			{ id: 'diet-alergias', text: 'Alergias', scores: emptyScores }
+		]
+	},
+	{
+		id: 'meal_prep_time',
+		order: 65,
+		section: 'Dieta',
+		text: 'Quanto tempo você tem para preparar refeições?',
+		type: 'single',
+		required: true,
+		variable: 'meal_prep_time',
+		options: [
+			{ id: 'mpt-15', text: 'Menos de 15 min', scores: emptyScores },
+			{ id: 'mpt-30', text: '15 a 30 min', scores: emptyScores },
+			{ id: 'mpt-60', text: '30 a 60 min', scores: emptyScores },
+			{ id: 'mpt-bastante', text: 'Tenho bastante tempo', scores: emptyScores }
+		]
+	},
+	{
+		id: 'plan_variety_pref',
+		order: 66,
+		section: 'Dieta',
+		text: 'Prefere um plano:',
+		type: 'single',
+		required: true,
+		variable: 'plan_variety_pref',
+		options: [
+			{ id: 'pvp-simples', text: 'Simples e prático', scores: emptyScores },
+			{ id: 'pvp-variado', text: 'Variado', scores: emptyScores },
+			{ id: 'pvp-tantofaz', text: 'Tanto faz', scores: emptyScores }
+		]
 	}
 ];

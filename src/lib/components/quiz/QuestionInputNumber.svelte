@@ -17,7 +17,7 @@
 
 <div class="flex flex-col gap-4">
 	<div class="space-y-2">
-		<h2 class="text-2xl font-extrabold text-heading leading-tight">{question.text}</h2>
+		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{question.text}</h2>
 		{#if question.subtext}
 			<p class="text-sm text-body leading-relaxed">{question.subtext}</p>
 		{/if}

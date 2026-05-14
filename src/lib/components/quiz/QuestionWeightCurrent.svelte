@@ -3,9 +3,6 @@
 	import RulerPickerH from './RulerPickerH.svelte';
 	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
-	/** Faixas IMC OMS: < 18,5 | 18,5–24,9 | ≥ 25 */
-	const BMI_MIN_HEALTHY = 18.5;
-	const BMI_MAX_HEALTHY = 24.9;
 	/** Escala visual da barra (para posicionar o pill) */
 	const BMI_BAR_MIN = 15;
 	const BMI_BAR_MAX = 35;
@@ -49,36 +46,13 @@
 		return Number.isFinite(n) && n >= 100 && n <= 220 ? n : null;
 	});
 
-	type BmiCategory = 'below' | 'healthy' | 'above';
-
-	const bmiInsight = $derived.by((): { bmi: number; category: BmiCategory; message: string } | null => {
+	const bmiInsight = $derived.by((): { bmi: number } | null => {
 		if (heightCm == null) return null;
 		const heightM = heightCm / 100;
 		const weightKg = Math.round(rulerValue);
 		const bmi = weightKg / (heightM * heightM);
 
-		if (bmi < BMI_MIN_HEALTHY) {
-			return {
-				bmi,
-				category: 'below',
-				message:
-					'Seu IMC está na faixa baixa. Alimentação equilibrada e um pouco de exercício podem ajudar a ganhar forma de forma saudável.'
-			};
-		}
-		if (bmi <= BMI_MAX_HEALTHY) {
-			return {
-				bmi,
-				category: 'healthy',
-				message:
-					'Seu IMC está na faixa saudável. Siga mantendo com alimentação e atividade física!'
-			};
-		}
-		return {
-			bmi,
-			category: 'above',
-			message:
-				'Seu IMC está um pouco alto. Pequenos ajustes na alimentação e no exercício podem ajudar.'
-		};
+		return { bmi };
 	});
 
 	/** Percentual (0–100) na barra; limitado às bordas para o indicador não sair da barra */
@@ -102,7 +76,7 @@
 
 <div class="flex flex-col items-center gap-3">
 	<div class="w-full space-y-1 mb-1">
-		<h2 class="text-2xl font-extrabold text-heading leading-tight">{question.text}</h2>
+		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{question.text}</h2>
 		{#if question.subtext}
 			<p class="text-sm text-body leading-relaxed">{question.subtext}</p>
 		{/if}
@@ -120,12 +94,13 @@
 			value={rulerValue}
 			min={rulerMin}
 			max={rulerMax}
+			suppressOnUnchangedRelease={true}
 			onchange={handleRulerChange}
 		/>
 	</div>
 
 	<div class="flex flex-col items-center justify-center gap-1">
-		<p class="text-xs text-white text-center">{hint}</p>
+		<p class="text-xs text-muted text-center">{hint}</p>
 		<SwipeRightIcon />
 	</div>
 
@@ -154,13 +129,11 @@
 					<div class="flex-1 bg-amber-500 min-w-0" title="Sobrepeso"></div>
 				</div>
 			</div>
-			<div class="flex w-full text-[10px] text-muted gap-0 mb-3">
+			<div class="flex w-full text-[10px] text-muted gap-0">
 				<span class="flex-1 text-center">Abaixo do peso</span>
 				<span class="flex-1 text-center">Normal</span>
 				<span class="flex-1 text-center">Sobrepeso</span>
 			</div>
-
-			<p class="text-xs text-muted leading-relaxed text-center">{bmiInsight.message}</p>
 		</div>
 	{/if}
 </div>

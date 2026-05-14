@@ -1,11 +1,40 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { goto, afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { quizStore, currentQuestion, quizNavigationEnded } from '$lib/stores/quiz.store';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import QuizShell from '$lib/components/quiz/QuizShell.svelte';
+
+	// Quando as respostas escondem o passo atual (ex.: ramo de medicamento), alinha URL/store sem depender só de afterNavigate
+	$effect(() => {
+		if (!browser) return;
+		const state = $quizStore;
+		if (!state.startedAt) return;
+		const qid = page.params.questionId;
+		if (!qid) return;
+		const visible = computeVisibleQuestions(quizConfig.questions, state.answers);
+		const urlOk = visible.some((q) => q.id === qid);
+		const storeId = state.currentQuestionId;
+		const storeOk = storeId != null && visible.some((q) => q.id === storeId);
+
+		if (!urlOk) {
+			const def = quizConfig.questions.find((x) => x.id === qid);
+			const order = def?.order ?? 0;
+			const candidate = visible.find((q) => q.order >= order) ?? visible[0];
+			if (candidate) {
+				quizStore.goTo(candidate.id);
+				void goto(`/plan/${candidate.id}`, { replaceState: true });
+			}
+			return;
+		}
+		if (!storeOk && storeId != null) {
+			quizStore.goTo(qid);
+		}
+	});
 
 	// Guard inicial: redireciona para home se o quiz não foi iniciado (ex.: refresh direto na URL)
 	onMount(() => {
@@ -44,7 +73,7 @@
 </script>
 
 <svelte:head>
-	<title>Lotz</title>
+	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
 {#if $currentQuestion}

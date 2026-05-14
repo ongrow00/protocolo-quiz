@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { startPostQuizFunnelSync, stopPostQuizFunnelSync } from '$lib/services/quiz-progress-sync.service';
 	import { fly } from 'svelte/transition';
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
@@ -8,7 +10,15 @@
 
 	let { children } = $props();
 
-	const POST_QUIZ_STEPS = ['/carregando', '/nome', '/whatsapp', '/results'] as const;
+	onMount(() => {
+		startPostQuizFunnelSync();
+	});
+
+	onDestroy(() => {
+		stopPostQuizFunnelSync();
+	});
+
+	const POST_QUIZ_STEPS = ['/carregando', '/nome', '/whatsapp', '/metabolismo', '/results'] as const;
 
 	const pathname = $derived($page.url.pathname);
 	const currentIndex = $derived(
@@ -22,15 +32,25 @@
 	const nextUrl = $derived(
 		stepIndex < POST_QUIZ_STEPS.length - 1
 			? POST_QUIZ_STEPS[stepIndex + 1]
-			: '/resultado'
+			: '/'
 	);
-	const prevUrl = $derived(stepIndex > 0 ? POST_QUIZ_STEPS[stepIndex - 1] : '/resultado');
+	/** Voltar do primeiro passo pós-quiz: landing (rota /resultado removida). */
+	const prevUrl = $derived(stepIndex > 0 ? POST_QUIZ_STEPS[stepIndex - 1] : '/');
 
 	const isCarregandoPage = $derived(pathname === '/carregando');
 	const isWhatsappPage = $derived(pathname === '/whatsapp' || pathname.startsWith('/whatsapp/'));
 	const isResultsPage = $derived(pathname === '/results' || pathname.startsWith('/results/'));
 	const hideNavOnThisPage = $derived(isResultsPage);
-	// Contagem continua do quiz (mr-5 = 13): nome=14, whatsapp=15, results=16
+	/** Nome, WhatsApp e metabolismo: sem barra — o funil já terminou no quiz (100% no último MR). */
+	const hidePostQuizProgressBar = $derived(
+		pathname === '/nome' ||
+			pathname.startsWith('/nome/') ||
+			pathname === '/whatsapp' ||
+			pathname.startsWith('/whatsapp/') ||
+			pathname === '/metabolismo' ||
+			pathname.startsWith('/metabolismo/')
+	);
+	// Contagem continua do quiz (último passo antes do loading = 13): nome=14, whatsapp=15, metabolismo=16, …
 	const POST_QUIZ_COUNTER_START = 13;
 	const headerCounter = $derived(stepIndex >= 1 ? POST_QUIZ_COUNTER_START + stepIndex : 0);
 
@@ -42,12 +62,21 @@
 	});
 	const hasValidWhatsapp = $derived(whatsappDigits.length >= 10);
 	const canAdvance = $derived(!isWhatsappPage || hasValidWhatsapp);
+
+	const showPostQuizBackButton = $derived(
+		!isCarregandoPage &&
+			(!hideNavOnThisPage || (isResultsPage && $postQuizStore.resultsContentRevealed))
+	);
+
+	$effect(() => {
+		if (!isResultsPage) postQuizStore.resetResultsContentRevealed();
+	});
 </script>
 
 <div class="min-h-screen flex flex-col bg-bg">
 	<header class="bg-bg px-4 pt-4 pb-3 {!isResultsPage ? 'sticky top-0 z-10' : ''}">
 		<div class="relative flex items-center justify-between mb-3">
-			{#if !hideNavOnThisPage && !isCarregandoPage}
+			{#if showPostQuizBackButton}
 			<button
 				type="button"
 				onclick={() => goto(prevUrl)}
@@ -72,12 +101,12 @@
 				<Logo />
 			</div>
 
-			{#if !hideNavOnThisPage && !isCarregandoPage}
+			{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
 				<div
 					class="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-line bg-transparent shrink-0"
 					aria-label="Contagem"
 				>
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-accent shrink-0" aria-hidden="true">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-heading shrink-0" aria-hidden="true">
 						<path
 							d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
 							fill="currentColor"
@@ -94,12 +123,12 @@
 			{/if}
 		</div>
 
-		{#if !hideNavOnThisPage && !isCarregandoPage}
-		<StepProgressBar percent={progressPercent} steps={4} />
+		{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
+		<StepProgressBar percent={progressPercent} steps={5} />
 		{/if}
 	</header>
 
-	<main class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
+	<main class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden bg-bg">
 		<div class="content-transition-root">
 			{#key pathname}
 				<div
@@ -115,25 +144,18 @@
 	</main>
 
 	{#if !hideNavOnThisPage && !isCarregandoPage}
-	<div class="fixed bottom-0 left-0 right-0 bg-bg">
-		<div class="max-w-lg mx-auto w-full px-4 pt-4 pb-8">
+	<div class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none">
+		<div class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto">
 		<button
 			type="button"
 			onclick={() => goto(nextUrl)}
 			disabled={!canAdvance}
-			class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-40 disabled:pointer-events-none {isWhatsappPage ? 'post-quiz-cta' : ''}"
+			class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-40 disabled:pointer-events-none"
 		>
-			{#if isWhatsappPage}
-				<span>Desbloquear</span>
-				<svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-					<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-			{:else}
-				<span>Continuar</span>
-				<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
-				</svg>
-			{/if}
+			<span>Continuar</span>
+			<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+			</svg>
 		</button>
 		</div>
 	</div>
@@ -158,40 +180,11 @@
 	.content-transition-slot {
 		display: flex;
 		flex-direction: column;
+		gap: 10px;
 		align-items: stretch;
 		overflow: visible;
 		width: 100%;
 		max-width: 32rem;
 		box-sizing: border-box;
-	}
-
-	.post-quiz-cta {
-		position: relative;
-		overflow: hidden;
-	}
-	.post-quiz-cta::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-		width: 60%;
-		background: linear-gradient(
-			100deg,
-			transparent 0%,
-			transparent 40%,
-			rgba(255, 255, 255, 0.25) 50%,
-			transparent 60%,
-			transparent 100%
-		);
-		animation: post-quiz-cta-shimmer 2.5s ease-in-out infinite;
-		pointer-events: none;
-		border-radius: inherit;
-	}
-	@keyframes post-quiz-cta-shimmer {
-		0% {
-			transform: translateX(-100%) skewX(-12deg);
-		}
-		100% {
-			transform: translateX(200%) skewX(-12deg);
-		}
 	}
 </style>

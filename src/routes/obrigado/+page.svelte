@@ -5,7 +5,7 @@
 </script>
 
 <svelte:head>
-	<title>Lotz</title>
+	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
 <div class="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-bg">
@@ -13,7 +13,7 @@
 		<Logo />
 
 		<div class="w-20 h-20 rounded-full bg-accent/20 flex items-center justify-center">
-			<svg class="w-10 h-10 text-accent" viewBox="0 0 24 24" fill="none">
+			<svg class="w-10 h-10 text-heading" viewBox="0 0 24 24" fill="none">
 				<path
 					d="M5 13l4 4L19 7"
 					stroke="currentColor"

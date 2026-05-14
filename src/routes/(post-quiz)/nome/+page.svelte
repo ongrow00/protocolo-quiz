@@ -10,12 +10,12 @@
 </script>
 
 <svelte:head>
-	<title>Qual é o seu nome? | Lotz</title>
+	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
 <div class="flex flex-col gap-6">
 	<div class="space-y-2">
-		<h1 class="text-2xl font-extrabold text-heading leading-tight">Qual é o seu nome?</h1>
+		<h1 class="text-2xl font-extrabold text-heading leading-none">Qual é o seu nome?</h1>
 		<p class="text-sm text-body leading-relaxed">
 			Usaremos seu nome para personalizar sua experiência.
 		</p>

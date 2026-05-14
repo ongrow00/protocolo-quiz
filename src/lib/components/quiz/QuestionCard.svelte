@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Question } from '$lib/data/types';
+	import type { Question, QuizOption } from '$lib/data/types';
 	import OptionButton from './OptionButton.svelte';
 
 
@@ -11,22 +11,41 @@
 		titleOverride?: string;
 		/** Override subtext (e.g. dynamic "seu plano de emagrecimento") */
 		subtextOverride?: string;
+		/** Resposta da pergunta gênero (ex. gender-m) — troca ilustrações em body_bother_areas */
+		genderAnswer?: string;
 	}
 
-	let { question, selectedValue, onSelect, titleOverride, subtextOverride }: Props = $props();
+	let { question, selectedValue, onSelect, titleOverride, subtextOverride, genderAnswer }: Props = $props();
 
 	const displayTitle = $derived(titleOverride ?? question.text);
 	const displaySubtext = $derived(subtextOverride ?? question.subtext ?? '');
 
 	const isMultiple = $derived(question.type === 'multiple');
 
-	const selected = $derived<string[]>(
-		selectedValue === undefined
-			? []
-			: Array.isArray(selectedValue)
-				? selectedValue
-				: [selectedValue]
-	);
+	/** Masculino: usa imageUrlMale quando definido; demais casos mantêm imageUrl. */
+	const displayOptions = $derived.by((): QuizOption[] => {
+		const opts = question.options ?? [];
+		if (question.id !== 'body_bother_areas' || genderAnswer !== 'gender-m') return opts;
+		return opts.map((o) =>
+			o.imageUrlMale != null && o.imageUrlMale !== ''
+				? { ...o, imageUrl: o.imageUrlMale }
+				: o
+		);
+	});
+
+	const selected = $derived.by((): string[] => {
+		if (selectedValue === undefined) return [];
+		if (question.type === 'single') {
+			if (Array.isArray(selectedValue)) {
+				const last = [...selectedValue].reverse().find((id) => id != null && String(id).trim() !== '');
+				return last != null ? [String(last)] : [];
+			}
+			const s = String(selectedValue).trim();
+			return s !== '' ? [s] : [];
+		}
+		// Cópia plana: evita proxy $state no .includes() (state_proxy_equality_mismatch).
+		return Array.isArray(selectedValue) ? selectedValue.map(String) : [String(selectedValue)];
+	});
 
 	// Exclusive option ids: when selected, disable other options and keep only this one (Nenhuma, Corpo inteiro)
 	const noneOptionIds = $derived(
@@ -34,9 +53,13 @@
 			? ['inj-nenhuma']
 			: question.id === 'diet_restrictions'
 				? ['diet-nenhuma']
-				: question.id === 'focus_areas'
-					? ['fa-inteiro']
-					: []
+				: question.id === 'health_conditions'
+					? ['hc-nenhuma']
+					: question.id === 'foods_like'
+						? ['fl-tudo']
+						: question.id === 'foods_avoid'
+							? ['fa-tudo', 'fa-nenhum']
+							: []
 	);
 	const hasNoneSelected = $derived(noneOptionIds.length > 0 && noneOptionIds.some((id) => selected.includes(id)));
 
@@ -68,9 +91,9 @@
 	<div class="space-y-2">
 		{#if displaySubtext && question.id === 'goal_type'}
 			<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
-			<h2 class="text-2xl font-extrabold text-heading leading-tight text-center">{displayTitle}</h2>
+			<h2 class="text-2xl font-medium text-heading leading-[24px] text-center">{displayTitle}</h2>
 		{:else}
-			<h2 class="text-2xl font-extrabold text-heading leading-tight">{displayTitle}</h2>
+			<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{displayTitle}</h2>
 			{#if displaySubtext}
 				<p class="text-sm text-body leading-relaxed">{displaySubtext}</p>
 			{/if}
@@ -90,7 +113,7 @@
 						? 'grid grid-cols-4 gap-2'
 						: 'flex flex-col gap-3'}"
 		>
-			{#each (question.options ?? []) as option (option.id)}
+			{#each displayOptions as option (option.id)}
 				<OptionButton
 					{option}
 					selected={selected.includes(option.id)}
@@ -115,13 +138,13 @@
 	{#if question.id === 'goal_type'}
 		<div class="flex flex-col items-center justify-center mt-2 gap-1.5">
 			<p class="inline-flex items-center gap-1.5 text-[12px] text-accent bg-accent/10 px-3 py-1.5 rounded-full">
-				<svg class="w-3.5 h-3.5 shrink-0 text-accent" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+				<svg class="w-3.5 h-3.5 shrink-0 text-heading" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 					<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
 				</svg>
 				Limitado a 1 por pessoa
 			</p>
 			<p class="flex items-center justify-center gap-1.5 text-[10px] text-muted">
-				<svg class="w-3 h-3 shrink-0 text-muted" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+				<svg class="w-3 h-3 shrink-0 text-heading" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 					<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" />
 				</svg>
 				100% seguro

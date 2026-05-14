@@ -1,17 +1,17 @@
 @import 'tailwindcss';
 
 @theme {
-	--color-bg: #0E0E0E;
-	--color-surface: #161616;
-	--color-surface-2: #1E1E1E;
-	--color-heading: #FFFFFF;
-	--color-body: #B3B3B3;
-	--color-muted: #555555;
-	--color-accent: #9DBB54;
-	--color-accent-dark: #8BAF45;
-	--color-line: #272727;
-	/** Farol estilo de vida: laranja para “Médio” */
-	--color-farol-orange: #f97316;
+	--color-bg: #f3f8f4;
+	--color-surface: #ffffff;
+	--color-surface-2: #efeae8;
+	--color-heading: #000000;
+	--color-body: #000000;
+	--color-muted: #5c5856;
+	--color-accent: #162e21;
+	--color-accent-dark: #0f2218;
+	--color-line: #dcd6d3;
+	/** Farol 3 níveis: amarelo (atenção) e vermelho (crítico); verde = --color-accent */
+	--color-farol-yellow: #eab308;
 	--color-farol-red: #ef4444;
 }
 
@@ -37,8 +37,8 @@ body {
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
-	background-color: #0E0E0E;
-	color: #B3B3B3;
+	background-color: var(--color-bg);
+	color: var(--color-body);
 }
 
 body {
@@ -49,9 +49,6 @@ body {
 }
 
 @layer base {
-	h2 {
-		line-height: 1.2;
-	}
 	p {
 		line-height: 1.2;
 	}
@@ -61,6 +58,18 @@ body {
 	/* Many screens use Tailwind's leading-relaxed for body copy */
 	.leading-relaxed {
 		line-height: 1.2;
+	}
+
+	/**
+	 * Fade na base alinhado a `--color-bg` (evita faixa branca em cima do fundo da página).
+	 * Mesmo token usado por `bg-bg` em html/body e layouts.
+	 */
+	.bg-gradient-bottom-fade-white {
+		background-image: linear-gradient(
+			to top,
+			color-mix(in srgb, var(--color-bg) 92%, transparent) 0%,
+			transparent 100%
+		);
 	}
 }
 
@@ -82,7 +91,7 @@ body {
 	animation: shimmer 3s ease-in-out infinite;
 }
 
-/* Range slider: track and thumb aligned with identity (accent #9DBB54, track #272727) */
+/* Range slider: track and thumb use theme tokens */
 input[type='range'] {
 	accent-color: var(--color-accent);
 }
@@ -126,4 +135,19 @@ input[type='range']::-moz-range-thumb {
 	box-shadow: none;
 	cursor: pointer;
 	opacity: 0;
+}
+
+/* Só o CTA “Continuar” no mr-4: esconde até o fim da animação ilustrativa do calendário (10s). */
+.quiz-mr4-cta-delay {
+	display: none;
+}
+
+/* Só o CTA “Continuar” no mr-3: não usar .esconder global — o player VTurb pode usar essa classe no interior. */
+.quiz-mr3-cta-delay {
+	display: none;
+}
+
+/* /results: conteúdo após o vídeo (e faixa fixa) até o VTurb atingir 10s de reprodução — ver VturbPlayer revealHiddenAfterPlayback. */
+.results-vturb-delay {
+	display: none;
 }

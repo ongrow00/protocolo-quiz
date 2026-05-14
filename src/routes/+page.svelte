@@ -39,10 +39,10 @@
 </script>
 
 <svelte:head>
-	<title>Lotz</title>
+	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
-<div class="min-h-screen flex flex-col bg-bg">
+<div class="flex flex-1 flex-col min-h-0">
 	<header class="flex justify-center pt-6 px-4">
 		<Logo />
 	</header>

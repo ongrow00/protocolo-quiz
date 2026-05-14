@@ -96,7 +96,7 @@
 
 <div class="flex flex-col gap-4">
 	<div class="space-y-2">
-		<h2 class="text-2xl font-extrabold text-heading leading-tight">
+		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">
 			{#if question.id === 'body_fat_level'}
 				Qual dessas imagens mais se <span class="text-accent">parece com você agora</span>?
 			{:else if question.id === 'body_fat_goal'}
@@ -178,7 +178,7 @@
 				style="left: {bubblePct}%"
 				aria-hidden="true"
 			>
-				<div class="px-3 py-1 rounded-full bg-black/80 text-white text-xs font-semibold shadow-md ring-1 ring-white/10 backdrop-blur-sm whitespace-nowrap">
+				<div class="px-3 py-1 rounded-full bg-surface text-heading text-xs font-semibold shadow-md ring-1 ring-line backdrop-blur-sm whitespace-nowrap">
 					{currentLabel}
 				</div>
 			</div>
@@ -201,7 +201,7 @@
 				{#each Array.from({ length: STAGES }, (_, i) => i) as i}
 					{@const pct = STAGES <= 1 ? 50 : 10 + (80 * i) / (STAGES - 1)}
 					<span
-						class="absolute rounded-full -translate-x-1/2 -translate-y-1/2 top-1/2 transition-colors {i === stageIndex ? 'bg-white w-[25px] h-[25px] ring-2 ring-accent' : 'bg-[#555] w-[6px] h-[6px]'}"
+						class="absolute rounded-full -translate-x-1/2 -translate-y-1/2 top-1/2 transition-colors {i === stageIndex ? 'bg-heading w-[25px] h-[25px] ring-2 ring-line' : 'bg-muted w-[6px] h-[6px]'}"
 						style="left: {pct}%"
 					></span>
 				{/each}
@@ -209,7 +209,7 @@
 		</div>
 		<!-- Legenda: menor % | Arraste para ajustar | maior % -->
 		<div class="flex flex-col items-center justify-center gap-1">
-			<p class="text-xs text-white text-center">← Arraste para ajustar →</p>
+			<p class="text-xs text-muted text-center">← Arraste para ajustar →</p>
 			<SwipeRightIcon />
 		</div>
 	</div>

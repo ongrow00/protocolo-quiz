@@ -50,7 +50,7 @@
 	const muscleSegmentsAfter = $derived(Math.min(5, Math.max(1, 5 - afterStage)));
 </script>
 
-<div class="oferta-before-after w-full rounded-2xl overflow-hidden">
+<div class="oferta-before-after w-full rounded-2xl overflow-hidden border border-line bg-surface">
 	<!-- Topo: mesmo tamanho de imagem e altura do step antes/depois do quiz (162×110, pt-4 pb-4) -->
 	<div class="relative pt-4 pb-4 min-h-[180px]">
 		<!-- Setas como background (mix-blend para remover o preto da imagem) -->
@@ -108,7 +108,7 @@
 					<span
 						class="h-2.5 flex-1 min-w-0 rounded-sm {i < muscleSegmentsBefore
 							? 'bg-accent'
-							: 'bg-[#333333]'}"
+							: 'bg-line'}"
 					></span>
 				{/each}
 			</div>
@@ -133,7 +133,7 @@
 					<span
 						class="h-2.5 flex-1 min-w-0 rounded-sm {i < muscleSegmentsAfter
 							? 'bg-accent'
-							: 'bg-[#333333]'}"
+							: 'bg-line'}"
 					></span>
 				{/each}
 			</div>

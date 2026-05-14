@@ -3,6 +3,13 @@ export interface ValidationResult {
 	errors: Record<string, string>;
 }
 
+/** Formato básico de e-mail (uso em formulários e pós-quiz). */
+export function isValidEmailFormat(email: string): boolean {
+	const trimmed = email.trim().toLowerCase();
+	if (!trimmed) return false;
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
 export function validateLeadForm(name: string, email: string): ValidationResult {
 	const errors: Record<string, string> = {};
 
@@ -16,7 +23,7 @@ export function validateLeadForm(name: string, email: string): ValidationResult 
 	const trimmedEmail = email.trim().toLowerCase();
 	if (!trimmedEmail) {
 		errors.email = 'E-mail é obrigatório';
-	} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+	} else if (!isValidEmailFormat(trimmedEmail)) {
 		errors.email = 'E-mail inválido';
 	}
 

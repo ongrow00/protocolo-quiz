@@ -48,9 +48,15 @@
 		grid-template-rows: 1fr;
 		grid-template-columns: 1fr;
 		min-height: 0;
+		width: 100%;
+		min-width: 0;
 	}
 	.transition-container > * {
 		grid-row: 1;
 		grid-column: 1;
+		min-width: 0;
+		max-width: 100%;
+		/* visible: rótulos do gráfico (SVG overflow) não são cortados à esquerda/direita */
+		overflow-x: visible;
 	}
 </style>

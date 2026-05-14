@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { fade } from 'svelte/transition';
@@ -24,10 +25,10 @@
 	import QuestionWeightGoal from './QuestionWeightGoal.svelte';
 	import QuestionBodyFatGrid from './QuestionBodyFatGrid.svelte';
 	import TransitionWrapper from './TransitionWrapper.svelte';
+	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
-	import { getMicroResultData } from '$lib/utils/microresult-data';
-
+	import { protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -74,25 +75,117 @@
 
 	const showNextButton = $derived(!isSingleChoiceQuestion);
 
+	/** Demais microresultados (ex.: mr-1). */
+	const MICRORESULT_DEFAULT_CTA_DELAY_MS = 2800;
+
 	/**
-	 * Delay do botão na cascata.
-	 * Conteúdo fica totalmente visível em ~1700ms (chart entra em 800ms, dur 900ms).
-	 * Pausa intencional de ~1100ms depois → botão aparece em 2800ms.
-	 * Isso cria um momento de "assimilação" antes do CTA surgir.
+	 * Delay do fade-in do botão Continuar (microresult).
+	 * mr-2: após o último bullet (Finalização) no gráfico — ver `protocolChartCtaDelayMs`.
+	 * mr-3/mr-4: 0 — CTA controlado por VTurb / calendário.
 	 */
 	const buttonCascadeDelay = $derived.by(() => {
 		if (question?.type !== 'microresult' || !question) return 0;
-		// mr-2 com cardio: cardio box entra em ~1400ms, botão espera mais 800ms
-		if (question.id === 'mr-2') {
-			const data = getMicroResultData(question.id, quiz.answers, quizConfig.questions);
-			const nexo = data?.nexo as { variant?: string; showCardioBox?: boolean } | undefined;
-			return nexo?.showCardioBox ? 3200 : 2800;
-		}
-		return 2800; // mr-1, mr-3, mr-5
+		if (question.id === 'mr-3' || question.id === 'mr-4') return 0;
+		if (question.id === 'mr-2') return protocolChartCtaDelayMs();
+		return MICRORESULT_DEFAULT_CTA_DELAY_MS;
 	});
 
 	/** Lock para evitar duplo clique em Continuar */
 	let advancing = $state(false);
+
+	/** Duração total da sequência do calendário ilustrativo (mr-4) — manter alinhado a `ProtocolCalendarIllustration`. */
+	const MR4_CTA_DELAY_MS = 10_000;
+
+	/** mr-3: mostra “Analisando…” até o VTurb revelar o CTA. */
+	let mr3FooterLoading = $state(false);
+
+	/** mr-4: mostra “Calculando…” até o fim da animação do calendário (10s). */
+	let mr4FooterLoading = $state(false);
+
+	// mr-3: placeholder do rodapé até o vídeo (VTurb) revelar o botão Continuar
+	$effect(() => {
+		if (!browser || !showNextButton || question?.id !== 'mr-3') {
+			mr3FooterLoading = false;
+			return;
+		}
+
+		mr3FooterLoading = true;
+
+		let mo: MutationObserver | null = null;
+		let iv: ReturnType<typeof setInterval> | null = null;
+		let cancelled = false;
+
+		function isCtaWrapVisible(el: HTMLElement): boolean {
+			const st = getComputedStyle(el);
+			if (st.display === 'none') return false;
+			if (st.visibility === 'hidden') return false;
+			if (st.opacity === '0') return false;
+			return true;
+		}
+
+		function stopWatching() {
+			if (mo) {
+				mo.disconnect();
+				mo = null;
+			}
+			if (iv) {
+				clearInterval(iv);
+				iv = null;
+			}
+		}
+
+		function tryReveal(): boolean {
+			const el = document.getElementById('quiz-mr3-cta-wrap');
+			if (!el || cancelled) return false;
+			if (isCtaWrapVisible(el)) {
+				mr3FooterLoading = false;
+				stopWatching();
+				return true;
+			}
+			return false;
+		}
+
+		tick().then(() => {
+			if (cancelled) return;
+			if (tryReveal()) return;
+
+			const el = document.getElementById('quiz-mr3-cta-wrap');
+			if (!el || cancelled) return;
+
+			mo = new MutationObserver(() => {
+				tryReveal();
+			});
+			mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+
+			iv = setInterval(() => {
+				tryReveal();
+			}, 120);
+		});
+
+		return () => {
+			cancelled = true;
+			stopWatching();
+		};
+	});
+
+	// mr-4: CTA só após a animação ilustrativa dos 14 dias (não altera VTurb).
+	$effect(() => {
+		if (!browser || !showNextButton || question?.id !== 'mr-4') {
+			mr4FooterLoading = false;
+			return;
+		}
+
+		mr4FooterLoading = true;
+		let cancelled = false;
+		const t = setTimeout(() => {
+			if (!cancelled) mr4FooterLoading = false;
+		}, MR4_CTA_DELAY_MS);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(t);
+		};
+	});
 
 	// Rede de segurança: quando a navegação termina (afterNavigate), limpa o lock advancing
 	$effect(() => {
@@ -110,15 +203,46 @@
 		return () => clearTimeout(t);
 	});
 
-	// event_date: show selected event name instead of "evento" (e.g. "Qual é a data do casamento?")
-	const eventDateTitle = $derived.by(() => {
-		if (question?.id !== 'event_date') return undefined;
-		const eventTypeId = quiz.answers['event_type'];
-		if (!eventTypeId || typeof eventTypeId !== 'string') return undefined;
-		const eventQuestion = quizConfig.questions.find((q) => q.id === 'event_type');
-		const option = eventQuestion?.options?.find((o) => o.id === eventTypeId);
-		if (!option) return undefined;
-		return `Qual é a data de ${option.text}?`;
+	/** goal_type: min-height em px a partir do viewport real — svh/dvh mudam com a barra do browser (comportamento instável). */
+	let goalTypeMainMinPx = $state<number | null>(null);
+
+	$effect(() => {
+		if (!browser || question?.id !== 'goal_type') {
+			goalTypeMainMinPx = null;
+			return;
+		}
+
+		function measure(): number {
+			const vv = window.visualViewport;
+			return Math.max(window.innerHeight, vv?.height ?? 0, 320);
+		}
+
+		function apply() {
+			goalTypeMainMinPx = Math.ceil(measure()) + 64;
+		}
+
+		function scheduleApply() {
+			tick().then(() => {
+				requestAnimationFrame(() => {
+					requestAnimationFrame(apply);
+				});
+			});
+		}
+
+		scheduleApply();
+		window.addEventListener('resize', scheduleApply);
+		window.addEventListener('orientationchange', scheduleApply);
+		const vv = window.visualViewport;
+		vv?.addEventListener('resize', scheduleApply);
+		vv?.addEventListener('scroll', scheduleApply);
+
+		return () => {
+			window.removeEventListener('resize', scheduleApply);
+			window.removeEventListener('orientationchange', scheduleApply);
+			vv?.removeEventListener('resize', scheduleApply);
+			vv?.removeEventListener('scroll', scheduleApply);
+			goalTypeMainMinPx = null;
+		};
 	});
 
 	// whatsapp: address user by name (e.g. "Maria, qual é o seu WhatsApp?")
@@ -134,14 +258,9 @@
 	const genderSubtextOverride = $derived.by(() => {
 		if (question?.id !== 'gender') return undefined;
 		const goal = quiz.answers['goal_type'];
-		const planLabel = goal === 'goal-massa' ? 'ganho de massa' : 'emagrecimento';
+		const planLabel =
+			goal === 'goal-definir' ? 'definição corporal' : 'emagrecimento';
 		return `Metabolismo, hormônios e resposta ao treino funcionam de formas diferentes. Isso muda seu plano de ${planLabel}.`;
-	});
-
-	// success_metrics: title with "no seu objetivo"
-	const successMetricsTitleOverride = $derived.by(() => {
-		if (question?.id !== 'success_metrics') return undefined;
-		return 'Como você vai saber que está progredindo no seu objetivo?';
 	});
 
 	// All steps use same CTA: "Continuar" with thin arrow on the right
@@ -151,21 +270,16 @@
 		if (navigating.from != null || advancing) return;
 		quizStore.answer(questionId, value);
 		trackQuestionAnswer(questionId, value);
-		if (isSingleChoiceQuestion) {
-			if (!question) return;
-			// Ao selecionar "Nenhum" no evento, vai direto para o carregamento (pula event_date e resto)
-			const selectedEventNenhuma =
-				questionId === 'event_type' &&
-				(value === 'event-nenhuma' || (Array.isArray(value) && value[0] === 'event-nenhuma'));
-			if (selectedEventNenhuma) {
-				queueMicrotask(() => handleNext(null, true));
-				return;
-			}
-			// Calcula próximo com a resposta já aplicada, para não depender de estado reativo no callback
-			const newAnswers = { ...quiz.answers, [questionId]: value };
+
+		const def = quizConfig.questions.find((q) => q.id === questionId);
+		const autoAdvance =
+			def?.type === 'single' || def?.type === 'boolean' || def?.type === 'scale';
+
+		if (autoAdvance) {
+			// Respostas já normalizadas no store (ex.: single + array → string)
+			const newAnswers = get(quizStore).answers;
 			const visible = computeVisibleQuestions(quizConfig.questions, newAnswers);
-			const idx = visible.findIndex((q) => q.id === question.id);
-			// Só passar nextId/isLastStep quando a pergunta atual está na lista (idx >= 0); senão usa reativos após tick
+			const idx = visible.findIndex((q) => q.id === questionId);
 			if (idx >= 0) {
 				const nextQ = visible[idx + 1] ?? null;
 				const isLastStep = idx === visible.length - 1;
@@ -191,9 +305,13 @@
 		if (navigating.from != null || advancing) return;
 
 		const useExplicit = nextIdOrUndefined !== undefined || isLastStep !== undefined;
-		const step = useExplicit
+		let step = useExplicit
 			? { nextId: nextIdOrUndefined ?? null, isLast: isLastStep ?? false }
 			: getNextStepFromStore();
+		/** Evita ficar preso se nextId explícito vier null sem ser último passo (ex.: dessincronia reativa). */
+		if (useExplicit && !step.isLast && (!step.nextId || typeof step.nextId !== 'string')) {
+			step = getNextStepFromStore();
+		}
 		const { nextId, isLast: last } = step;
 
 		if (last) {
@@ -217,26 +335,34 @@
 		}
 	}
 
-	/** Pular a pergunta de data (event_date): não salva data e avança. O fluxo ignora a data daqui em diante. */
-	function skipEventDateAndNext() {
-		if (question?.id !== 'event_date' || advancing || navigating.from != null) return;
-		quizStore.answer('event_date', '');
-		tick().then(() => handleNext());
-	}
 </script>
 
 {#if question}
-	<!-- Question content — extra padding when Next button is visible; info_medication: alinhado no topo -->
+	{@const isGoalType = question.id === 'goal_type'}
+	<!-- goal_type: min-height medido em JS (visualViewport) + fallback CSS — unidades vh/svh/dvh variam com a UI do browser. -->
 	<div
-		class="flex-1 flex flex-col min-h-0 max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} {question.id === 'info_medication'
-			? 'justify-start'
-			: question.type === 'microresult'
-				? 'justify-center'
-				: ''}"
+		class="flex flex-col w-full {isGoalType
+			? 'shrink-0 pb-[calc(14rem+env(safe-area-inset-bottom))]'
+			: 'flex-1 min-h-0'}"
 	>
-		<TransitionWrapper key={question.id}>
+		<!-- Question content — extra padding when Next button is visible; info_medication: alinhado no topo -->
+		<div
+			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} {isGoalType
+				? `flex flex-col shrink-0 ${goalTypeMainMinPx == null ? 'min-h-[92svh] md:min-h-[92vh]' : ''}`
+				: 'flex-1 flex flex-col min-h-0'} {question.id === 'info_medication'
+				? 'justify-start'
+				: question.type === 'microresult'
+					? 'justify-start'
+					: ''}"
+			style={isGoalType && goalTypeMainMinPx != null ? `min-height: ${goalTypeMainMinPx}px` : undefined}
+		>
+			<TransitionWrapper key={question.id}>
 			{#if question.type === 'info'}
-				<InfoScreen {question} center={question.id === 'info_medication'} />
+				<InfoScreen
+					{question}
+					center={question.id === 'info_medication'}
+					textCenter={question.id === 'protocolo_4_etapas'}
+				/>
 			{:else if question.type === 'microresult'}
 				<MicroResultScreen {question} answers={quiz.answers} />
 			{:else if question.type === 'number'}
@@ -247,24 +373,11 @@
 				/>
 			{:else if question.type === 'date'}
 				<div class="flex flex-col gap-4">
-					<QuestionInputDate
-						{question}
-						value={typeof currentAnswer === 'string' ? currentAnswer : undefined}
-						onSelect={(id, val) => handleSelect(id, val)}
-						titleOverride={eventDateTitle}
-					/>
-					{#if question.id === 'event_date'}
-						<div class="flex justify-center pt-1">
-							<button
-								type="button"
-								onclick={skipEventDateAndNext}
-								disabled={advancing}
-								class="text-white text-sm underline disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-							>
-								Pular pergunta
-							</button>
-						</div>
-					{/if}
+				<QuestionInputDate
+					{question}
+					value={typeof currentAnswer === 'string' ? currentAnswer : undefined}
+					onSelect={(id, val) => handleSelect(id, val)}
+				/>
 				</div>
 			{:else if question.type === 'text'}
 				<QuestionInputText
@@ -314,23 +427,105 @@
 					{question}
 					selectedValue={currentAnswer}
 					onSelect={handleSelect}
-					titleOverride={successMetricsTitleOverride}
 					subtextOverride={genderSubtextOverride}
+					genderAnswer={typeof quiz.answers['gender'] === 'string' ? quiz.answers['gender'] : undefined}
 				/>
 			{/if}
-		</TransitionWrapper>
+			</TransitionWrapper>
+		</div>
+
+		{#if isGoalType}
+			<div class="max-w-lg mx-auto w-full px-4 pt-10 pb-2 border-t border-line/70 shrink-0">
+				<LegalFooter />
+			</div>
+		{/if}
 	</div>
 
 	<!-- Fixed bottom box — hidden for single choice. Botão entra na cascata (delay 300ms entre itens) em microresult. -->
 	{#if showNextButton}
-		<div class="fixed bottom-0 left-0 right-0 bg-bg">
-			<div class="max-w-lg mx-auto w-full px-4 pt-4 pb-8">
+		<div
+			class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none"
+		>
+			<div
+				class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto"
+			>
+				{#if question?.id === 'mr-3' && mr3FooterLoading}
+					<div
+						class="mb-3 flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-transparent text-sm font-medium text-body"
+						aria-live="polite"
+						aria-busy="true"
+					>
+						<svg
+							class="h-5 w-5 shrink-0 animate-spin text-accent"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle>
+							<path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path>
+						</svg>
+						<span>Analisando seus dados...</span>
+					</div>
+				{:else if question?.id === 'mr-4' && mr4FooterLoading}
+					<div
+						class="mb-3 flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-transparent text-sm font-medium text-body"
+						aria-live="polite"
+						aria-busy="true"
+					>
+						<svg
+							class="h-5 w-5 shrink-0 animate-spin text-accent"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle>
+							<path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path>
+						</svg>
+						<span>Calculando suas calorias e macros</span>
+					</div>
+				{/if}
+				<div
+					id={question?.id === 'mr-3'
+						? 'quiz-mr3-cta-wrap'
+						: question?.id === 'mr-4'
+							? 'quiz-mr4-cta-wrap'
+							: undefined}
+					class={question?.id === 'mr-3'
+						? 'quiz-mr3-cta-delay'
+						: question?.id === 'mr-4' && mr4FooterLoading
+							? 'quiz-mr4-cta-delay'
+							: ''}
+				>
 			<button
 				type="button"
 				onclick={() => handleNext()}
 				disabled={!canGoNext || navigating.from != null || advancing}
 				class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-				in:fade={{ duration: 400, delay: buttonCascadeDelay }}
+				in:fade={{ duration: 550, delay: buttonCascadeDelay }}
 				out:fade={{ duration: 200 }}
 			>
 				<span>{buttonLabel}</span>
@@ -338,6 +533,7 @@
 					<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
 				</svg>
 			</button>
+				</div>
 			</div>
 		</div>
 	{/if}

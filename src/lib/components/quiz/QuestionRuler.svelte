@@ -51,7 +51,7 @@
 
 <div class="flex flex-col items-center gap-3">
 	<div class="w-full space-y-1 mb-1">
-		<h2 class="text-2xl font-extrabold text-heading leading-tight">{question.text}</h2>
+		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{question.text}</h2>
 		{#if question.subtext}
 			<p class="text-sm text-body leading-relaxed">{question.subtext}</p>
 		{/if}
@@ -89,7 +89,7 @@
 	</div>
 
 	<div class="flex flex-col items-center justify-center gap-1">
-		<p class="text-xs text-white text-center">{hint}</p>
+		<p class="text-xs text-muted text-center">{hint}</p>
 		<SwipeRightIcon />
 	</div>
 </div>

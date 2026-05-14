@@ -3,11 +3,11 @@
 	 * Pilha de avatares sobrepostos: opcionalmente um círculo com iniciais primeiro, depois as fotos em ordem aleatória.
 	 */
 	const AVATAR_SOURCES = [
-		{ src: '/avatars/terdeli.png', alt: 'Terdeli' },
-		{ src: '/avatars/thiago.png', alt: 'Thiago' },
-		{ src: '/avatars/sabrina.png', alt: 'Sabrina' },
-		{ src: '/avatars/leo.png', alt: 'Leo' },
-		{ src: '/avatars/enaldinho.png', alt: 'Enaldinho' }
+		{ src: '/avatars/protocolo-social-1.png', alt: 'Pessoa que iniciou o protocolo' },
+		{ src: '/avatars/protocolo-social-2.png', alt: 'Pessoa que iniciou o protocolo' },
+		{ src: '/avatars/protocolo-social-3.png', alt: 'Pessoa que iniciou o protocolo' },
+		{ src: '/avatars/protocolo-social-4.png', alt: 'Pessoa que iniciou o protocolo' },
+		{ src: '/avatars/protocolo-social-5.png', alt: 'Pessoa que iniciou o protocolo' }
 	] as const;
 
 	/** Shuffle determinístico (mesma ordem no servidor e no cliente) para evitar hydration mismatch. */
@@ -58,7 +58,7 @@
 <div class="flex items-center shrink-0">
 	{#if initials}
 		<div
-			class="rounded-full border border-white/20 overflow-hidden flex-shrink-0 bg-accent/90 flex items-center justify-center font-bold text-bg {sizeClass}"
+			class="rounded-full border border-line overflow-hidden flex-shrink-0 bg-accent/90 flex items-center justify-center font-bold text-bg {sizeClass}"
 			style="margin-left: 0; z-index: {total};"
 			aria-hidden="true"
 		>
@@ -67,7 +67,7 @@
 	{/if}
 	{#each shuffledAvatars as avatar, i (avatar.src)}
 		<div
-			class="rounded-full border border-white/20 overflow-hidden flex-shrink-0 bg-surface {sizeClass}"
+			class="rounded-full border border-line overflow-hidden flex-shrink-0 bg-surface {sizeClass}"
 			style="margin-left: {i === 0 && !initials ? '0' : overlap}; z-index: {total - 1 - i}"
 		>
 			<img src={avatar.src} alt={avatar.alt} class="w-full h-full object-cover" />

@@ -32,7 +32,7 @@
 			<!-- Planos genéricos: barra cinza com texto bem pequeno numa linha -->
 			<div class="flex flex-col items-center gap-0 flex-1 max-w-[100px]">
 				<div
-					class="w-full rounded-t bg-[#272727] flex items-center justify-center min-h-[32px]"
+					class="w-full rounded-t bg-line flex items-center justify-center min-h-[32px]"
 					style="height: 32px;"
 					aria-hidden="true"
 				>
@@ -51,7 +51,7 @@
 					style="height: 96px; min-height: 96px;"
 					aria-hidden="true"
 				>
-					<Logo class="w-10 h-auto text-bg shrink-0" />
+					<Logo class="w-10 h-auto shrink-0" />
 				</div>
 			</div>
 		</div>

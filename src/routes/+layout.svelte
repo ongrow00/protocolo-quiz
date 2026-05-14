@@ -11,8 +11,8 @@
 </script>
 
 <svelte:head>
-	<title>Lotz</title>
-	<meta name="description" content="Protocolo Milimétrico Lotz — seu plano personalizado." />
+	<title>Protocolo Desbloqueio</title>
+	<meta name="description" content="Protocolo Desbloqueio — seu plano personalizado." />
 </svelte:head>
 
 <div class="min-h-screen flex flex-col bg-bg">

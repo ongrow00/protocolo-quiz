@@ -2,8 +2,14 @@
 <html lang="pt-BR">
 	<head>
 		<meta charset="utf-8" />
+		<script>!function(i,n){i._plt=i._plt||(n&&n.timeOrigin?n.timeOrigin+n.now():Date.now())}(window,performance);</script>
+		<!-- VTurb: sem link preload (evita mismatch de credenciais CORS com o player e avisos "preloaded but not used"). -->
+		<link rel="dns-prefetch" href="https://cdn.converteai.net" />
+		<link rel="dns-prefetch" href="https://scripts.converteai.net" />
+		<link rel="dns-prefetch" href="https://images.converteai.net" />
+		<link rel="dns-prefetch" href="https://api.vturb.com.br" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="theme-color" content="#ffffff" />
+		<meta name="theme-color" content="#F3F8F4" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -11,9 +17,38 @@
 			href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&display=swap"
 			rel="stylesheet"
 		/>
+		<script>
+			!(function (f, b, e, v, n, t, s) {
+				if (f.fbq) return;
+				n = f.fbq = function () {
+					n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+				};
+				if (!f._fbq) f._fbq = n;
+				n.push = n;
+				n.loaded = !0;
+				n.version = '2.0';
+				n.queue = [];
+				t = b.createElement(e);
+				t.async = !0;
+				t.src = v;
+				s = b.getElementsByTagName(e)[0];
+				s.parentNode.insertBefore(t, s);
+			})(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+			fbq('init', '1647700406144567');
+			fbq('track', 'PageView');
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<noscript>
+			<img
+				height="1"
+				width="1"
+				style="display: none"
+				src="https://www.facebook.com/tr?id=1647700406144567&ev=PageView&noscript=1"
+				alt=""
+			/>
+		</noscript>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>
