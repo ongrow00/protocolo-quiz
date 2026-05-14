@@ -18,92 +18,163 @@
 		'/testimonials-mr1/slide-08.png'
 	] as const;
 
-	/** Três blocos iguais: scroll nativo + reposição nas bordas permite ir para os dois lados. */
-	const SEGMENTS = 3;
-	const loopSlides = [...slides, ...slides, ...slides] as const;
+	/** Duplicado para loop sem salto (metade do scroll = mesma vista). */
+	const loopSlides = [...slides, ...slides] as const;
+
+	/** Velocidade do auto-scroll (~55s por ciclo com faixa ~3,2k px). */
+	const AUTO_PX_PER_SEC = 58;
 
 	let maskEl = $state<HTMLDivElement | null>(null);
-	let didCenterScroll = $state(false);
-	let edgeJump = $state(false);
+	let edgeJump = false;
+	/** Pausa o avanço automático enquanto o utilizador interage ou há inércia do scroll. */
+	let userPaused = false;
+	let awaitingInertia = false;
+	let resumeTimer: ReturnType<typeof setTimeout> | null = null;
+	let rafId = 0;
+	let lastFrameTime = 0;
+	let reduceMotion = false;
 
-	function segmentWidth(): number {
-		if (!maskEl || maskEl.scrollWidth === 0) return 0;
-		return maskEl.scrollWidth / SEGMENTS;
+	function clearResumeTimer() {
+		if (resumeTimer) {
+			clearTimeout(resumeTimer);
+			resumeTimer = null;
+		}
 	}
 
-	function onMaskScroll() {
+	function resumeAutoSoon() {
+		awaitingInertia = true;
+		clearResumeTimer();
+		resumeTimer = setTimeout(() => {
+			userPaused = false;
+			awaitingInertia = false;
+			resumeTimer = null;
+		}, 1800);
+	}
+
+	function onScrollEndResume() {
+		if (!awaitingInertia) return;
+		clearResumeTimer();
+		userPaused = false;
+		awaitingInertia = false;
+	}
+
+	function halfWidth(): number {
+		if (!maskEl || maskEl.scrollWidth === 0) return 0;
+		return maskEl.scrollWidth / 2;
+	}
+
+	function normalizeScrollLoop() {
 		if (!maskEl || edgeJump) return;
-		const seg = segmentWidth();
-		if (seg <= 0) return;
-		const { scrollLeft, clientWidth } = maskEl;
-		const margin = Math.min(96, seg * 0.12);
-		if (scrollLeft < margin) {
+		const W = halfWidth();
+		if (W <= 0) return;
+		const { scrollLeft } = maskEl;
+		const tol = 1.5;
+		if (scrollLeft >= W - tol) {
 			edgeJump = true;
 			queueMicrotask(() => {
-				if (maskEl) maskEl.scrollLeft += seg;
+				if (!maskEl) {
+					edgeJump = false;
+					return;
+				}
+				while (maskEl.scrollLeft >= W - tol) {
+					maskEl.scrollLeft -= W;
+				}
 				edgeJump = false;
 			});
-		} else if (scrollLeft > seg * (SEGMENTS - 1) - clientWidth - margin) {
+		} else if (scrollLeft <= tol) {
 			edgeJump = true;
 			queueMicrotask(() => {
-				if (maskEl) maskEl.scrollLeft -= seg;
+				if (!maskEl) {
+					edgeJump = false;
+					return;
+				}
+				while (maskEl.scrollLeft <= tol) {
+					maskEl.scrollLeft += W;
+				}
 				edgeJump = false;
 			});
 		}
 	}
 
+	function onPointerDown(e: PointerEvent) {
+		userPaused = true;
+		awaitingInertia = false;
+		clearResumeTimer();
+		(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+	}
+
+	function onPointerUp() {
+		resumeAutoSoon();
+	}
+
 	$effect(() => {
-		if (!maskEl || didCenterScroll) return;
-		const el = maskEl;
-		const ro = new ResizeObserver(() => {
-			if (didCenterScroll) return;
-			const w = el.scrollWidth / SEGMENTS;
-			if (w > 0) {
-				el.scrollLeft = w;
-				didCenterScroll = true;
+		if (!maskEl || typeof window === 'undefined') return;
+		const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+		reduceMotion = mq.matches;
+		const mqHandler = () => {
+			reduceMotion = mq.matches;
+		};
+		mq.addEventListener('change', mqHandler);
+
+		lastFrameTime = performance.now();
+		function frame(now: number) {
+			const el = maskEl;
+			if (el && !userPaused && !reduceMotion) {
+				const dt = Math.min(0.064, Math.max(0, (now - lastFrameTime) / 1000));
+				lastFrameTime = now;
+				el.scrollLeft += AUTO_PX_PER_SEC * dt;
+				const W = el.scrollWidth / 2;
+				if (W > 0 && el.scrollLeft >= W - 2) {
+					el.scrollLeft -= W;
+				}
+			} else {
+				lastFrameTime = now;
 			}
-		});
-		ro.observe(el);
-		requestAnimationFrame(() => {
-			if (!didCenterScroll && el.scrollWidth > 0) {
-				el.scrollLeft = el.scrollWidth / SEGMENTS;
-				didCenterScroll = true;
-			}
-		});
-		return () => ro.disconnect();
+			rafId = requestAnimationFrame(frame);
+		}
+		rafId = requestAnimationFrame(frame);
+		return () => {
+			cancelAnimationFrame(rafId);
+			mq.removeEventListener('change', mqHandler);
+			clearResumeTimer();
+		};
 	});
 </script>
 
 <div class="{compactTop ? 'mt-0' : 'mt-6'} w-full min-w-0 max-w-full">
-	<div role="region" aria-label="Fotos de resultados em sequência">
-		<p class="sr-only">
-			Faixa horizontal com fotos de antes e depois; pode percorrer com o dedo ou o rato para os dois
-			lados.
-		</p>
-		<div
-			bind:this={maskEl}
-			class="marquee-mask marquee-scroll snap-x snap-mandatory rounded-2xl bg-surface-2/20"
-			onscroll={onMaskScroll}
-		>
-			<div class="marquee-track flex w-max gap-3 py-1">
-				{#each loopSlides as src, i (`${i}-${src}`)}
-					{@const idx = i % slides.length}
-					<figure
-						class="marquee-item shrink-0 snap-start overflow-hidden rounded-xl border border-line/80 bg-surface shadow-sm"
-					>
-						<img
-							src={src}
-							alt={i < slides.length
-								? `Comparativo antes e depois, imagem ${idx + 1} de ${slides.length}`
-								: ''}
-							class="block h-[260px] w-[clamp(200px,72vw,260px)] object-cover sm:h-[286px] sm:w-[260px]"
-							loading={i < 4 ? 'eager' : 'lazy'}
-							decoding="async"
-							draggable="false"
-						/>
-					</figure>
-				{/each}
-			</div>
+	<p class="sr-only">
+		Faixa de fotos em movimento contínuo; ao clicar ou tocar e arrastar na horizontal, o deslize automático
+		pausa e retoma depois de soltar ou quando o scroll parar.
+	</p>
+	<div
+		role="region"
+		aria-label="Fotos de resultados em sequência"
+		bind:this={maskEl}
+		class="marquee-mask marquee-scroll rounded-2xl bg-surface-2/20"
+		onscroll={normalizeScrollLoop}
+		onpointerdown={onPointerDown}
+		onpointerup={onPointerUp}
+		onpointercancel={onPointerUp}
+		onscrollend={onScrollEndResume}
+	>
+		<div class="marquee-track flex w-max gap-3 py-1">
+			{#each loopSlides as src, i (`${i}-${src}`)}
+				{@const idx = i % slides.length}
+				<figure
+					class="marquee-item shrink-0 overflow-hidden rounded-xl border border-line/80 bg-surface shadow-sm"
+				>
+					<img
+						src={src}
+						alt={i < slides.length
+							? `Comparativo antes e depois, imagem ${idx + 1} de ${slides.length}`
+							: ''}
+						class="block h-[260px] w-[clamp(200px,72vw,260px)] object-cover sm:h-[286px] sm:w-[260px]"
+						loading={i < 4 ? 'eager' : 'lazy'}
+						decoding="async"
+						draggable="false"
+					/>
+				</figure>
+			{/each}
 		</div>
 	</div>
 
