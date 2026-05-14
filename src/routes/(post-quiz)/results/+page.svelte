@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { env } from '$env/dynamic/public';
@@ -56,6 +57,19 @@
 		if (!hasCompletedQuiz) {
 			goto('/', { replaceState: true });
 		}
+	});
+
+	const RESULTS_VIDEO_HASH = '#video-protocolo';
+
+	afterNavigate(({ to }) => {
+		if (!browser || !to?.url.pathname.startsWith('/results')) return;
+		if (to.url.hash !== RESULTS_VIDEO_HASH) return;
+		void tick().then(() => {
+			document.getElementById('video-protocolo')?.scrollIntoView({
+				behavior: 'smooth',
+				block: 'start'
+			});
+		});
 	});
 
 	const currentKg = $derived.by(() => {
@@ -238,7 +252,8 @@
 		.
 	</p>
 	<div
-		class="w-full max-w-md mx-auto min-w-0"
+		id="video-protocolo"
+		class="scroll-mt-24 w-full max-w-md mx-auto min-w-0"
 		in:fly={{ y: cascadeY, duration: cascadeDur, delay: cascadeGap * 2, easing: cubicOut }}
 	>
 		<VturbPlayer

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import Logo from '$lib/components/ui/Logo.svelte';
@@ -18,45 +18,65 @@
 		stopPostQuizFunnelSync();
 	});
 
-	const POST_QUIZ_STEPS = [
+	/** Passos lineares do funil (sem /plan/bonus: o bónus só abre no 1.º Voltar em /results ou link direto). */
+	const FUNNEL_STEPS = [
 		'/carregando',
 		'/nome',
 		'/whatsapp',
 		'/metabolismo',
-		'/plan/bonus',
 		'/results'
 	] as const;
 
-	const pathname = $derived($page.url.pathname);
-	const currentIndex = $derived(
-		POST_QUIZ_STEPS.findIndex((p) => pathname === p || pathname.startsWith(p + '/'))
-	);
+	const pathname = $derived(page.url.pathname);
+
+	function funnelStepIndex(path: string): number {
+		const idx = FUNNEL_STEPS.findIndex((p) => path === p || path.startsWith(p + '/'));
+		if (idx >= 0) return idx;
+		if (path === '/plan/bonus' || path.startsWith('/plan/bonus/')) return 4;
+		return -1;
+	}
+
+	const currentIndex = $derived(funnelStepIndex(pathname));
 	const stepIndex = $derived(currentIndex >= 0 ? currentIndex : 0);
 	// Nome, WhatsApp e results: barra sempre 100%
 	const progressPercent = $derived(
-		stepIndex >= 1 ? 100 : ((stepIndex + 1) / POST_QUIZ_STEPS.length) * 100
+		stepIndex >= 1 ? 100 : ((stepIndex + 1) / FUNNEL_STEPS.length) * 100
 	);
 
 	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
-	const isMetabolismoPage = $derived(
-		pathname === '/metabolismo' || pathname.startsWith('/metabolismo/')
-	);
 
-	const nextUrl = $derived.by(() => {
-		if (stepIndex >= POST_QUIZ_STEPS.length - 1) return '/';
-		const straight = POST_QUIZ_STEPS[stepIndex + 1];
-		if (isMetabolismoPage && bonusInteracted && straight === '/plan/bonus') {
-			return '/results';
+	/** Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`. */
+	const RESULTS_VIDEO_HREF = '/results#video-protocolo';
+
+	function handlePostQuizContinuar() {
+		const path = page.url.pathname;
+		if (path === '/metabolismo' || path.startsWith('/metabolismo/')) {
+			void goto(RESULTS_VIDEO_HREF);
+			return;
 		}
-		return straight;
-	});
+		const idx = FUNNEL_STEPS.findIndex((p) => path === p || path.startsWith(p + '/'));
+		const i = idx >= 0 ? idx : 0;
+		if (i >= FUNNEL_STEPS.length - 1) return;
+		let dest: string = FUNNEL_STEPS[i + 1];
+		if (dest === '/plan/bonus' || dest.startsWith('/plan/bonus')) {
+			dest = '/results';
+		}
+		if (dest === '/results') {
+			void goto(RESULTS_VIDEO_HREF);
+			return;
+		}
+		void goto(dest);
+	}
 
 	const isResultsPage = $derived(pathname === '/results' || pathname.startsWith('/results/'));
-	/** Voltar: de /results nunca regressa a /plan/bonus — vai direto a /metabolismo. */
+	/** Voltar em /results: 1.ª vez (ainda sem interação no bónus) → /plan/bonus; depois → /metabolismo. */
 	const prevUrl = $derived.by(() => {
 		if (stepIndex <= 0) return '/';
-		if (isResultsPage) return '/metabolismo';
-		return POST_QUIZ_STEPS[stepIndex - 1];
+		if (isResultsPage) {
+			if (!bonusInteracted) return '/plan/bonus';
+			return '/metabolismo';
+		}
+		return FUNNEL_STEPS[stepIndex - 1];
 	});
 
 	const isCarregandoPage = $derived(pathname === '/carregando');
@@ -173,7 +193,7 @@
 		</div>
 
 		{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
-		<StepProgressBar percent={progressPercent} steps={6} />
+		<StepProgressBar percent={progressPercent} steps={5} />
 		{/if}
 	</header>
 
@@ -197,7 +217,7 @@
 		<div class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto">
 		<button
 			type="button"
-			onclick={() => goto(nextUrl)}
+			onclick={handlePostQuizContinuar}
 			disabled={!canAdvance}
 			class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-40 disabled:pointer-events-none"
 		>

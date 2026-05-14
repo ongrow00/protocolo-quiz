@@ -13,7 +13,7 @@ export interface PostQuizState {
 	resultsContentRevealed: boolean;
 	/**
 	 * /plan/bonus: utilizador já respondeu (aceitar ou recusar). Persiste em sessionStorage.
-	 * Evita voltar a mostrar /plan/bonus ao avançar a partir de /metabolismo.
+	 * Usado para: após interação, Voltar em /results vai a /metabolismo (não repete o bónus).
 	 */
 	bonusInteracted: boolean;
 	/**
