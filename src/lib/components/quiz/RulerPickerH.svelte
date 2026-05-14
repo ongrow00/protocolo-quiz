@@ -47,9 +47,24 @@
 
 	const translateX = $derived(-(rawValue - min) * TICK_W);
 
-	function startDrag(x: number) {
+	function pointerClientX(ev: MouseEvent | TouchEvent): number {
+		if ('touches' in ev && ev.touches.length > 0) return ev.touches[0].clientX;
+		return (ev as MouseEvent).clientX;
+	}
+
+	/** Início do gesto: alinha o valor ao ponto tocado (qualquer X) e prepara o arrasto. */
+	function startInteraction(ev: MouseEvent | TouchEvent) {
+		const el = ev.currentTarget as HTMLElement;
+		const x = pointerClientX(ev);
+		const rect = el.getBoundingClientRect();
+		const centerX = rect.left + rect.width / 2;
+		const newRaw = Math.min(max, Math.max(min, value + (centerX - x) / TICK_W));
+		rawValue = newRaw;
+		const snapped = Math.round(newRaw);
+		const prev = value;
+		value = snapped;
+		dragEmittedChange = snapped !== prev;
 		isDragging = true;
-		dragEmittedChange = false;
 		dragStartX = x;
 		dragStartRaw = rawValue;
 	}
@@ -98,29 +113,27 @@
 		if (v % 5 === 0) return 17;
 		return 9;
 	}
-
-	function tickOpacity(v: number): number {
-		if (largeSteps) return 1;
-		if (v % 10 === 0) return 1;
-		if (v % 5 === 0) return 0.65;
-		return 0.35;
-	}
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	class="relative overflow-hidden select-none touch-none"
+	class="relative w-full overflow-hidden select-none touch-none"
 	style="height: {H}px; cursor: {isDragging ? 'grabbing' : 'grab'}"
 	bind:clientWidth={containerWidth}
 	onmousedown={(e) => {
 		e.preventDefault();
-		startDrag(e.clientX);
+		startInteraction(e);
 	}}
 	onmousemove={(e) => moveDrag(e.clientX)}
 	onmouseup={endDrag}
 	onmouseleave={endDrag}
-	ontouchstart={(e) => startDrag(e.touches[0].clientX)}
-	ontouchmove={(e) => moveDrag(e.touches[0].clientX)}
+	ontouchstart={(e) => {
+		if (e.touches.length) startInteraction(e);
+	}}
+	ontouchmove={(e) => {
+		const t = e.touches[0];
+		if (t) moveDrag(t.clientX);
+	}}
 	ontouchend={endDrag}
 	role="slider"
 	aria-valuemin={min}
@@ -137,9 +150,9 @@
 		}
 	}}
 >
-	<!-- Scrolling ruler -->
+	<!-- Scrolling ruler: pointer-events-none para toques/cliques caírem no contentor (área inteira arrastável). -->
 	<div
-		class="absolute top-0 bottom-0 flex items-stretch"
+		class="pointer-events-none absolute top-0 bottom-0 flex items-stretch"
 		style="
 			left: 0;
 			transform: translateX({translateX}px);
@@ -151,7 +164,7 @@
 		<div style="width: {containerWidth / 2}px; flex-shrink: 0"></div>
 
 		{#each ticks as tick}
-			<div class="relative flex-shrink-0" style="width: {TICK_W}px">
+			<div class="relative flex-shrink-0 pointer-events-none" style="width: {TICK_W}px">
 				<!-- Tick line, anchored above the label area -->
 				<div
 					class="absolute rounded-full bg-line"
@@ -161,7 +174,6 @@
 						bottom: {LABEL_H}px;
 						left: 50%;
 						transform: translateX(-50%);
-						opacity: {tickOpacity(tick)};
 					"
 				></div>
 				{#if showTickNumbers && (labelEveryTick || tick % 10 === 0)}
@@ -183,6 +195,13 @@
 		<!-- Right padding: keeps max value reachable at center -->
 		<div style="width: {containerWidth / 2}px; flex-shrink: 0"></div>
 	</div>
+
+	<!-- Linha de demarcação horizontal contínua (largura total, sem fade de opacidade nas marcas) -->
+	<div
+		class="pointer-events-none absolute left-0 right-0 z-[1] bg-line"
+		style="height: 2px; bottom: {LABEL_H}px; border-radius: 1px"
+		aria-hidden="true"
+	></div>
 
 	<!-- Fixed center indicator (vertical green line) -->
 	<div

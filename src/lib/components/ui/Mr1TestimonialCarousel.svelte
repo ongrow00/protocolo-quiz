@@ -18,21 +18,78 @@
 		'/testimonials-mr1/slide-08.png'
 	] as const;
 
-	/** Duplicado para loop contínuo sem salto (translate -50%). */
-	const loopSlides = [...slides, ...slides] as const;
+	/** Três blocos iguais: scroll nativo + reposição nas bordas permite ir para os dois lados. */
+	const SEGMENTS = 3;
+	const loopSlides = [...slides, ...slides, ...slides] as const;
+
+	let maskEl = $state<HTMLDivElement | null>(null);
+	let didCenterScroll = $state(false);
+	let edgeJump = $state(false);
+
+	function segmentWidth(): number {
+		if (!maskEl || maskEl.scrollWidth === 0) return 0;
+		return maskEl.scrollWidth / SEGMENTS;
+	}
+
+	function onMaskScroll() {
+		if (!maskEl || edgeJump) return;
+		const seg = segmentWidth();
+		if (seg <= 0) return;
+		const { scrollLeft, clientWidth } = maskEl;
+		const margin = Math.min(96, seg * 0.12);
+		if (scrollLeft < margin) {
+			edgeJump = true;
+			queueMicrotask(() => {
+				if (maskEl) maskEl.scrollLeft += seg;
+				edgeJump = false;
+			});
+		} else if (scrollLeft > seg * (SEGMENTS - 1) - clientWidth - margin) {
+			edgeJump = true;
+			queueMicrotask(() => {
+				if (maskEl) maskEl.scrollLeft -= seg;
+				edgeJump = false;
+			});
+		}
+	}
+
+	$effect(() => {
+		if (!maskEl || didCenterScroll) return;
+		const el = maskEl;
+		const ro = new ResizeObserver(() => {
+			if (didCenterScroll) return;
+			const w = el.scrollWidth / SEGMENTS;
+			if (w > 0) {
+				el.scrollLeft = w;
+				didCenterScroll = true;
+			}
+		});
+		ro.observe(el);
+		requestAnimationFrame(() => {
+			if (!didCenterScroll && el.scrollWidth > 0) {
+				el.scrollLeft = el.scrollWidth / SEGMENTS;
+				didCenterScroll = true;
+			}
+		});
+		return () => ro.disconnect();
+	});
 </script>
 
 <div class="{compactTop ? 'mt-0' : 'mt-6'} w-full min-w-0 max-w-full">
 	<div role="region" aria-label="Fotos de resultados em sequência">
 		<p class="sr-only">
-			Faixa animada com fotos de antes e depois; o movimento é apenas visual.
+			Faixa horizontal com fotos de antes e depois; pode percorrer com o dedo ou o rato para os dois
+			lados.
 		</p>
-		<div class="marquee-mask overflow-hidden rounded-2xl bg-surface-2/20">
+		<div
+			bind:this={maskEl}
+			class="marquee-mask marquee-scroll snap-x snap-mandatory rounded-2xl bg-surface-2/20"
+			onscroll={onMaskScroll}
+		>
 			<div class="marquee-track flex w-max gap-3 py-1">
 				{#each loopSlides as src, i (`${i}-${src}`)}
 					{@const idx = i % slides.length}
 					<figure
-						class="marquee-item shrink-0 overflow-hidden rounded-xl border border-line/80 bg-surface shadow-sm"
+						class="marquee-item shrink-0 snap-start overflow-hidden rounded-xl border border-line/80 bg-surface shadow-sm"
 					>
 						<img
 							src={src}
@@ -116,33 +173,28 @@
 		mask-image: linear-gradient(90deg, transparent 0%, black 4%, black 96%, transparent 100%);
 	}
 
-	.marquee-track {
-		animation: mr1-marquee 55s linear infinite;
-		will-change: transform;
+	.marquee-scroll {
+		overflow-x: auto;
+		overflow-y: hidden;
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior-x: contain;
+		touch-action: pan-x;
+		scrollbar-width: thin;
 	}
 
-	.marquee-mask:hover .marquee-track {
-		animation-play-state: paused;
+	.marquee-scroll::-webkit-scrollbar {
+		height: 6px;
+	}
+
+	.marquee-scroll::-webkit-scrollbar-thumb {
+		border-radius: 9999px;
+		background: color-mix(in srgb, var(--color-line) 45%, transparent);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
 		.marquee-mask {
 			-webkit-mask-image: none;
 			mask-image: none;
-			overflow-x: auto;
-			scrollbar-width: thin;
-		}
-		.marquee-track {
-			animation: none;
-		}
-	}
-
-	@keyframes mr1-marquee {
-		from {
-			transform: translateX(0);
-		}
-		to {
-			transform: translateX(-50%);
 		}
 	}
 </style>
