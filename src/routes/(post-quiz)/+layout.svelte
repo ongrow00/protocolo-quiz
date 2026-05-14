@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { startPostQuizFunnelSync, stopPostQuizFunnelSync } from '$lib/services/quiz-progress-sync.service';
+	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
+	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
+	import { startPostQuizFunnelSync, stopPostQuizFunnelSync } from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 
 	let { children } = $props();
@@ -18,7 +18,14 @@
 		stopPostQuizFunnelSync();
 	});
 
-	const POST_QUIZ_STEPS = ['/carregando', '/nome', '/whatsapp', '/metabolismo', '/results'] as const;
+	const POST_QUIZ_STEPS = [
+		'/carregando',
+		'/nome',
+		'/whatsapp',
+		'/metabolismo',
+		'/plan/bonus',
+		'/results'
+	] as const;
 
 	const pathname = $derived($page.url.pathname);
 	const currentIndex = $derived(
@@ -29,26 +36,56 @@
 	const progressPercent = $derived(
 		stepIndex >= 1 ? 100 : ((stepIndex + 1) / POST_QUIZ_STEPS.length) * 100
 	);
-	const nextUrl = $derived(
-		stepIndex < POST_QUIZ_STEPS.length - 1
-			? POST_QUIZ_STEPS[stepIndex + 1]
-			: '/'
+
+	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
+	const isMetabolismoPage = $derived(
+		pathname === '/metabolismo' || pathname.startsWith('/metabolismo/')
 	);
-	/** Voltar do primeiro passo pós-quiz: landing (rota /resultado removida). */
-	const prevUrl = $derived(stepIndex > 0 ? POST_QUIZ_STEPS[stepIndex - 1] : '/');
+
+	const nextUrl = $derived.by(() => {
+		if (stepIndex >= POST_QUIZ_STEPS.length - 1) return '/';
+		const straight = POST_QUIZ_STEPS[stepIndex + 1];
+		if (isMetabolismoPage && bonusInteracted && straight === '/plan/bonus') {
+			return '/results';
+		}
+		return straight;
+	});
+
+	const isResultsPage = $derived(pathname === '/results' || pathname.startsWith('/results/'));
+	/** Voltar: de /results nunca regressa a /plan/bonus — vai direto a /metabolismo. */
+	const prevUrl = $derived.by(() => {
+		if (stepIndex <= 0) return '/';
+		if (isResultsPage) return '/metabolismo';
+		return POST_QUIZ_STEPS[stepIndex - 1];
+	});
 
 	const isCarregandoPage = $derived(pathname === '/carregando');
 	const isWhatsappPage = $derived(pathname === '/whatsapp' || pathname.startsWith('/whatsapp/'));
-	const isResultsPage = $derived(pathname === '/results' || pathname.startsWith('/results/'));
+	const isBonusPage = $derived(pathname === '/plan/bonus' || pathname.startsWith('/plan/bonus/'));
 	const hideNavOnThisPage = $derived(isResultsPage);
-	/** Nome, WhatsApp e metabolismo: sem barra — o funil já terminou no quiz (100% no último MR). */
+	const showStandardContinuar = $derived(
+		!isCarregandoPage && !isResultsPage && !isBonusPage
+	);
+	const showBonusDualFooter = $derived(isBonusPage && !isCarregandoPage);
+	const contentSlotBottomPadding = $derived(
+		isCarregandoPage || isResultsPage
+			? 'pb-8'
+			: showBonusDualFooter
+				? 'pb-44'
+				: showStandardContinuar
+					? 'pb-32'
+					: 'pb-8'
+	);
+	/** Nome, WhatsApp, metabolismo e bonus: sem barra de progresso no header. */
 	const hidePostQuizProgressBar = $derived(
 		pathname === '/nome' ||
 			pathname.startsWith('/nome/') ||
 			pathname === '/whatsapp' ||
 			pathname.startsWith('/whatsapp/') ||
 			pathname === '/metabolismo' ||
-			pathname.startsWith('/metabolismo/')
+			pathname.startsWith('/metabolismo/') ||
+			pathname === '/plan/bonus' ||
+			pathname.startsWith('/plan/bonus/')
 	);
 	// Contagem continua do quiz (último passo antes do loading = 13): nome=14, whatsapp=15, metabolismo=16, …
 	const POST_QUIZ_COUNTER_START = 13;
@@ -65,8 +102,20 @@
 
 	const showPostQuizBackButton = $derived(
 		!isCarregandoPage &&
+			!isBonusPage &&
 			(!hideNavOnThisPage || (isResultsPage && $postQuizStore.resultsContentRevealed))
 	);
+
+	/** Destino do “Aceitar desconto”: preço OF002 só com este query na URL. */
+	const ACCEPT_BONUS_RESULTS_HREF = '/results?offer=OF002';
+
+	function acceptBonusDiscount() {
+		postQuizStore.acceptBonusDiscount();
+	}
+
+	function declineBonusDiscount() {
+		void goto(prevUrl);
+	}
 
 	$effect(() => {
 		if (!isResultsPage) postQuizStore.resetResultsContentRevealed();
@@ -124,7 +173,7 @@
 		</div>
 
 		{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
-		<StepProgressBar percent={progressPercent} steps={5} />
+		<StepProgressBar percent={progressPercent} steps={6} />
 		{/if}
 	</header>
 
@@ -134,7 +183,7 @@
 				<div
 					in:fly={{ x: 30, duration: 260, delay: 40 }}
 					out:fly={{ x: -30, duration: 180 }}
-					class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {isCarregandoPage ? 'pb-8' : hideNavOnThisPage ? 'pb-8' : 'pb-32'}"
+					class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {contentSlotBottomPadding}"
 					style="pointer-events: auto;"
 				>
 					{@render children()}
@@ -143,7 +192,7 @@
 		</div>
 	</main>
 
-	{#if !hideNavOnThisPage && !isCarregandoPage}
+	{#if showStandardContinuar}
 	<div class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none">
 		<div class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto">
 		<button
@@ -157,6 +206,27 @@
 				<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
 			</svg>
 		</button>
+		</div>
+	</div>
+	{/if}
+
+	{#if showBonusDualFooter}
+	<div class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none">
+		<div class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto flex flex-col gap-3">
+			<a
+				href={ACCEPT_BONUS_RESULTS_HREF}
+				onclick={acceptBonusDiscount}
+				class="w-full h-[60px] flex items-center justify-center rounded-2xl font-bold text-base no-underline bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+			>
+				Aceitar desconto
+			</a>
+			<button
+				type="button"
+				onclick={declineBonusDiscount}
+				class="w-full h-[60px] flex items-center justify-center rounded-2xl font-bold text-base border-2 border-accent bg-transparent text-accent transition-all duration-200 active:scale-[0.98] hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+			>
+				Recusar desconto
+			</button>
 		</div>
 	</div>
 	{/if}

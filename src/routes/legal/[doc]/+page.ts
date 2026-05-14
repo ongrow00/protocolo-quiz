@@ -1,13 +1,8 @@
 import { error } from '@sveltejs/kit';
+import { LEGAL_DOCS } from '$lib/data/legal-docs';
 
-const ALLOWED = new Set([
-	'termos-de-uso',
-	'politica-de-privacidade',
-	'politica-de-assinatura',
-	'garantia-de-reembolso'
-]);
-
-export function load({ params }) {
-	if (!ALLOWED.has(params.doc)) error(404, 'Página não encontrada');
-	return { doc: params.doc };
+export function load({ params }: { params: { doc: string } }) {
+	const doc = LEGAL_DOCS[params.doc];
+	if (!doc) error(404, 'Página não encontrada');
+	return { doc: params.doc, ...doc };
 }

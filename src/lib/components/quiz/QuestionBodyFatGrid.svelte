@@ -3,7 +3,7 @@
 	import type { Question } from '$lib/data/types';
 	import { BODY_FAT_IMAGES } from '$lib/assets/body-fat-images';
 	import { BODY_FAT_STAGES, BODY_FAT_LABELS } from '$lib/assets/body-fat-config';
-	import arrowsBetweenUrl from '$lib/assets/body-fat/arrows-between.png';
+	import arrowsBetweenUrl from '$lib/assets/body-fat/arrow.svg?url';
 	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
 	/** Map gender answer to image prefix: gender-m -> H, gender-f -> M */
@@ -111,35 +111,42 @@
 	</div>
 
 	{#if isGoalStep}
-		<!-- Step 2 (objetivo): mesma altura/espaçamento e tamanho de imagem que o step 1. -->
-		<div class="relative flex flex-1 min-h-0 items-center justify-between gap-0 w-full rounded-lg px-[10%] overflow-hidden pt-4 pb-4">
-			<!-- Background: setas centralizadas, 30% opacidade, visível atrás das imagens -->
-			<div
-				class="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30 mix-blend-screen pointer-events-none"
-				style="background-image: url('{arrowsBetweenUrl}'); background-size: 28vh auto;"
+		<!-- Step 2 (objetivo): setas em camada atrás (z-0); silhuetas por cima (z-10). <img> para o SVG evita falha de background-image no WebKit. -->
+		<div
+			class="relative isolate flex flex-1 min-h-0 w-full items-center justify-between gap-0 overflow-hidden rounded-lg px-[10%] pt-4 pb-4"
+		>
+			<img
+				src={arrowsBetweenUrl}
+				alt=""
+				class="pointer-events-none absolute left-[calc(50%-0.75rem)] top-1/2 z-0 max-h-[min(7.5rem,28vh)] w-auto max-w-[min(24rem,88vw)] -translate-x-1/2 -translate-y-1/2 select-none object-contain object-center opacity-50"
+				loading="eager"
+				decoding="async"
+				draggable="false"
 				aria-hidden="true"
-			></div>
-			<div class="relative z-10 flex flex-1 min-h-0 items-center justify-start shrink-0">
+			/>
+			<div class="relative z-10 flex min-h-0 flex-1 shrink-0 items-center justify-start">
 				{#if beforeImageSrc}
-					<div class="w-[162px] h-[110px] flex items-center justify-center shrink-0">
+					<div class="flex h-[110px] w-[162px] shrink-0 items-center justify-center">
 						<img
 							src={beforeImageSrc}
 							alt="Silhueta antes"
-							class="w-full h-full object-contain object-center transition-opacity duration-200 grayscale"
+							class="h-full w-full object-contain object-center transition-opacity duration-200 grayscale"
 							loading="eager"
+							draggable="false"
 						/>
 					</div>
 				{/if}
 			</div>
-			<div class="relative z-10 shrink-0 w-4" aria-hidden="true"></div>
-			<div class="relative z-10 flex flex-1 min-h-0 items-center justify-end shrink-0">
+			<div class="relative z-10 w-4 shrink-0" aria-hidden="true"></div>
+			<div class="relative z-10 flex min-h-0 flex-1 shrink-0 items-center justify-end">
 				{#if afterImageSrc}
-					<div class="w-[162px] h-[110px] flex items-center justify-center shrink-0">
+					<div class="flex h-[110px] w-[162px] shrink-0 items-center justify-center">
 						<img
 							src={afterImageSrc}
 							alt="Silhueta depois"
-							class="w-full h-full object-contain object-center transition-opacity duration-200"
+							class="h-full w-full object-contain object-center transition-opacity duration-200"
 							loading="eager"
+							draggable="false"
 						/>
 					</div>
 				{/if}

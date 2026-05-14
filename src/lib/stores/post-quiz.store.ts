@@ -11,6 +11,16 @@ export interface PostQuizState {
 	 * Não vai para sessionStorage — só memória na visita atual.
 	 */
 	resultsContentRevealed: boolean;
+	/**
+	 * /plan/bonus: utilizador já respondeu (aceitar ou recusar). Persiste em sessionStorage.
+	 * Evita voltar a mostrar /plan/bonus ao avançar a partir de /metabolismo.
+	 */
+	bonusInteracted: boolean;
+	/**
+	 * /plan/bonus: utilizador aceitou o desconto extra (+20%). Persiste em sessionStorage.
+	 * Quando true, a página de resultados mostra R$37 e parcela 6x R$9,00.
+	 */
+	bonusDiscountAccepted: boolean;
 }
 
 const SESSION_KEY = 'lotz-post-quiz-state';
@@ -19,7 +29,9 @@ const INITIAL: PostQuizState = {
 	name: '',
 	whatsapp: '',
 	clickedComecarAgora: false,
-	resultsContentRevealed: false
+	resultsContentRevealed: false,
+	bonusInteracted: false,
+	bonusDiscountAccepted: false
 };
 
 function loadFromSession(): PostQuizState {
@@ -32,7 +44,9 @@ function loadFromSession(): PostQuizState {
 			name: typeof parsed.name === 'string' ? parsed.name : '',
 			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
 			clickedComecarAgora: parsed.clickedComecarAgora === true,
-			resultsContentRevealed: false
+			resultsContentRevealed: false,
+			bonusInteracted: parsed.bonusInteracted === true,
+			bonusDiscountAccepted: parsed.bonusDiscountAccepted === true
 		};
 	} catch {
 		return INITIAL;
@@ -47,7 +61,9 @@ function saveToSession(state: PostQuizState): void {
 			JSON.stringify({
 				name: state.name,
 				whatsapp: state.whatsapp,
-				clickedComecarAgora: state.clickedComecarAgora
+				clickedComecarAgora: state.clickedComecarAgora,
+				bonusInteracted: state.bonusInteracted,
+				bonusDiscountAccepted: state.bonusDiscountAccepted
 			})
 		);
 	} catch {
@@ -84,6 +100,26 @@ function createPostQuizStore() {
 
 		resetResultsContentRevealed() {
 			update((s) => (s.resultsContentRevealed ? { ...s, resultsContentRevealed: false } : s));
+		},
+
+		acceptBonusDiscount() {
+			update((s) =>
+				persist({
+					...s,
+					bonusInteracted: true,
+					bonusDiscountAccepted: true
+				})
+			);
+		},
+
+		declineBonusDiscount() {
+			update((s) =>
+				persist({
+					...s,
+					bonusInteracted: true,
+					bonusDiscountAccepted: false
+				})
+			);
 		},
 
 		reset() {

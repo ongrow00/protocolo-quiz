@@ -50,7 +50,7 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex w-full flex-col items-center px-1">
+	<div class="mt-4 mb-[50px] flex w-full flex-col items-center px-1">
 		<p class="sr-only">
 			Fotos de pessoas que iniciaram o protocolo. Nota média 4,87 de 5 estrelas. Mais de 85 mil já
 			iniciaram o protocolo.

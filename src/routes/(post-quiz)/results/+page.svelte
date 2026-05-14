@@ -2,11 +2,11 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { env } from '$env/dynamic/public';
 	import { quizStore } from '$lib/stores/quiz.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
-	import OfertaBeforeAfter from '$lib/components/oferta/OfertaBeforeAfter.svelte';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
@@ -16,6 +16,13 @@
 
 	const quiz = $derived($quizStore);
 	const name = $derived($postQuizStore.name);
+
+	/** Primeiro token do nome (ex.: saudação "Maria, ..."). */
+	const firstName = $derived.by(() => {
+		const n = (name || '').trim();
+		if (!n) return '';
+		return n.split(/\s+/)[0] ?? '';
+	});
 
 	type VturbPlayerConfig = {
 		smartplayerId: string;
@@ -50,22 +57,6 @@
 			goto('/', { replaceState: true });
 		}
 	});
-
-	const bodyFatLevel = $derived.by(() => {
-		const v = quiz.answers['body_fat_level'];
-		if (v == null) return null;
-		const n = typeof v === 'string' ? parseInt(v, 10) : Array.isArray(v) ? parseInt(String(v[0]), 10) : Number(v);
-		return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : null;
-	});
-	const bodyFatGoal = $derived.by(() => {
-		const v = quiz.answers['body_fat_goal'];
-		if (v == null) return null;
-		const n = typeof v === 'string' ? parseInt(v, 10) : Array.isArray(v) ? parseInt(String(v[0]), 10) : Number(v);
-		return Number.isFinite(n) ? Math.min(5, Math.max(0, n)) : null;
-	});
-	const genderAnswer = $derived(
-		typeof quiz.answers['gender'] === 'string' ? quiz.answers['gender'] : undefined
-	);
 
 	const currentKg = $derived.by(() => {
 		const raw = quiz.answers['weight_current_kg'];
@@ -106,14 +97,14 @@
 		return Number.isFinite(d.getTime()) ? formatDate(d) : null;
 	});
 
-	const kgToLose = $derived.by(() => {
-		if (currentKg != null && goalKg != null && currentKg >= goalKg) return currentKg - goalKg;
-		return null;
-	});
-
 	const goalLabel = $derived(
 		quiz.answers['goal_type'] === 'goal-definir' ? 'definir o corpo' : 'emagrecer'
 	);
+
+	/** Preço extra + tag só com ?offer=OF002 na URL (ex.: link de campanha ou após aceitar bónus). */
+	const showOf002Offer = $derived($page.url.searchParams.get('offer') === 'OF002');
+	const offerMainPrice = $derived(showOf002Offer ? 'R$37,00' : 'R$47,00');
+	const offerInstallmentLabel = $derived(showOf002Offer ? '6x de R$9,00' : '6x de R$7,83');
 
 	// Itens "Suas especificidades": só mostram se o usuário escolheu no quiz
 	const showAdaptacao = $derived.by(() => {
@@ -219,10 +210,11 @@
 
 <div class="flex flex-col gap-2.5 w-full min-w-0 min-h-full bg-bg text-center">
 	<h1
-		class="text-2xl font-extrabold text-heading leading-6 min-w-0"
+		class="text-2xl font-medium text-heading leading-[24px] text-center px-1 [&_strong]:font-extrabold"
 		in:fly={{ y: cascadeY, duration: cascadeDur, delay: 0, easing: cubicOut }}
 	>
-		Assista o video para entender como acessar seu protocolo para <span class="text-accent">{goalLabel}</span>.
+		<strong>Assista o video</strong> para entender como acessar <strong>seu protocolo</strong> para
+		<strong class="text-accent">{goalLabel}</strong>.
 	</h1>
 	<p
 		class="text-sm text-body leading-[14px] max-w-md mx-auto min-w-0"
@@ -284,33 +276,57 @@
 	>
 		Acessar Protocolo
 	</button>
-	<h2 class="mt-[50px] py-[10px] text-2xl font-extrabold text-heading leading-[24px] text-center">
-		{#if name.trim()}
-			<span class="text-accent">{name.trim()}</span>, seu protocolo de desbloqueio feito para perder até
-		{:else}
-			Seu protocolo de desbloqueio feito para perder até
-		{/if}
-		{#if kgToLose != null}
-			<span class="text-accent font-bold">{kgToLose}kg</span>
-		{:else}
-			<span class="text-accent font-bold">—</span>
-		{/if}
-		.
-	</h2>
-	<OfertaBeforeAfter
-		bodyFatLevel={bodyFatLevel}
-		bodyFatGoal={bodyFatGoal}
-		genderAnswer={genderAnswer}
-		weightCurrentKg={currentKg}
-		weightGoalKg={goalKg}
-	/>
+
+	<section
+		class="w-full max-w-md mx-auto mt-3 mb-1 flex flex-col gap-4 py-[50px]"
+		aria-labelledby="profissional-saude-heading"
+	>
+		<h2
+			id="profissional-saude-heading"
+			class="text-2xl font-medium text-heading leading-[24px] text-center px-1 [&_strong]:font-extrabold"
+		>
+			{#if firstName}
+				<strong>{firstName}</strong>, seu protocolo é assinado por um <strong>profissional da saúde</strong>
+			{:else}
+				Seu protocolo é assinado por um <strong>profissional da saúde</strong>
+			{/if}
+		</h2>
+		<div
+			class="overflow-hidden rounded-2xl border border-line/40 bg-surface text-left shadow-sm"
+		>
+			<div class="bg-accent-dark px-4 py-2.5 text-center">
+				<p class="text-[10px] font-bold uppercase tracking-[0.12em] text-bg">
+					Protocolo assinado por
+				</p>
+			</div>
+			<div class="flex items-center gap-4 p-4 sm:p-5">
+				<div
+					class="relative size-[72px] shrink-0 overflow-hidden rounded-full border border-line/60 bg-surface-2"
+				>
+					<img
+						src="/avatars/lucas-rabelo-profissional.png"
+						alt="Foto de Lucas Rabelo"
+						class="size-full object-cover object-center"
+						width="72"
+						height="72"
+						loading="lazy"
+						decoding="async"
+					/>
+				</div>
+				<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span class="text-base font-bold text-heading leading-tight">Lucas Rabelo</span>
+					<span class="text-sm font-normal text-muted leading-snug">CRN 458.787.445</span>
+				</div>
+			</div>
+		</div>
+	</section>
 
 	<div id="secao-acessar-protocolo" class="flex flex-col items-center gap-2.5 scroll-mt-4 mt-5 py-[10px]">
 		<div class="flex justify-center">
 			<AvatarStack initials={nameInitials} size="md" />
 		</div>
-		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">
-			Seu protocolo está te esperando.
+		<h2 class="text-2xl font-medium text-heading leading-[24px] [&_strong]:font-extrabold">
+			<strong>Seu protocolo</strong> está te esperando.
 		</h2>
 		<p class="text-sm text-body leading-[14px] max-w-md mx-auto">
 			Você recebe todos esses itens ao contratar seu protocolo para emagrecer agora.
@@ -323,16 +339,25 @@
 		class="bloco-preco-shimmer relative w-full flex flex-col gap-2.5 text-left rounded-2xl border-[2px] border-accent bg-accent overflow-hidden mt-2.5"
 	>
 		<div class="flex flex-col gap-5 p-5 mx-0.5 mt-0.5 mb-0.5 rounded-2xl overflow-hidden border border-line/30 bg-surface">
-			<!-- Header: título + R$47,00 e R$197 na mesma linha -->
+			<!-- Header: título + preço (+ 20% OFF à direita se ?offer=OF002) e R$197 -->
 			<div class="flex flex-col gap-2.5">
 				<h3 class="text-lg font-extrabold text-heading leading-snug">
 					Protocolo de desbloqueio{name.trim() ? ` ${name.trim()}` : ''}
 				</h3>
 				<div class="flex items-center justify-between gap-3 flex-wrap">
-					<span class="text-[32px] font-extrabold text-heading leading-none">R$47,00</span>
+					<div class="flex flex-wrap items-center gap-2 min-w-0">
+						<span class="text-[32px] font-extrabold text-heading leading-none">{offerMainPrice}</span>
+						{#if showOf002Offer}
+							<span
+								class="inline-flex shrink-0 rounded-md border border-accent bg-accent/15 px-2 py-0.5 text-xs font-extrabold tracking-tight text-accent"
+							>
+								+ 20% OFF
+							</span>
+						{/if}
+					</div>
 					<span class="text-base text-heading line-through shrink-0">R$197</span>
 				</div>
-				<span class="text-sm text-muted">ou 6x de R$7,83</span>
+				<span class="text-sm text-muted">ou {offerInstallmentLabel}</span>
 			</div>
 
 			<!-- Divider -->
@@ -347,7 +372,7 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5">
+					<div class="flex flex-col gap-[3px]">
 						<span class="text-sm font-bold text-heading">Protocolo de Desbloqueio Personalizado</span>
 						<span class="text-xs text-muted leading-relaxed">Calculado com base no seu metabolismo, objetivo, rotina e respostas do teste.</span>
 					</div>
@@ -356,7 +381,7 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15v2c0 1.1-.9 2-2 2h-4a2 2 0 0 1-2-2v-2"/><path d="M17 15V2"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5">
+					<div class="flex flex-col gap-[3px]">
 						<span class="text-sm font-bold text-heading">Plano Alimentar Personalizado</span>
 						<span class="text-xs text-muted leading-relaxed">Com alimentos simples e adaptados ao seu dia a dia para acelerar o emagrecimento.</span>
 					</div>
@@ -365,7 +390,7 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5 min-w-0 flex-1">
+					<div class="flex flex-col gap-[3px] min-w-0 flex-1">
 						<span class="text-sm font-bold text-heading">Acesso ao Aplicativo</span>
 						<span class="text-xs text-muted leading-relaxed">Seu protocolo disponível na palma da sua mão.</span>
 					</div>
@@ -374,7 +399,7 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5">
+					<div class="flex flex-col gap-[3px]">
 						<span class="text-sm font-bold text-heading">Acompanhamento pelo WhatsApp</span>
 						<span class="text-xs text-muted leading-relaxed">Suporte direto da equipe durante todo o protocolo para acompanhar sua evolução.</span>
 					</div>
@@ -383,10 +408,10 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5 min-w-0 flex-1">
-						<div class="flex items-center justify-between gap-3 min-w-0">
-							<span class="text-sm font-bold text-heading min-w-0 text-left">Mapa dos 14 Dias</span>
-							<div class="flex shrink-0 items-center gap-2">
+					<div class="flex flex-col gap-[3px] min-w-0 flex-1">
+						<div class="flex flex-wrap items-center gap-2 min-w-0 text-left">
+							<span class="text-sm font-bold text-heading">Mapa dos 14 Dias</span>
+							<div class="inline-flex shrink-0 items-center gap-2">
 								<span class="inline-flex w-fit rounded-lg border border-line bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-heading">Bônus</span>
 								<span class="text-sm font-bold tabular-nums text-red-500" aria-hidden="true">{countdownDisplay}</span>
 							</div>
@@ -398,10 +423,10 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5 min-w-0 flex-1">
-						<div class="flex items-center justify-between gap-3 min-w-0">
-							<span class="text-sm font-bold text-heading min-w-0 text-left">Guia do Fim de Semana</span>
-							<div class="flex shrink-0 items-center gap-2">
+					<div class="flex flex-col gap-[3px] min-w-0 flex-1">
+						<div class="flex flex-wrap items-center gap-2 min-w-0 text-left">
+							<span class="text-sm font-bold text-heading">Guia do Fim de Semana</span>
+							<div class="inline-flex shrink-0 items-center gap-2">
 								<span class="inline-flex w-fit rounded-lg border border-line bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-heading">Bônus</span>
 								<span class="text-sm font-bold tabular-nums text-red-500" aria-hidden="true">{countdownDisplay}</span>
 							</div>
@@ -413,7 +438,7 @@
 					<span class="w-[15px] h-[15px] shrink-0 mt-1.5 text-heading" aria-hidden="true">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 					</span>
-					<div class="flex flex-col gap-2.5">
+					<div class="flex flex-col gap-[3px]">
 						<span class="text-sm font-bold text-heading">Garantia Total de 14 Dias</span>
 						<span class="text-xs text-muted leading-relaxed">Faça o protocolo completo. Se não tiver resultado, devolvemos 100% do seu dinheiro.</span>
 					</div>
@@ -442,9 +467,9 @@
 							class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 {toggleAdaptacao ? 'left-[18px]' : 'left-0.5'}"
 						></span>
 					</button>
-					<div class="flex flex-col gap-2.5 min-w-0">
+					<div class="flex flex-col gap-0 min-w-0">
 						<span class="text-sm font-bold text-heading">Adaptação ao tratamento</span>
-						<span class="text-xs text-muted leading-[19.5px]">Treino alinhado ao uso de medicamentos como <span class="text-accent">Mounjaro</span> ou <span class="text-accent">Ozempic</span>.</span>
+						<span class="text-xs text-muted leading-[12px]">Treino alinhado ao uso de medicamentos como <span class="text-accent">Mounjaro</span> ou <span class="text-accent">Ozempic</span>.</span>
 					</div>
 				</li>
 				{/if}
@@ -517,8 +542,8 @@
 		class="w-full h-auto object-contain mt-2.5"
 	/>
 
-	<h2 class="pt-[25px] text-2xl font-extrabold text-heading leading-[24px] text-center">
-		Veja o resultado de algumas pessoas que aplicaram o Protocolo Desbloqueio.
+	<h2 class="pt-[50px] text-2xl font-medium text-heading leading-[24px] text-center [&_strong]:font-extrabold">
+		Veja o resultado de algumas pessoas que aplicaram o <strong>Protocolo Desbloqueio</strong>.
 	</h2>
 
 	<div class="mt-2.5 w-full min-w-0 max-w-full overflow-hidden">
@@ -550,8 +575,11 @@
 
 	<!-- Perguntas Frequentes -->
 	<section class="w-full flex flex-col gap-2.5 text-center" aria-labelledby="faq-heading">
-		<h2 id="faq-heading" class="mt-[25px] mb-2.5 pt-[25px] text-2xl font-extrabold text-heading leading-[24px]">
-			Perguntas Frequentes
+		<h2
+			id="faq-heading"
+			class="mt-[25px] mb-2.5 pt-[25px] text-2xl font-medium text-heading leading-[24px] [&_strong]:font-extrabold"
+		>
+			<strong>Perguntas Frequentes</strong>
 		</h2>
 		<p class="text-sm text-body leading-[14px] max-w-md mx-auto pb-2.5">
 			Aqui estão algumas das perguntas que mais recebemos sobre o protocolo de desbloqueio.
@@ -646,33 +674,27 @@
 		animation-delay: 0.05s;
 	}
 	.results-vturb-delay > :nth-child(3) {
-		animation-delay: 0.11s;
-	}
-	.results-vturb-delay > :nth-child(4) {
-		animation-delay: 0.17s;
-	}
-	.results-vturb-delay > :nth-child(5) {
 		animation-delay: 0.23s;
 	}
-	.results-vturb-delay > :nth-child(6) {
+	.results-vturb-delay > :nth-child(4) {
 		animation-delay: 0.29s;
 	}
-	.results-vturb-delay > :nth-child(7) {
+	.results-vturb-delay > :nth-child(5) {
 		animation-delay: 0.35s;
 	}
-	.results-vturb-delay > :nth-child(8) {
+	.results-vturb-delay > :nth-child(6) {
 		animation-delay: 0.41s;
 	}
-	.results-vturb-delay > :nth-child(9) {
+	.results-vturb-delay > :nth-child(7) {
 		animation-delay: 0.47s;
 	}
-	.results-vturb-delay > :nth-child(10) {
+	.results-vturb-delay > :nth-child(8) {
 		animation-delay: 0.53s;
 	}
-	.results-vturb-delay > :nth-child(11) {
+	.results-vturb-delay > :nth-child(9) {
 		animation-delay: 0.59s;
 	}
-	.results-vturb-delay > :nth-child(12) {
+	.results-vturb-delay > :nth-child(10) {
 		animation-delay: 0.65s;
 	}
 	@media (prefers-reduced-motion: reduce) {

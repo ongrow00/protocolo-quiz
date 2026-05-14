@@ -154,7 +154,7 @@ async function flushPostQuizFunnelOnce(): Promise<void> {
 	}
 }
 
-/** Em /carregando, /nome, /whatsapp, /metabolismo, /results: mantém respostas + nome + WhatsApp no Supabase. */
+/** Em /carregando, /nome, /whatsapp, /metabolismo, /plan/bonus, /results: mantém respostas + nome + WhatsApp no Supabase. */
 export function startPostQuizFunnelSync(): void {
 	if (!browser) return;
 	stopPostQuizFunnelSync();

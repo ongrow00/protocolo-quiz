@@ -7,8 +7,8 @@
 	--color-heading: #000000;
 	--color-body: #000000;
 	--color-muted: #5c5856;
-	--color-accent: #162e21;
-	--color-accent-dark: #0f2218;
+	--color-accent: rgba(22, 46, 33, 1);
+	--color-accent-dark: rgba(15, 34, 24, 1);
 	--color-line: #dcd6d3;
 	/** Farol 3 níveis: amarelo (atenção) e vermelho (crítico); verde = --color-accent */
 	--color-farol-yellow: #eab308;

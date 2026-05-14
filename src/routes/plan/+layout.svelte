@@ -63,6 +63,7 @@
 
 	async function handleBack() {
 		if (navigating.from != null || goingBack) return;
+
 		// Calcula alvo no momento do clique a partir do store (evita dessincronia com $prevQuestion)
 		const state = get(quizStore);
 		if (!state.currentQuestionId) {
@@ -77,6 +78,7 @@
 			await goto('/');
 			return;
 		}
+
 		goingBack = true;
 		try {
 			quizStore.goTo(targetId);
@@ -128,7 +130,9 @@
 
 <div aria-hidden="true" class="hidden" style="display: none"></div>
 
-{@render children()}
+<div class="flex min-h-0 w-full flex-1 flex-col">
+	{@render children()}
+</div>
 
 {#if isGoalTypeScreen}
 	<div
