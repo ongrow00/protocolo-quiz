@@ -4,17 +4,38 @@
 	const SMARTPLAYER_WC_SRC =
 		'https://scripts.converteai.net/lib/js/smartplayer-wc/v4/smartplayer.js';
 
+	export type RevealHiddenAfterPlayback = {
+		seconds: number;
+		selectors: string[];
+		/** Se false, o lead precisa assistir de novo em cada visita (recomendado em páginas dedicadas). */
+		persist?: boolean;
+	};
+
 	interface Props {
 		playerId: string;
 		scriptSrc: string;
-		/** Mesma API do mr-3: elementos com `display:none` (ex.: `.results-vturb-delay`) só aparecem após N s de reprodução. */
-		revealHiddenAfterPlayback?: { seconds: number; selectors: string[] };
+		/** Elementos com `display:none` (ex.: `.results-vturb-delay`) só aparecem após N s de reprodução. */
+		revealHiddenAfterPlayback?: RevealHiddenAfterPlayback;
+		/** Disparado quando o VTurb revela os seletores configurados. */
+		onReveal?: () => void;
 	}
 
-	let { playerId, scriptSrc, revealHiddenAfterPlayback }: Props = $props();
+	let { playerId, scriptSrc, revealHiddenAfterPlayback, onReveal }: Props = $props();
 
 	let hostEl: HTMLDivElement | undefined = $state();
+	let playerEl: HTMLElement | undefined = $state();
+	let playerMounted = $state(false);
 	let playerReady = $state(false);
+
+	type SmartPlayerEl = HTMLElement & {
+		displayHiddenElements?: (
+			seconds: number,
+			selectors: string[],
+			opts: { persist: boolean }
+		) => void;
+		addEventListener: (type: string, fn: () => void) => void;
+		removeEventListener: (type: string, fn: () => void) => void;
+	};
 
 	function loadScriptTag(src: string): Promise<void> {
 		return new Promise((resolve, reject) => {
@@ -31,9 +52,14 @@
 					src === SMARTPLAYER_WC_SRC &&
 					typeof customElements !== 'undefined' &&
 					!!customElements.get('vturb-smartplayer');
-				if (alreadyOk) { finish(); return; }
+				if (alreadyOk) {
+					finish();
+					return;
+				}
 				existing.addEventListener('load', finish, { once: true });
-				existing.addEventListener('error', () => reject(new Error(`Script failed: ${src}`)), { once: true });
+				existing.addEventListener('error', () => reject(new Error(`Script failed: ${src}`)), {
+					once: true
+				});
 				queueMicrotask(() => {
 					if (settled) return;
 					if (src === SMARTPLAYER_WC_SRC && customElements?.get('vturb-smartplayer')) finish();
@@ -51,70 +77,102 @@
 		});
 	}
 
+	function mountPlayerInHost(): void {
+		const host = hostEl;
+		if (!host) return;
+		host.replaceChildren();
+		const el = document.createElement('vturb-smartplayer');
+		el.id = playerId;
+		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;');
+		host.appendChild(el);
+		playerEl = el;
+		playerMounted = true;
+	}
+
+	function isSelectorRevealed(selector: string): boolean {
+		const target = document.querySelector(selector);
+		if (!target) return false;
+		return getComputedStyle(target).display !== 'none';
+	}
+
+	function watchReveal(selectors: string[], callback?: () => void): (() => void) | undefined {
+		if (!callback || !selectors.length) return undefined;
+
+		const tryNotify = () => {
+			if (selectors.some((sel) => isSelectorRevealed(sel))) callback();
+		};
+
+		const observers: MutationObserver[] = [];
+		for (const sel of selectors) {
+			const target = document.querySelector(sel);
+			if (!target) continue;
+			tryNotify();
+			const mo = new MutationObserver(tryNotify);
+			mo.observe(target, { attributes: true, attributeFilter: ['style', 'class'] });
+			observers.push(mo);
+		}
+
+		return () => observers.forEach((mo) => mo.disconnect());
+	}
+
+	$effect(() => {
+		const el = playerEl;
+		const cfg = revealHiddenAfterPlayback;
+		if (!el || !playerMounted || !cfg?.selectors?.length) return;
+
+		const p = el as SmartPlayerEl;
+		let stopWatch: (() => void) | undefined;
+
+		const onReady = () => {
+			playerReady = true;
+			p.displayHiddenElements?.(cfg.seconds, cfg.selectors, {
+				persist: cfg.persist ?? true
+			});
+			stopWatch?.();
+			stopWatch = watchReveal(cfg.selectors, onReveal);
+		};
+
+		p.addEventListener('player:ready', onReady);
+
+		return () => {
+			p.removeEventListener('player:ready', onReady);
+			stopWatch?.();
+		};
+	});
+
 	onMount(() => {
 		let cancelled = false;
-		let playerEl: HTMLElement | undefined;
-		let onPlayerReady: (() => void) | undefined;
-
 		const fallback = setTimeout(() => {
 			if (!cancelled) playerReady = true;
 		}, 12000);
 
 		(async () => {
-			// Wait for fly-in transition to complete and DOM to stabilize
 			await new Promise<void>((r) => setTimeout(r, 320));
 			await tick();
 			if (cancelled || !hostEl) return;
 
-			// Remove stale player script so it always re-executes fresh
 			document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`)?.remove();
 
-			// 1) Web component
 			if (!customElements?.get('vturb-smartplayer')) {
 				await loadScriptTag(SMARTPLAYER_WC_SRC);
 			}
 			if (cancelled || !hostEl) return;
 
-			// 2) Mount element before player.js (script scans DOM at execution time)
-			hostEl.replaceChildren();
-			const el = document.createElement('vturb-smartplayer');
-			el.id = playerId;
-			el.setAttribute('style', 'display:block;margin:0 auto;width:100%;');
-			hostEl.appendChild(el);
+			// Nó no DOM antes do player.js — e listener no $effect antes do script executar
+			mountPlayerInHost();
 			await tick();
 			await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 			if (cancelled) return;
 
-			// 3) Load player config
 			await loadScriptTag(scriptSrc);
-
-			// Listen for player:ready
-			const p = el as HTMLElement & {
-				displayHiddenElements?: (seconds: number, selectors: string[], opts: { persist: boolean }) => void;
-				addEventListener: (type: string, fn: () => void) => void;
-				removeEventListener: (type: string, fn: () => void) => void;
-			};
-			const onReady = () => {
-				playerReady = true;
-				const cfg = revealHiddenAfterPlayback;
-				if (cfg?.selectors?.length) {
-					p.displayHiddenElements?.(cfg.seconds, cfg.selectors, { persist: true });
-				}
-			};
-			onPlayerReady = onReady;
-			playerEl = el;
-			p.addEventListener('player:ready', onReady);
 		})();
 
 		return () => {
 			cancelled = true;
 			clearTimeout(fallback);
-			if (playerEl && onPlayerReady) {
-				playerEl.removeEventListener('player:ready', onPlayerReady);
-			}
-			playerEl = undefined;
-			onPlayerReady = undefined;
 			hostEl?.replaceChildren();
+			playerEl = undefined;
+			playerMounted = false;
 			playerReady = false;
 		};
 	});

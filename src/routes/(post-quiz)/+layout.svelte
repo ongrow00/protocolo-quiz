@@ -69,6 +69,11 @@
 	}
 
 	const isResultsPage = $derived(pathname === '/results' || pathname.startsWith('/results/'));
+	/** Só por link direto — fora do funil linear (sem Continuar / Voltar do funil). */
+	const isAtivacaoContaPage = $derived(
+		pathname === '/atiavacao-de-conta' || pathname.startsWith('/atiavacao-de-conta/')
+	);
+	const isResultsLikePage = $derived(isResultsPage || isAtivacaoContaPage);
 	/** Voltar em /results: 1.ª vez (ainda sem interação no bónus) → /plan/bonus; depois → /metabolismo. */
 	const prevUrl = $derived.by(() => {
 		if (stepIndex <= 0) return '/';
@@ -82,13 +87,13 @@
 	const isCarregandoPage = $derived(pathname === '/carregando');
 	const isWhatsappPage = $derived(pathname === '/whatsapp' || pathname.startsWith('/whatsapp/'));
 	const isBonusPage = $derived(pathname === '/plan/bonus' || pathname.startsWith('/plan/bonus/'));
-	const hideNavOnThisPage = $derived(isResultsPage);
+	const hideNavOnThisPage = $derived(isResultsLikePage);
 	const showStandardContinuar = $derived(
-		!isCarregandoPage && !isResultsPage && !isBonusPage
+		!isCarregandoPage && !isResultsLikePage && !isBonusPage
 	);
 	const showBonusDualFooter = $derived(isBonusPage && !isCarregandoPage);
 	const contentSlotBottomPadding = $derived(
-		isCarregandoPage || isResultsPage
+		isCarregandoPage || isResultsLikePage
 			? 'pb-8'
 			: showBonusDualFooter
 				? 'pb-44'
@@ -123,6 +128,7 @@
 	const showPostQuizBackButton = $derived(
 		!isCarregandoPage &&
 			!isBonusPage &&
+			!isAtivacaoContaPage &&
 			(!hideNavOnThisPage || (isResultsPage && $postQuizStore.resultsContentRevealed))
 	);
 
@@ -138,12 +144,11 @@
 	}
 
 	$effect(() => {
-		if (!isResultsPage) postQuizStore.resetResultsContentRevealed();
+		if (!isResultsLikePage) postQuizStore.resetResultsContentRevealed();
 	});
 </script>
 
-<div class="min-h-screen flex flex-col bg-bg">
-	<header class="bg-bg px-4 pt-4 pb-3 {!isResultsPage ? 'sticky top-0 z-10' : ''}">
+{#snippet postQuizHeaderInner()}
 		<div class="relative flex items-center justify-between mb-3">
 			{#if showPostQuizBackButton}
 			<button
@@ -192,12 +197,30 @@
 			{/if}
 		</div>
 
-		{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
+	{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
 		<StepProgressBar percent={progressPercent} steps={5} />
-		{/if}
-	</header>
+	{/if}
+{/snippet}
 
-	<main class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden bg-bg">
+<div class="min-h-screen flex flex-col bg-bg">
+	{#if isAtivacaoContaPage}
+		<p
+			class="fixed top-0 left-0 right-0 z-20 w-full px-4 py-2.5 text-center text-xs font-semibold leading-snug text-white bg-gradient-to-r from-red-800 via-red-600 to-red-800"
+			role="alert"
+		>
+			Não feche ou atualize essa página, isso pode gerar duplicação de cobrança.
+		</p>
+	{:else}
+		<header class="bg-bg px-4 pt-4 pb-3 {!isResultsLikePage ? 'sticky top-0 z-10' : ''}">
+			{@render postQuizHeaderInner()}
+		</header>
+	{/if}
+
+	<main
+		class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden bg-bg {isAtivacaoContaPage
+			? 'pt-10'
+			: ''}"
+	>
 		<div class="content-transition-root">
 			{#key pathname}
 				<div
