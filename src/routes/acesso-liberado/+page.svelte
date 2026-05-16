@@ -197,7 +197,7 @@
 				</div>
 				<div class="flex flex-col min-w-0 flex-1">
 					<span class="text-sm font-semibold text-heading leading-tight">Precisa de ajuda?</span>
-					<span class="text-xs text-muted leading-snug mt-0.5">Nossa equipe responde em minutos.</span>
+					<span class="text-xs text-muted leading-snug mt-0.5">Fale com nosso time no WhatsApp</span>
 				</div>
 				<a
 					href="https://wa.me/5511999999999"
