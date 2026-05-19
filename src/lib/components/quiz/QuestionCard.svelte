@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Question } from '$lib/data/types';
+	import HandTapIcon from '$lib/components/ui/HandTapIcon.svelte';
 	import OptionButton from './OptionButton.svelte';
 
 	interface Props {
@@ -69,7 +70,10 @@
 <div class="flex flex-col gap-6">
 	<div class="space-y-2">
 		{#if displaySubtext && question.id === 'goal_type'}
-			<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
+			<div class="flex flex-col items-center gap-1.5">
+				<HandTapIcon size={35} />
+				<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
+			</div>
 			<h2 class="text-2xl font-medium text-heading leading-[24px] text-center">{displayTitle}</h2>
 		{:else}
 			<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{displayTitle}</h2>

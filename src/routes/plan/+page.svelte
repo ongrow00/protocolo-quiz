@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
+	import { goto, preloadData } from '$app/navigation';
+	import { tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { quizStore } from '$lib/stores/quiz.store';
 	import { trackQuizStart, trackQuestionAnswer } from '$lib/services/analytics.service';
@@ -14,14 +16,16 @@
 	const goalQuestion = $derived(quizConfig.questions.find((q) => q.id === 'goal_type'));
 	const goalAnswer = $derived($quizStore.answers['goal_type']);
 
-	/** /plan é sempre a tela de objetivo — não retomar outro passo da sessão. */
-	$effect.pre(() => {
+	let advancing = $state(false);
+
+	/** Uma vez no mount — evita $effect que resetava o passo após o clique. */
+	onMount(() => {
 		if (!browser) return;
 		quizStore.goTo('goal_type');
 	});
 
 	async function handleSelect(questionId: string, value: string | string[]) {
-		if (questionId !== 'goal_type' || typeof value !== 'string' || !goalQuestion) return;
+		if (advancing || questionId !== 'goal_type' || typeof value !== 'string' || !goalQuestion) return;
 
 		const state = get(quizStore);
 		if (!state.startedAt) {
@@ -32,15 +36,20 @@
 		quizStore.answer(questionId, value);
 		trackQuestionAnswer(questionId, value);
 
-		const nextAnswers = { ...get(quizStore).answers };
-		const visible = computeVisibleQuestions(quizConfig.questions, nextAnswers);
+		const visible = computeVisibleQuestions(quizConfig.questions, get(quizStore).answers);
 		const idx = visible.findIndex((q) => q.id === 'goal_type');
 		const nextQ = idx >= 0 ? (visible[idx + 1] ?? null) : null;
+		if (!nextQ) return;
 
-		if (nextQ) {
+		advancing = true;
+		try {
 			quizTransitionDirection.set('forward');
-			quizStore.goTo(nextQ.id);
-			await goto(`/plan/${nextQ.id}`);
+			const dest = `/plan/${nextQ.id}`;
+			preloadData(dest).catch(() => {});
+			await tick();
+			await goto(dest);
+		} finally {
+			advancing = false;
 		}
 	}
 </script>
