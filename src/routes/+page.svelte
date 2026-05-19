@@ -127,7 +127,7 @@
 
 			<div class="mt-8 flex items-center gap-3">
 				<span class="h-px flex-1 bg-line" aria-hidden="true"></span>
-				<span class="shrink-0 text-xs text-muted">Primeira vez aqui?</span>
+				<span class="shrink-0 text-xs text-muted">Ainda não tem protocolo?</span>
 				<span class="h-px flex-1 bg-line" aria-hidden="true"></span>
 			</div>
 

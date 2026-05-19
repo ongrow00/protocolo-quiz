@@ -530,7 +530,7 @@
 				</div>
 				<div class="flex min-w-0 flex-1 flex-col gap-0.5">
 					<span class="text-base font-bold text-heading leading-tight">Lucas Rabelo</span>
-					<span class="text-sm font-normal text-muted leading-snug">CRN 458.787.445</span>
+					<span class="text-sm font-normal text-muted leading-snug">@lucasrabelonutri</span>
 				</div>
 			</div>
 		</div>
