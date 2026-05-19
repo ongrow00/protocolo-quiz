@@ -13,6 +13,7 @@
 		quizNavigationEnded
 	} from '$lib/stores/quiz.store';
 	import { trackQuestionAnswer, trackQuizComplete } from '$lib/services/analytics.service';
+	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
 	import QuestionCard from './QuestionCard.svelte';
 	import InfoScreen from './InfoScreen.svelte';
 	import MicroResultScreen from './MicroResultScreen.svelte';
@@ -24,8 +25,8 @@
 	import QuestionWeightCurrent from './QuestionWeightCurrent.svelte';
 	import QuestionWeightGoal from './QuestionWeightGoal.svelte';
 	import QuestionBodyFatGrid from './QuestionBodyFatGrid.svelte';
-	import TransitionWrapper from './TransitionWrapper.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
+	import ScrollViewportFill from '$lib/components/ui/ScrollViewportFill.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
@@ -301,6 +302,7 @@
 		} else if (nextId && typeof nextId === 'string') {
 			advancing = true;
 			try {
+				quizTransitionDirection.set('forward');
 				preloadData(`/plan/${nextId}`).catch(() => {});
 				quizStore.goTo(nextId);
 				await goto(`/plan/${nextId}`);
@@ -319,17 +321,30 @@
 			? 'shrink-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
 			: 'flex-1 min-h-0'}"
 	>
-		<!-- Question content — extra padding when Next button is visible; info_medication: alinhado no topo -->
+		{#if isGoalType}
+			<ScrollViewportFill>
+				<div class="max-w-lg mx-auto w-full px-4 pt-8 pb-8">
+					<QuestionCard
+						{question}
+						selectedValue={currentAnswer}
+						onSelect={handleSelect}
+					/>
+				</div>
+			</ScrollViewportFill>
+
+			<div
+				class="max-w-lg mx-auto w-full shrink-0 border-t border-line/70 px-4 pt-10 pb-[calc(9rem+env(safe-area-inset-bottom))]"
+			>
+				<LegalFooter />
+			</div>
+		{:else}
 		<div
-			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} {isGoalType
-				? 'flex flex-col shrink-0'
-				: 'flex-1 flex flex-col min-h-0'} {question.id === 'info_medication'
+			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} flex-1 flex flex-col min-h-0 {question.id === 'info_medication'
 				? 'justify-start'
 				: question.type === 'microresult'
 					? 'justify-start'
 					: ''}"
 		>
-			<TransitionWrapper key={question.id}>
 			{#if question.type === 'info'}
 				<InfoScreen
 					{question}
@@ -401,13 +416,7 @@
 					onSelect={handleSelect}
 				/>
 			{/if}
-			</TransitionWrapper>
 		</div>
-
-		{#if isGoalType}
-			<div class="max-w-lg mx-auto w-full px-4 pt-10 pb-6 border-t border-line/70 shrink-0">
-				<LegalFooter />
-			</div>
 		{/if}
 	</div>
 

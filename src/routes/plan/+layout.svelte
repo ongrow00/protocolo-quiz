@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { beforeNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import { get } from 'svelte/store';
 	import {
 		flushQuizProgressNow,
@@ -16,8 +17,23 @@
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import SocialProof from '$lib/components/ui/SocialProof.svelte';
+	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
 
 	let { children } = $props();
+
+	const questionKey = $derived($currentQuestion?.id ?? 'plan-idle');
+
+	/** Mesmo padrão do funil pós-quiz (`content-transition-root`). */
+	const stepFlyIn = $derived(
+		$quizTransitionDirection === 'forward'
+			? { x: 30, duration: 260, delay: 40 }
+			: { x: -30, duration: 260, delay: 40 }
+	);
+	const stepFlyOut = $derived(
+		$quizTransitionDirection === 'forward'
+			? { x: -30, duration: 180 }
+			: { x: 30, duration: 180 }
+	);
 
 	onMount(() => {
 		startQuizProgressSync();
@@ -81,6 +97,7 @@
 
 		goingBack = true;
 		try {
+			quizTransitionDirection.set('back');
 			quizStore.goTo(targetId);
 			await goto(`/plan/${targetId}`);
 		} finally {
@@ -90,7 +107,7 @@
 </script>
 
 <!-- Fundo explícito em todo o /plan; degradês do rodapé usam o mesmo token em app.css -->
-<div class="flex min-h-screen min-h-dvh flex-col bg-bg">
+<div class="flex h-dvh min-h-dvh flex-col overflow-hidden bg-bg">
 <!-- DOM order: header (0), main (1), spacer (2), slot content (3) so quiz content div is 4th child of plan root -->
 <header class="sticky top-0 z-10 bg-bg px-4 pt-4 pb-3">
 	<!-- Row 1: Voltar | Logo | (espaço espelha a esquerda para centralizar o logo) -->
@@ -131,20 +148,56 @@
 <div aria-hidden="true" class="hidden" style="display: none"></div>
 
 <div
-	class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
+	data-scroll-viewport
+	class="scrollbar-hidden flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
 >
-	{@render children()}
+	<div class="content-transition-root">
+		{#key questionKey}
+			<div
+				class="content-transition-slot flex w-full min-h-0 flex-1 flex-col"
+				in:fly={stepFlyIn}
+				out:fly={stepFlyOut}
+			>
+				{@render children()}
+			</div>
+		{/key}
+	</div>
 </div>
 
 {#if isGoalTypeScreen}
 	<div
-		class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-16 pointer-events-none"
+		class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-12 pointer-events-none"
 	>
 		<div
-			class="max-w-lg mx-auto w-full px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto"
+			class="max-w-lg mx-auto w-full bg-bg px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 pointer-events-auto"
 		>
 			<SocialProof bordered={false} />
 		</div>
 	</div>
 {/if}
 </div>
+
+<style>
+	.content-transition-root {
+		display: grid;
+		grid-template-rows: 1fr;
+		grid-template-columns: 1fr;
+		flex: 1;
+		min-height: 0;
+		width: 100%;
+	}
+
+	.content-transition-root > * {
+		grid-row: 1;
+		grid-column: 1;
+		min-width: 0;
+		min-height: 0;
+		justify-self: stretch;
+	}
+
+	.content-transition-slot {
+		overflow: visible;
+		width: 100%;
+		box-sizing: border-box;
+	}
+</style>

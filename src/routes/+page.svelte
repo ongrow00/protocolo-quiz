@@ -6,13 +6,15 @@
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import SocialProof from '$lib/components/ui/SocialProof.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
+	import ScrollViewportFill from '$lib/components/ui/ScrollViewportFill.svelte';
 	import QuestionCard from '$lib/components/quiz/QuestionCard.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
+	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
 
 	const goalQuestion = $derived(quizConfig.questions.find((q) => q.id === 'goal_type'));
 
-	function handleSelect(questionId: string, value: string | string[]) {
+	async function handleSelect(questionId: string, value: string | string[]) {
 		if (questionId !== 'goal_type' || typeof value !== 'string' || !goalQuestion) return;
 
 		const state = get(quizStore);
@@ -30,6 +32,7 @@
 		const nextQ = idx >= 0 ? (visible[idx + 1] ?? null) : null;
 
 		if (nextQ) {
+			quizTransitionDirection.set('forward');
 			quizStore.goTo(nextQ.id);
 			goto(`/plan/${nextQ.id}`);
 		} else {
@@ -43,27 +46,32 @@
 	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
-<div class="relative flex min-h-screen min-h-dvh flex-col bg-bg">
+<div class="relative flex min-h-0 flex-1 flex-col bg-bg">
 	<header class="shrink-0 flex justify-center pt-6 px-4">
 		<Logo />
 	</header>
 
 	{#if goalQuestion}
 		<main
-			class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain max-w-lg mx-auto w-full px-4 pt-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+			data-scroll-viewport
+			class="scrollbar-hidden flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain max-w-lg mx-auto w-full px-4 pt-8"
 		>
-			<QuestionCard question={goalQuestion} selectedValue={undefined} onSelect={handleSelect} />
+			<ScrollViewportFill>
+				<QuestionCard question={goalQuestion} selectedValue={undefined} onSelect={handleSelect} />
+			</ScrollViewportFill>
 
-			<div class="mt-10 pt-10 pb-6 border-t border-line/70">
+			<div
+				class="shrink-0 mt-10 border-t border-line/70 pt-10 pb-[calc(9rem+env(safe-area-inset-bottom))]"
+			>
 				<LegalFooter />
 			</div>
 		</main>
 
 		<div
-			class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-16 pointer-events-none"
+			class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-12 pointer-events-none"
 		>
 			<div
-				class="max-w-lg mx-auto w-full px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto"
+				class="max-w-lg mx-auto w-full bg-bg px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 pointer-events-auto"
 			>
 				<SocialProof bordered={false} />
 			</div>

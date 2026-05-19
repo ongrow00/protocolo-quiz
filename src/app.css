@@ -71,6 +71,18 @@ body {
 			transparent 100%
 		);
 	}
+
+	/** Rolagem por toque sem barra visível (telas goal_type, etc.) */
+	.scrollbar-hidden {
+		scrollbar-width: none;
+		-ms-overflow-style: none;
+	}
+
+	.scrollbar-hidden::-webkit-scrollbar {
+		display: none;
+		width: 0;
+		height: 0;
+	}
 }
 
 @keyframes shimmer {

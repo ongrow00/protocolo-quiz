@@ -10,9 +10,9 @@
 </script>
 
 <div
-	class="flex flex-col items-center justify-center text-center max-w-sm mx-auto {bordered
+	class="relative z-[1] flex flex-col items-center justify-center text-center max-w-sm mx-auto {bordered
 		? 'rounded-2xl border border-line px-4 py-4'
-		: ''}"
+		: 'pb-0.5'}"
 	style="gap: 3px"
 >
 	<AvatarStack variant="default" />
