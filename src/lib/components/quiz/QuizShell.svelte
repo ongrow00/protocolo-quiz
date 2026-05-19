@@ -229,48 +229,6 @@
 		return () => clearTimeout(t);
 	});
 
-	/** goal_type: min-height em px a partir do viewport real — svh/dvh mudam com a barra do browser (comportamento instável). */
-	let goalTypeMainMinPx = $state<number | null>(null);
-
-	$effect(() => {
-		if (!browser || question?.id !== 'goal_type') {
-			goalTypeMainMinPx = null;
-			return;
-		}
-
-		function measure(): number {
-			const vv = window.visualViewport;
-			return Math.max(window.innerHeight, vv?.height ?? 0, 320);
-		}
-
-		function apply() {
-			goalTypeMainMinPx = Math.ceil(measure()) + 64;
-		}
-
-		function scheduleApply() {
-			tick().then(() => {
-				requestAnimationFrame(() => {
-					requestAnimationFrame(apply);
-				});
-			});
-		}
-
-		scheduleApply();
-		window.addEventListener('resize', scheduleApply);
-		window.addEventListener('orientationchange', scheduleApply);
-		const vv = window.visualViewport;
-		vv?.addEventListener('resize', scheduleApply);
-		vv?.addEventListener('scroll', scheduleApply);
-
-		return () => {
-			window.removeEventListener('resize', scheduleApply);
-			window.removeEventListener('orientationchange', scheduleApply);
-			vv?.removeEventListener('resize', scheduleApply);
-			vv?.removeEventListener('scroll', scheduleApply);
-			goalTypeMainMinPx = null;
-		};
-	});
-
 	// whatsapp: address user by name (e.g. "Maria, qual é o seu WhatsApp?")
 	const whatsappTitle = $derived.by(() => {
 		if (question?.id !== 'whatsapp') return undefined;
@@ -356,22 +314,20 @@
 
 {#if question}
 	{@const isGoalType = question.id === 'goal_type'}
-	<!-- goal_type: min-height medido em JS (visualViewport) + fallback CSS — unidades vh/svh/dvh variam com a UI do browser. -->
 	<div
 		class="flex flex-col w-full {isGoalType
-			? 'shrink-0 pb-[calc(14rem+env(safe-area-inset-bottom))]'
+			? 'shrink-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))]'
 			: 'flex-1 min-h-0'}"
 	>
 		<!-- Question content — extra padding when Next button is visible; info_medication: alinhado no topo -->
 		<div
 			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} {isGoalType
-				? `flex flex-col shrink-0 ${goalTypeMainMinPx == null ? 'min-h-[92svh] md:min-h-[92vh]' : ''}`
+				? 'flex flex-col shrink-0'
 				: 'flex-1 flex flex-col min-h-0'} {question.id === 'info_medication'
 				? 'justify-start'
 				: question.type === 'microresult'
 					? 'justify-start'
 					: ''}"
-			style={isGoalType && goalTypeMainMinPx != null ? `min-height: ${goalTypeMainMinPx}px` : undefined}
 		>
 			<TransitionWrapper key={question.id}>
 			{#if question.type === 'info'}
@@ -449,7 +405,7 @@
 		</div>
 
 		{#if isGoalType}
-			<div class="max-w-lg mx-auto w-full px-4 pt-10 pb-2 border-t border-line/70 shrink-0">
+			<div class="max-w-lg mx-auto w-full px-4 pt-10 pb-6 border-t border-line/70 shrink-0">
 				<LegalFooter />
 			</div>
 		{/if}

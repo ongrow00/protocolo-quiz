@@ -5,6 +5,7 @@
 	import { trackQuizStart, trackQuestionAnswer } from '$lib/services/analytics.service';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import SocialProof from '$lib/components/ui/SocialProof.svelte';
+	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import QuestionCard from '$lib/components/quiz/QuestionCard.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
@@ -42,17 +43,30 @@
 	<title>Protocolo Desbloqueio</title>
 </svelte:head>
 
-<div class="flex flex-1 flex-col min-h-0">
-	<header class="flex justify-center pt-6 px-4">
+<div class="relative flex min-h-screen min-h-dvh flex-col bg-bg">
+	<header class="shrink-0 flex justify-center pt-6 px-4">
 		<Logo />
 	</header>
 
 	{#if goalQuestion}
-		<main class="flex-1 flex flex-col min-h-0 max-w-lg mx-auto w-full px-4 pt-8 pb-8">
+		<main
+			class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain max-w-lg mx-auto w-full px-4 pt-8 pb-[calc(7.5rem+env(safe-area-inset-bottom))]"
+		>
 			<QuestionCard question={goalQuestion} selectedValue={undefined} onSelect={handleSelect} />
-			<div class="w-full flex justify-center mt-auto pt-8 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-				<SocialProof bordered={false} />
+
+			<div class="mt-10 pt-10 pb-6 border-t border-line/70">
+				<LegalFooter />
 			</div>
 		</main>
+
+		<div
+			class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-16 pointer-events-none"
+		>
+			<div
+				class="max-w-lg mx-auto w-full px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto"
+			>
+				<SocialProof bordered={false} />
+			</div>
+		</div>
 	{/if}
 </div>

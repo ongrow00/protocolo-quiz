@@ -130,20 +130,20 @@
 
 <div aria-hidden="true" class="hidden" style="display: none"></div>
 
-<div class="flex min-h-0 w-full flex-1 flex-col">
+<div
+	class="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
+>
 	{@render children()}
 </div>
 
 {#if isGoalTypeScreen}
 	<div
-		class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-20 pointer-events-none"
+		class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-16 pointer-events-none"
 	>
 		<div
-			class="max-w-lg mx-auto w-full px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pointer-events-auto"
+			class="max-w-lg mx-auto w-full px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pointer-events-auto"
 		>
-			<div class="flex justify-center">
-				<SocialProof bordered={false} />
-			</div>
+			<SocialProof bordered={false} />
 		</div>
 	</div>
 {/if}
