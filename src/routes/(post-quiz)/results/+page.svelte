@@ -12,7 +12,7 @@
 		if (!browser) return;
 		const state = $quizStore;
 		if (state.completedAt == null) {
-			goto('/', { replaceState: true });
+			goto('/plan', { replaceState: true });
 		}
 	});
 

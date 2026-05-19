@@ -15,18 +15,22 @@ export const load: PageLoad = ({ params }) => {
 	// Validate questionId exists in config
 	const question = quizConfig.questions.find((q) => q.id === questionId);
 	if (!question) {
-		redirect(302, '/');
+		redirect(302, '/plan');
 	}
 
-	// Guard: if no quiz state, redirect to landing (only client-side)
+	if (questionId === 'goal_type') {
+		redirect(302, '/plan');
+	}
+
+	// Guard: quiz não iniciado → entrada em /plan (only client-side)
 	if (browser) {
 		try {
 			const raw = sessionStorage.getItem(QUIZ_SESSION_STORAGE_KEY);
-			if (!raw) redirect(302, '/');
+			if (!raw) redirect(302, '/plan');
 			const state = JSON.parse(raw);
-			if (!state.startedAt) redirect(302, '/');
+			if (!state.startedAt) redirect(302, '/plan');
 		} catch {
-			redirect(302, '/');
+			redirect(302, '/plan');
 		}
 	}
 

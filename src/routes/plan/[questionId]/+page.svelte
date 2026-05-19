@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { quizStore, currentQuestion, quizNavigationEnded } from '$lib/stores/quiz.store';
 	import { quizConfig } from '$lib/data/quiz.config';
@@ -36,14 +35,6 @@
 		}
 	});
 
-	// Guard inicial: redireciona para home se o quiz não foi iniciado (ex.: refresh direto na URL)
-	onMount(() => {
-		const state = get(quizStore);
-		if (!state.startedAt) {
-			goto('/', { replaceState: true });
-		}
-	});
-
 	// Sincroniza store com URL após navegação (refresh, link direto, browser back/forward, avançar/voltar).
 	afterNavigate(({ to }) => {
 		const qid = to?.params?.questionId;
@@ -66,7 +57,7 @@
 				quizStore.goTo(first.id);
 				goto(`/plan/${first.id}`, { replaceState: true });
 			} else {
-				goto('/', { replaceState: true });
+				goto('/plan', { replaceState: true });
 			}
 		}
 	});

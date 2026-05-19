@@ -76,7 +76,7 @@
 	const isResultsLikePage = $derived(isResultsPage || isAtivacaoContaPage);
 	/** Voltar em /results: 1.ª vez (ainda sem interação no bónus) → /plan/bonus; depois → /metabolismo. */
 	const prevUrl = $derived.by(() => {
-		if (stepIndex <= 0) return '/';
+		if (stepIndex <= 0) return '/plan';
 		if (isResultsPage) {
 			if (!bonusInteracted) return '/plan/bonus';
 			return '/metabolismo';

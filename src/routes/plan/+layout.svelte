@@ -83,7 +83,7 @@
 		// Calcula alvo no momento do clique a partir do store (evita dessincronia com $prevQuestion)
 		const state = get(quizStore);
 		if (!state.currentQuestionId) {
-			await goto('/');
+			await goto('/plan');
 			return;
 		}
 		const visible = computeVisibleQuestions(quizConfig.questions, state.answers);
@@ -91,7 +91,7 @@
 		const prevQuestionAtClick = idx > 0 ? visible[idx - 1] : null;
 		const targetId = prevQuestionAtClick?.id;
 		if (!targetId) {
-			await goto('/');
+			await goto('/plan');
 			return;
 		}
 
