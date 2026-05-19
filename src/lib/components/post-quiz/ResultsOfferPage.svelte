@@ -285,12 +285,20 @@
 	let toggleAcelerador = $state(true);
 
 	let countdownSeconds = $state(10 * 60); // 10:00 — só decrementa após o gatilho do vídeo (resultsContentRevealed)
+	function getPostQuizScrollRoot(): HTMLElement | null {
+		return document.querySelector<HTMLElement>('main.overflow-y-auto');
+	}
+
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		const onScroll = () => { scrollY = window.scrollY };
-		window.addEventListener('scroll', onScroll, { passive: true });
+		const root = getPostQuizScrollRoot();
+		const onScroll = () => {
+			scrollY = root ? root.scrollTop : window.scrollY;
+		};
+		const target: HTMLElement | Window = root ?? window;
+		target.addEventListener('scroll', onScroll, { passive: true });
 		onScroll();
-		return () => window.removeEventListener('scroll', onScroll);
+		return () => target.removeEventListener('scroll', onScroll);
 	});
 	$effect(() => {
 		if (typeof window === 'undefined' || !$postQuizStore.resultsContentRevealed) return;
@@ -367,7 +375,7 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-full bg-bg text-center">
+<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-bg text-center">
 	{#if heroProgress}
 		<div
 			class="mb-3 w-full rounded-2xl border border-line/40 bg-surface p-4"
@@ -440,29 +448,38 @@
 	</div>
 	{/if}
 
-	<div class="results-vturb-delay" bind:this={resultsVturbDelayEl}>
 	{#if !isAtivacaoVariant}
-		<!-- Faixa fixa: desconto + countdown, aparece após 50px de scroll com transição suave; clique leva ao bloco de preço -->
+		<!-- Faixa fixa: fora do bloco VTurb; scroll no <main>, não em window -->
 		<button
 			type="button"
 			onclick={scrollToPreco}
-			class="fixed left-0 right-0 top-0 z-20 flex w-full items-center justify-between gap-4 border-b border-line bg-surface px-4 py-3 text-left shadow-sm transition-all duration-300 ease-out hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent {showFaixa
+			class="fixed left-0 right-0 top-0 z-30 flex w-full border-b border-line bg-surface px-4 py-3 text-left shadow-sm transition-all duration-300 ease-out hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent {showFaixa
 				? 'translate-y-0 opacity-100'
 				: '-translate-y-full opacity-0 pointer-events-none'}"
 			aria-label="Ver oferta e preço"
 			aria-hidden={!showFaixa}
 		>
-			<div class="flex flex-col gap-2.5">
-				<span class="text-xs font-normal text-muted">Desconto aplicado</span>
-				<span class="inline-flex w-fit rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-bold text-heading">{discountCode}</span>
-			</div>
-			<div class="flex flex-col items-end gap-2.5">
-				<span class="text-xs font-normal text-muted">Se encerra em</span>
-				<span class="text-lg font-bold tabular-nums text-red-500">{countdownDisplay}</span>
+			<div class="mx-auto flex w-full max-w-lg items-center justify-between gap-4">
+				<div class="flex flex-col gap-2.5">
+					<span class="text-xs font-normal text-muted">Desconto aplicado</span>
+					<span
+						class="inline-flex w-fit rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-xs font-bold text-heading"
+						>{discountCode}</span
+					>
+				</div>
+				<div class="flex flex-col items-end gap-2.5">
+					<span class="text-xs font-normal text-muted">Se encerra em</span>
+					<span class="text-lg font-bold tabular-nums text-red-500">{countdownDisplay}</span>
+				</div>
 			</div>
 		</button>
 	{/if}
 
+	<div
+		class="results-vturb-delay"
+		class:results-vturb-delay--revealed={$postQuizStore.resultsContentRevealed}
+		bind:this={resultsVturbDelayEl}
+	>
 	{#if !isAtivacaoVariant}
 	<button
 		type="button"
@@ -581,15 +598,9 @@
 							</span>
 						{/if}
 					</div>
-					<div class="flex shrink-0 items-center gap-4">
-						<span class="text-base text-heading line-through">
-							{offerPricing?.compareAtPrice ?? 'R$197'}
-						</span>
-						<div class="flex flex-col items-end gap-0.5">
-							<span class="text-xs font-normal text-muted">Se encerra em</span>
-							<span class="text-lg font-bold tabular-nums text-red-500">{countdownDisplay}</span>
-						</div>
-					</div>
+					<span class="shrink-0 text-base text-heading line-through">
+						{offerPricing?.compareAtPrice ?? 'R$197'}
+					</span>
 				</div>
 				<span class="text-sm text-muted">
 					{offerPricing?.secondaryLabel ?? `ou ${offerInstallmentLabel}`}
@@ -971,41 +982,40 @@
 			transform: translateY(0);
 		}
 	}
-	/* 1º filho = faixa fixa (opacity/translate controlados pelo scroll) — sem animação */
-	.results-vturb-delay > :nth-child(n + 2) {
+	.results-vturb-delay--revealed > :nth-child(n + 1) {
 		opacity: 0;
 		transform: translateY(14px);
 		animation: results-cascade-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 	}
-	.results-vturb-delay > :nth-child(2) {
+	.results-vturb-delay--revealed > :nth-child(1) {
 		animation-delay: 0.05s;
 	}
-	.results-vturb-delay > :nth-child(3) {
+	.results-vturb-delay--revealed > :nth-child(2) {
 		animation-delay: 0.23s;
 	}
-	.results-vturb-delay > :nth-child(4) {
+	.results-vturb-delay--revealed > :nth-child(3) {
 		animation-delay: 0.29s;
 	}
-	.results-vturb-delay > :nth-child(5) {
+	.results-vturb-delay--revealed > :nth-child(4) {
 		animation-delay: 0.35s;
 	}
-	.results-vturb-delay > :nth-child(6) {
+	.results-vturb-delay--revealed > :nth-child(5) {
 		animation-delay: 0.41s;
 	}
-	.results-vturb-delay > :nth-child(7) {
+	.results-vturb-delay--revealed > :nth-child(6) {
 		animation-delay: 0.47s;
 	}
-	.results-vturb-delay > :nth-child(8) {
+	.results-vturb-delay--revealed > :nth-child(7) {
 		animation-delay: 0.53s;
 	}
-	.results-vturb-delay > :nth-child(9) {
+	.results-vturb-delay--revealed > :nth-child(8) {
 		animation-delay: 0.59s;
 	}
-	.results-vturb-delay > :nth-child(10) {
+	.results-vturb-delay--revealed > :nth-child(9) {
 		animation-delay: 0.65s;
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.results-vturb-delay > :nth-child(n + 2) {
+		.results-vturb-delay--revealed > :nth-child(n + 1) {
 			animation: none;
 			opacity: 1;
 			transform: none;

@@ -14,9 +14,9 @@
 	interface Props {
 		playerId: string;
 		scriptSrc: string;
-		/** Elementos com `display:none` (ex.: `.results-vturb-delay`) só aparecem após N s de reprodução. */
+		/** Elementos ocultos até N segundos de reprodução — API nativa do VTurb (`displayHiddenElements`). */
 		revealHiddenAfterPlayback?: RevealHiddenAfterPlayback;
-		/** Disparado quando o VTurb revela os seletores configurados. */
+		/** Disparado apenas quando o VTurb revela os seletores no DOM. */
 		onReveal?: () => void;
 	}
 
@@ -33,8 +33,8 @@
 			selectors: string[],
 			opts: { persist: boolean }
 		) => void;
-		addEventListener: (type: string, fn: () => void) => void;
-		removeEventListener: (type: string, fn: () => void) => void;
+		addEventListener: (type: string, fn: EventListenerOrEventListenerObject) => void;
+		removeEventListener: (type: string, fn: EventListenerOrEventListenerObject) => void;
 	};
 
 	function loadScriptTag(src: string): Promise<void> {
@@ -92,14 +92,25 @@
 	function isSelectorRevealed(selector: string): boolean {
 		const target = document.querySelector(selector);
 		if (!target) return false;
-		return getComputedStyle(target).display !== 'none';
+		const st = getComputedStyle(target);
+		if (st.display === 'none' || st.visibility === 'hidden') return false;
+		if (st.opacity === '0') return false;
+		return true;
+	}
+
+	function anySelectorRevealed(selectors: string[]): boolean {
+		return selectors.some((sel) => isSelectorRevealed(sel));
 	}
 
 	function watchReveal(selectors: string[], callback?: () => void): (() => void) | undefined {
 		if (!callback || !selectors.length) return undefined;
 
+		let notified = false;
 		const tryNotify = () => {
-			if (selectors.some((sel) => isSelectorRevealed(sel))) callback();
+			if (notified) return;
+			if (!anySelectorRevealed(selectors)) return;
+			notified = true;
+			callback();
 		};
 
 		const observers: MutationObserver[] = [];
@@ -122,29 +133,69 @@
 
 		const p = el as SmartPlayerEl;
 		let stopWatch: (() => void) | undefined;
+		let revealRegistered = false;
+		let bindAttempts = 0;
+		const MAX_BIND_ATTEMPTS = 60;
 
-		const onReady = () => {
-			playerReady = true;
-			p.displayHiddenElements?.(cfg.seconds, cfg.selectors, {
-				persist: cfg.persist ?? true
-			});
-			stopWatch?.();
-			stopWatch = watchReveal(cfg.selectors, onReveal);
+		const notifyReveal = () => {
+			onReveal?.();
 		};
 
-		p.addEventListener('player:ready', onReady);
+		const allSelectorsInDom = (): boolean =>
+			cfg.selectors.every((sel) => document.querySelector(sel));
+
+		/**
+		 * Registra UMA vez no VTurb. Re-chamar `displayHiddenElements` reinicia o timer de reprodução.
+		 */
+		const registerVturbReveal = (): boolean => {
+			if (revealRegistered) return true;
+			if (typeof p.displayHiddenElements !== 'function') return false;
+			if (!allSelectorsInDom()) return false;
+			revealRegistered = true;
+			p.displayHiddenElements(cfg.seconds, cfg.selectors, {
+				persist: cfg.persist ?? true
+			});
+			return true;
+		};
+
+		const armRevealWatch = () => {
+			stopWatch?.();
+			stopWatch = watchReveal(cfg.selectors, notifyReveal);
+		};
+
+		const onPlayerReady: EventListener = () => {
+			playerReady = true;
+			if (registerVturbReveal()) armRevealWatch();
+		};
+
+		p.addEventListener('player:ready', onPlayerReady);
+
+		/** Até `displayHiddenElements` existir (1.ª carga) — sem re-registrar depois. */
+		const bindIv = window.setInterval(() => {
+			bindAttempts++;
+			if (registerVturbReveal()) {
+				playerReady = true;
+				window.clearInterval(bindIv);
+				armRevealWatch();
+			} else if (bindAttempts >= MAX_BIND_ATTEMPTS) {
+				window.clearInterval(bindIv);
+			}
+		}, 250);
+
+		armRevealWatch();
 
 		return () => {
-			p.removeEventListener('player:ready', onReady);
+			window.clearInterval(bindIv);
+			p.removeEventListener('player:ready', onPlayerReady);
 			stopWatch?.();
 		};
 	});
 
 	onMount(() => {
 		let cancelled = false;
-		const fallback = setTimeout(() => {
+		const overlayFallback = setTimeout(() => {
 			if (!cancelled) playerReady = true;
-		}, 12000);
+		}, 15000);
 
 		(async () => {
 			await new Promise<void>((r) => setTimeout(r, 320));
@@ -158,7 +209,6 @@
 			}
 			if (cancelled || !hostEl) return;
 
-			// Nó no DOM antes do player.js — e listener no $effect antes do script executar
 			mountPlayerInHost();
 			await tick();
 			await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
@@ -169,7 +219,7 @@
 
 		return () => {
 			cancelled = true;
-			clearTimeout(fallback);
+			clearTimeout(overlayFallback);
 			hostEl?.replaceChildren();
 			playerEl = undefined;
 			playerMounted = false;

@@ -15,7 +15,7 @@
 	<meta name="description" content="Protocolo Desbloqueio — seu plano personalizado." />
 </svelte:head>
 
-<div class="flex h-dvh min-h-dvh flex-col overflow-hidden bg-bg">
+<div class="app-inner-scroll flex h-dvh min-h-dvh flex-col overflow-hidden bg-bg">
 	<div class="flex min-h-0 flex-1 flex-col">
 		{@render children()}
 	</div>

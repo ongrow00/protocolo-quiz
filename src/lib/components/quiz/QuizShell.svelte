@@ -30,6 +30,7 @@
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
+	import { MR3_CTA_REVEAL_EVENT } from '$lib/constants/mr3-vturb';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -107,7 +108,7 @@
 	/** mr-protein: CTA só após a contagem 0 → meta (4s). */
 	let mrProteinCtaLocked = $state(false);
 
-	// mr-3: placeholder do rodapé até o vídeo (VTurb) revelar o botão Continuar
+	// mr-3: “Analisando…” até o VTurb revelar o CTA (só via displayHiddenElements + DOM)
 	$effect(() => {
 		if (!browser || !showNextButton || question?.id !== 'mr-3') {
 			mr3FooterLoading = false;
@@ -117,59 +118,46 @@
 		mr3FooterLoading = true;
 
 		let mo: MutationObserver | null = null;
-		let iv: ReturnType<typeof setInterval> | null = null;
 		let cancelled = false;
 
-		function isCtaWrapVisible(el: HTMLElement): boolean {
+		function isVturbRevealed(el: HTMLElement): boolean {
 			const st = getComputedStyle(el);
-			if (st.display === 'none') return false;
-			if (st.visibility === 'hidden') return false;
-			if (st.opacity === '0') return false;
+			if (st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0') return false;
 			return true;
 		}
 
-		function stopWatching() {
-			if (mo) {
-				mo.disconnect();
-				mo = null;
-			}
-			if (iv) {
-				clearInterval(iv);
-				iv = null;
-			}
+		function onVturbRevealed() {
+			if (cancelled) return;
+			mr3FooterLoading = false;
+			mo?.disconnect();
+			mo = null;
 		}
 
-		function tryReveal(): boolean {
+		const onVturbRevealEvent = () => {
 			const el = document.getElementById('quiz-mr3-cta-wrap');
-			if (!el || cancelled) return false;
-			if (isCtaWrapVisible(el)) {
-				mr3FooterLoading = false;
-				stopWatching();
-				return true;
-			}
-			return false;
-		}
+			if (el && isVturbRevealed(el)) onVturbRevealed();
+		};
+
+		document.addEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
 
 		tick().then(() => {
 			if (cancelled) return;
-			if (tryReveal()) return;
-
 			const el = document.getElementById('quiz-mr3-cta-wrap');
-			if (!el || cancelled) return;
-
+			if (!el) return;
+			if (isVturbRevealed(el)) {
+				onVturbRevealed();
+				return;
+			}
 			mo = new MutationObserver(() => {
-				tryReveal();
+				if (isVturbRevealed(el)) onVturbRevealed();
 			});
 			mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
-
-			iv = setInterval(() => {
-				tryReveal();
-			}, 120);
 		});
 
 		return () => {
 			cancelled = true;
-			stopWatching();
+			document.removeEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
+			mo?.disconnect();
 		};
 	});
 

@@ -31,6 +31,16 @@ html {
 	scrollbar-gutter: stable;
 }
 
+/* Shell com scroll interno (plan / post-quiz): evita faixa + barra dupla à direita */
+html:has(.app-inner-scroll) {
+	scrollbar-gutter: auto;
+}
+
+html:has(.app-inner-scroll),
+html:has(.app-inner-scroll) body {
+	overflow: hidden;
+}
+
 html,
 body {
 	height: 100%;
@@ -149,7 +159,7 @@ input[type='range']::-moz-range-thumb {
 	opacity: 0;
 }
 
-/* mr-3: CTA escondido até o VTurb revelar após ~10s de vídeo — ver `Mr3VturbPlayer`. */
+/* mr-3: CTA oculto até o VTurb revelar via `displayHiddenElements` (tempo do vídeo). */
 .quiz-mr3-cta-delay {
 	display: none;
 }
@@ -159,7 +169,13 @@ input[type='range']::-moz-range-thumb {
 	display: none;
 }
 
-/* /results: conteúdo após o vídeo (e faixa fixa) até o VTurb atingir 10s de reprodução — ver VturbPlayer revealHiddenAfterPlayback. */
+/* /results: conteúdo após o vídeo até o VTurb atingir 10s — ver VturbPlayer + classe --revealed. */
 .results-vturb-delay {
 	display: none;
+}
+
+.results-vturb-delay.results-vturb-delay--revealed {
+	display: flex;
+	flex-direction: column;
+	gap: 0.625rem;
 }

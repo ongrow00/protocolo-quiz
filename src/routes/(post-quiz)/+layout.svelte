@@ -129,7 +129,7 @@
 		!isCarregandoPage &&
 			!isBonusPage &&
 			!isAtivacaoContaPage &&
-			(!hideNavOnThisPage || (isResultsPage && $postQuizStore.resultsContentRevealed))
+			(!hideNavOnThisPage || isResultsPage)
 	);
 
 	/** Destino do “Aceitar desconto”: preço OF002 só com este query na URL. */
@@ -172,7 +172,7 @@
 			{/if}
 
 			<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-				<Logo />
+				<Logo class="block h-7 w-auto" />
 			</div>
 
 			{#if !hideNavOnThisPage && !isCarregandoPage && !hidePostQuizProgressBar}
@@ -202,7 +202,7 @@
 	{/if}
 {/snippet}
 
-<div class="min-h-screen flex flex-col bg-bg">
+<div class="flex h-full min-h-0 flex-col bg-bg">
 	{#if isAtivacaoContaPage}
 		<p
 			class="fixed top-0 left-0 right-0 z-20 w-full px-4 py-2.5 text-center text-xs font-semibold leading-snug text-white bg-gradient-to-r from-red-800 via-red-600 to-red-800"
@@ -211,13 +211,13 @@
 			Não feche ou atualize essa página, isso pode gerar duplicação de cobrança.
 		</p>
 	{:else}
-		<header class="bg-bg px-4 pt-4 pb-3 {!isResultsLikePage ? 'sticky top-0 z-10' : ''}">
+		<header class="sticky top-0 z-10 shrink-0 bg-bg px-4 pt-4 pb-3">
 			{@render postQuizHeaderInner()}
 		</header>
 	{/if}
 
 	<main
-		class="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden bg-bg {isAtivacaoContaPage
+		class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-bg {isAtivacaoContaPage
 			? 'pt-10'
 			: ''}"
 	>
@@ -295,7 +295,7 @@
 		flex-direction: column;
 		gap: 10px;
 		align-items: stretch;
-		overflow: visible;
+		overflow-x: clip;
 		width: 100%;
 		max-width: 32rem;
 		box-sizing: border-box;
