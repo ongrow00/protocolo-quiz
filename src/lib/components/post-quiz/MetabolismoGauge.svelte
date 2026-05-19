@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 
@@ -12,26 +12,13 @@
 
 	const p = $derived(Math.min(100, Math.max(0, percent)));
 
-	/** Meia-lua maior; um único arco evita artefatos no vértice. */
+	const SEGMENT_COUNT = 26;
 	const CX = 180;
-	const CY = 138;
-	const R = 112;
-	/** Espessura do arco (metade do valor original — ~50% mais fino). */
-	const SW = 13;
-	const arcD = `M ${CX - R} ${CY} A ${R} ${R} 0 1 1 ${CX + R} ${CY}`;
-
-	const G_X1 = CX - R;
-	const G_X2 = CX + R;
-
-	/** Centro vertical aproximado da “concha” (percentual dentro da meia-lua). */
-	const textY = CY - R * 0.36;
-	/** Percentual central da meia-lua. */
-	const pctFontSize = 37;
-	/** Rótulo logo abaixo do percentual. */
-	const labelY = textY + pctFontSize * 0.5 + 10;
-
-	/** Bolinha do rótulo: mesmo tamanho das da legenda (`h-2` / 8px em escala típica do SVG). */
-	const LABEL_DOT_R = 4;
+	const CY = 178;
+	const INNER_R = 82;
+	const OUTER_R = 128;
+	const SEG_LEN = 25;
+	const SEG_W = 8;
 
 	const animPct = tweened(0, { duration: 1500, easing: cubicOut });
 
@@ -40,83 +27,93 @@
 	});
 
 	const displayPct = $derived(Math.round($animPct));
-	const dashArray = $derived(`${$animPct} ${100 - $animPct}`);
 
-	let labelTextEl = $state<SVGTextElement | undefined>();
-	let redDot = $state<{ cx: number; cy: number } | null>(null);
-
-	async function layoutRedDot() {
-		await tick();
-		const el = labelTextEl;
-		if (!el) {
-			redDot = null;
-			return;
-		}
-		const b = el.getBBox();
-		const dotR = LABEL_DOT_R;
-		const gap = 5;
-		redDot = { cx: b.x - gap - dotR, cy: b.y + b.height * 0.5 };
-	}
-
-	$effect(() => {
-		label;
-		void layoutRedDot();
+	const segments = $derived.by(() => {
+		const filled = Math.round(($animPct / 100) * SEGMENT_COUNT);
+		return Array.from({ length: SEGMENT_COUNT }, (_, i) => {
+			const t = SEGMENT_COUNT > 1 ? i / (SEGMENT_COUNT - 1) : 0;
+			const angle = Math.PI - t * Math.PI;
+			const midR = (INNER_R + OUTER_R) / 2;
+			const x = CX + midR * Math.cos(angle);
+			const y = CY - midR * Math.sin(angle);
+			const deg = 90 - (angle * 180) / Math.PI;
+			const isFilled = i < filled;
+			let color = 'var(--color-line)';
+			if (isFilled) {
+				if (t < 0.34) color = 'var(--color-accent)';
+				else if (t < 0.67) color = 'var(--color-farol-yellow)';
+				else color = 'var(--color-farol-red)';
+			}
+			return { x, y, deg, color, isFilled };
+		});
 	});
+
+	const PERCENT_FONT_SIZE = 38;
+	const LABEL_FONT_SIZE = 13;
+	const LABEL_OFFSET = 22;
+	const LABEL_GAP = 12;
+	const DOT_R = 4;
+	const midR = (INNER_R + OUTER_R) / 2;
+
+	/** Centro do % alinhado à base do arco (y = CY). */
+	const textY = $derived(CY - PERCENT_FONT_SIZE / 2);
+	/** Rótulo abaixo da base do gráfico. */
+	const labelY = $derived(CY + LABEL_OFFSET);
+
+	const VIEW_W = 360;
+	const VIEW_PAD_TOP = 8;
+	const VIEW_PAD_BOTTOM = 10;
+	const arcTopY = CY - midR - SEG_LEN / 2;
+	const viewMinY = arcTopY - VIEW_PAD_TOP;
+	const viewHeight =
+		CY + LABEL_OFFSET + LABEL_FONT_SIZE / 2 + DOT_R + VIEW_PAD_BOTTOM - viewMinY;
+	const viewBox = `0 ${viewMinY} ${VIEW_W} ${viewHeight}`;
+	const showGraveDot = $derived(displayPct >= 67);
+
+	/** Largura aproximada do rótulo em unidades SVG (font-size 13). */
+	const labelTextWidth = $derived(label.length * 7.2);
+	const labelGroupWidth = $derived(
+		showGraveDot ? DOT_R * 2 + LABEL_GAP + labelTextWidth : labelTextWidth
+	);
+	const labelDotX = $derived(-labelGroupWidth / 2 + DOT_R);
+	const labelTextX = $derived(
+		showGraveDot ? -labelGroupWidth / 2 + DOT_R * 2 + LABEL_GAP : 0
+	);
 </script>
 
 <div
-	class="w-full rounded-2xl border border-line bg-surface px-4 pt-5 pb-4"
+	class="w-full rounded-2xl border border-line bg-surface px-3 pt-3 pb-3.5"
 	aria-label="Indicador visual: {p}% de bloqueio metabólico"
 >
-	<div class="flex flex-col items-center gap-2">
+	<div class="flex flex-col items-center">
 		<svg
-			viewBox="0 0 360 168"
-			class="block w-full max-w-[min(100%,400px)]"
+			viewBox={viewBox}
+			class="block w-full max-h-[min(52vw,200px)]"
+			style="aspect-ratio: {VIEW_W} / {viewHeight}"
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 			aria-hidden="true"
+			preserveAspectRatio="xMidYMid meet"
 		>
-			<defs>
-				<linearGradient
-					id="gauge-grad-metabolismo"
-					gradientUnits="userSpaceOnUse"
-					x1={G_X1}
-					y1="0"
-					x2={G_X2}
-					y2="0"
-				>
-					<stop offset="0%" stop-color="var(--color-accent)" />
-					<stop offset="50%" stop-color="var(--color-farol-yellow)" />
-					<stop offset="100%" stop-color="var(--color-farol-red)" />
-				</linearGradient>
-			</defs>
-
-			<path
-				d={arcD}
-				stroke="var(--color-line)"
-				stroke-width={SW}
-				stroke-linecap="butt"
-				stroke-linejoin="round"
-			/>
-
-			<path
-				d={arcD}
-				stroke="url(#gauge-grad-metabolismo)"
-				stroke-width={SW}
-				stroke-linecap="butt"
-				stroke-linejoin="round"
-				pathLength="100"
-				stroke-dasharray={dashArray}
-				stroke-dashoffset="0"
-			/>
+			{#each segments as seg, i (i)}
+				<rect
+					x={-SEG_W / 2}
+					y={-SEG_LEN / 2}
+					width={SEG_W}
+					height={SEG_LEN}
+					rx={SEG_W / 2}
+					ry={SEG_W / 2}
+					fill={seg.color}
+					transform="translate({seg.x}, {seg.y}) rotate({seg.deg})"
+				/>
+			{/each}
 
 			<text
 				x={CX}
 				y={textY}
 				text-anchor="middle"
 				dominant-baseline="middle"
-				font-size={pctFontSize}
-				style:line-height={`${pctFontSize}px`}
+				font-size={PERCENT_FONT_SIZE}
 				font-weight="800"
 				font-family="inherit"
 				fill="var(--color-heading)"
@@ -124,38 +121,42 @@
 			>
 				{displayPct}%
 			</text>
-			<text
-				bind:this={labelTextEl}
-				x={CX}
-				y={labelY}
-				text-anchor="middle"
-				dominant-baseline="middle"
-				font-size="12"
-				font-weight="500"
-				font-family="inherit"
-				fill="var(--color-muted)"
-			>
-				{label}
-			</text>
-			{#if redDot}
-				<circle
-					cx={redDot.cx}
-					cy={redDot.cy}
-					r={LABEL_DOT_R}
-					fill="var(--color-farol-red)"
-					aria-hidden="true"
-				/>
-			{/if}
+			<g transform="translate({CX}, {labelY})">
+				{#if showGraveDot}
+					<circle
+						cx={labelDotX}
+						cy={0}
+						r={DOT_R}
+						fill="var(--color-farol-red)"
+						aria-hidden="true"
+					/>
+				{/if}
+				<text
+					x={labelTextX}
+					y={0}
+					text-anchor={showGraveDot ? 'start' : 'middle'}
+					dominant-baseline="middle"
+					font-size={LABEL_FONT_SIZE}
+					font-weight="500"
+					font-family="inherit"
+					fill="var(--color-muted)"
+				>
+					{label}
+				</text>
+			</g>
 		</svg>
 	</div>
 
-	<div class="mt-3 flex items-center justify-center gap-[20px]">
+	<div class="mt-1 flex items-center justify-center gap-5 px-1">
 		<div class="flex items-center gap-1.5">
 			<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background:var(--color-accent)"></span>
 			<span class="text-[10px] font-medium text-muted">Normal</span>
 		</div>
 		<div class="flex items-center gap-1.5">
-			<span class="inline-block h-2 w-2 shrink-0 rounded-full" style="background:var(--color-farol-yellow)"></span>
+			<span
+				class="inline-block h-2 w-2 shrink-0 rounded-full"
+				style="background:var(--color-farol-yellow)"
+			></span>
 			<span class="text-[10px] font-medium text-muted">Moderado</span>
 		</div>
 		<div class="flex items-center gap-1.5">

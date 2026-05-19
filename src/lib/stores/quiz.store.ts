@@ -4,6 +4,7 @@ import { quizConfig } from '$lib/data/quiz.config';
 import type { Answers, CategoryKey, Question, QuizState, Scores } from '$lib/data/types';
 import { computeVisibleQuestions } from '$lib/utils/branching';
 import { calculateScores } from '$lib/utils/scoring';
+import { AUDIENCE_GENDER } from '$lib/constants/audience';
 import { QUIZ_SESSION_STORAGE_KEY } from '$lib/constants/storage-keys';
 import { easeOutProgress01 } from '$lib/utils/progress-easing';
 
@@ -13,7 +14,7 @@ const INITIAL_SCORES: Scores = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
 
 const INITIAL_STATE: QuizState = {
 	currentQuestionId: null,
-	answers: {},
+	answers: { gender: AUDIENCE_GENDER },
 	scores: { ...INITIAL_SCORES },
 	visitedQuestions: [],
 	startedAt: null,
@@ -31,6 +32,9 @@ function loadFromSession(): QuizState {
 		const raw = sessionStorage.getItem(SESSION_KEY);
 		if (!raw) return INITIAL_STATE;
 		let state = JSON.parse(raw) as QuizState;
+		if (state.answers.gender == null) {
+			state = { ...state, answers: { ...state.answers, gender: AUDIENCE_GENDER } };
+		}
 		if (state.startedAt != null && !state.funnelSessionId) {
 			state = { ...state, funnelSessionId: newFunnelSessionId() };
 			sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
@@ -62,7 +66,7 @@ function createQuizStore() {
 		subscribe,
 
 		start() {
-			const visible = computeVisibleQuestions(quizConfig.questions, {});
+			const visible = computeVisibleQuestions(quizConfig.questions, INITIAL_STATE.answers);
 			const firstQuestion = visible[0] ?? null;
 			update(() =>
 				persist({
@@ -134,7 +138,7 @@ export const currentIndex = derived(
 
 /**
  * Marcos fixos de checkpoint na barra (mr-3 sem círculo).
- * O 4.º marco é o fim do quiz (última pergunta visível), sem tela mr-5.
+ * O 4.º marco é o fim do quiz (última pergunta visível).
  */
 const MR_PROGRESS_MILESTONE_IDS = ['mr-1', 'mr-2', 'mr-4'] as const;
 

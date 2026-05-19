@@ -28,7 +28,7 @@
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
-	import { protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
+	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -81,12 +81,13 @@
 	/**
 	 * Delay do fade-in do botão Continuar (microresult).
 	 * mr-2: após o último bullet (Finalização) no gráfico — ver `protocolChartCtaDelayMs`.
-	 * mr-3/mr-4: 0 — CTA controlado por VTurb / calendário.
+	 * mr-3 / mr-4 / mr-protein: 0 — CTA controlado por VTurb, calendário ou contagem.
 	 */
 	const buttonCascadeDelay = $derived.by(() => {
 		if (question?.type !== 'microresult' || !question) return 0;
 		if (question.id === 'mr-3' || question.id === 'mr-4') return 0;
 		if (question.id === 'mr-2') return protocolChartCtaDelayMs();
+		if (question.id === 'mr-protein') return 0;
 		return MICRORESULT_DEFAULT_CTA_DELAY_MS;
 	});
 
@@ -99,8 +100,11 @@
 	/** mr-3: mostra “Analisando…” até o VTurb revelar o CTA. */
 	let mr3FooterLoading = $state(false);
 
-	/** mr-4: mostra “Calculando…” até o fim da animação do calendário (10s). */
-	let mr4FooterLoading = $state(false);
+	/** mr-4: false no 1º frame — esconde o CTA até o fim da animação do calendário (10s). */
+	let mr4CtaRevealed = $state(false);
+
+	/** mr-protein: CTA só após a contagem 0 → meta (4s). */
+	let mrProteinCtaLocked = $state(false);
 
 	// mr-3: placeholder do rodapé até o vídeo (VTurb) revelar o botão Continuar
 	$effect(() => {
@@ -168,18 +172,40 @@
 		};
 	});
 
-	// mr-4: CTA só após a animação ilustrativa dos 14 dias (não altera VTurb).
+	// mr-4: CTA só após a animação ilustrativa dos 14 dias
 	$effect(() => {
-		if (!browser || !showNextButton || question?.id !== 'mr-4') {
-			mr4FooterLoading = false;
+		if (question?.id !== 'mr-4') {
+			mr4CtaRevealed = false;
 			return;
 		}
 
-		mr4FooterLoading = true;
+		if (!browser || !showNextButton) return;
+
+		mr4CtaRevealed = false;
+
 		let cancelled = false;
 		const t = setTimeout(() => {
-			if (!cancelled) mr4FooterLoading = false;
+			if (!cancelled) mr4CtaRevealed = true;
 		}, MR4_CTA_DELAY_MS);
+
+		return () => {
+			cancelled = true;
+			clearTimeout(t);
+		};
+	});
+
+	// mr-protein: CTA só após a contagem da meta de proteína
+	$effect(() => {
+		if (!browser || !showNextButton || question?.id !== 'mr-protein') {
+			mrProteinCtaLocked = false;
+			return;
+		}
+
+		mrProteinCtaLocked = true;
+		let cancelled = false;
+		const t = setTimeout(() => {
+			if (!cancelled) mrProteinCtaLocked = false;
+		}, PROTEIN_COUNT_ANIM_MS);
 
 		return () => {
 			cancelled = true;
@@ -252,15 +278,6 @@
 		if (!name || typeof name !== 'string' || !name.trim()) return undefined;
 		const firstName = name.trim().split(/\s+/)[0] ?? name.trim();
 		return `${firstName}, qual é o seu WhatsApp?`;
-	});
-
-	// gender: subtext with goal (e.g. "Isso muda seu plano de emagrecimento.")
-	const genderSubtextOverride = $derived.by(() => {
-		if (question?.id !== 'gender') return undefined;
-		const goal = quiz.answers['goal_type'];
-		const planLabel =
-			goal === 'goal-definir' ? 'definição corporal' : 'emagrecimento';
-		return `Metabolismo, hormônios e resposta ao treino funcionam de formas diferentes. Isso muda seu plano de ${planLabel}.`;
 	});
 
 	// All steps use same CTA: "Continuar" with thin arrow on the right
@@ -417,7 +434,6 @@
 			{:else if question.type === 'body_fat_grid'}
 				<QuestionBodyFatGrid
 					{question}
-					genderAnswer={typeof quiz.answers['gender'] === 'string' ? quiz.answers['gender'] : undefined}
 					selectedValue={typeof currentAnswer === 'string' ? currentAnswer : undefined}
 					beforeStage={bodyFatBeforeStage}
 					onSelect={(id, val) => handleSelect(id, val)}
@@ -427,8 +443,6 @@
 					{question}
 					selectedValue={currentAnswer}
 					onSelect={handleSelect}
-					subtextOverride={genderSubtextOverride}
-					genderAnswer={typeof quiz.answers['gender'] === 'string' ? quiz.answers['gender'] : undefined}
 				/>
 			{/if}
 			</TransitionWrapper>
@@ -451,7 +465,7 @@
 			>
 				{#if question?.id === 'mr-3' && mr3FooterLoading}
 					<div
-						class="mb-3 flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-transparent text-sm font-medium text-body"
+						class="mb-3 flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-surface text-sm font-medium text-body"
 						aria-live="polite"
 						aria-busy="true"
 					>
@@ -478,7 +492,7 @@
 						</svg>
 						<span>Analisando seus dados...</span>
 					</div>
-				{:else if question?.id === 'mr-4' && mr4FooterLoading}
+				{:else if question?.id === 'mr-4' && !mr4CtaRevealed}
 					<div
 						class="mb-3 flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-transparent text-sm font-medium text-body"
 						aria-live="polite"
@@ -508,17 +522,14 @@
 						<span>Calculando suas calorias e macros</span>
 					</div>
 				{/if}
+				{#if !(question?.id === 'mr-protein' && mrProteinCtaLocked) && !(question?.id === 'mr-4' && !mr4CtaRevealed)}
 				<div
 					id={question?.id === 'mr-3'
 						? 'quiz-mr3-cta-wrap'
 						: question?.id === 'mr-4'
 							? 'quiz-mr4-cta-wrap'
 							: undefined}
-					class={question?.id === 'mr-3'
-						? 'quiz-mr3-cta-delay'
-						: question?.id === 'mr-4' && mr4FooterLoading
-							? 'quiz-mr4-cta-delay'
-							: ''}
+					class={question?.id === 'mr-3' ? 'quiz-mr3-cta-delay' : ''}
 				>
 			<button
 				type="button"
@@ -534,6 +545,7 @@
 				</svg>
 			</button>
 				</div>
+				{/if}
 			</div>
 		</div>
 	{/if}

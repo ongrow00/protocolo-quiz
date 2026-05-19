@@ -3,17 +3,11 @@
 	import { BODY_FAT_STAGES, BODY_FAT_LABELS } from '$lib/assets/body-fat-config';
 	import arrowsBetweenUrl from '$lib/assets/body-fat/arrows-between.png';
 
-	const GENDER_PREFIX: Record<string, string> = {
-		'gender-m': 'H',
-		'gender-f': 'M'
-	};
-
 	const MAX_STAGE = BODY_FAT_STAGES - 1;
 
 	interface Props {
 		bodyFatLevel: number | null; // 0..5 "agora"
 		bodyFatGoal: number | null;   // 0..5 "depois"
-		genderAnswer: string | undefined;
 		weightCurrentKg?: number | null;
 		weightGoalKg?: number | null;
 		/** Accent color for arrows and bars: 'accent' (green) or 'coral' */
@@ -23,13 +17,12 @@
 	let {
 		bodyFatLevel,
 		bodyFatGoal,
-		genderAnswer,
 		weightCurrentKg = null,
 		weightGoalKg = null,
 		accentVariant = 'accent'
 	}: Props = $props();
 
-	const prefix = $derived(GENDER_PREFIX[genderAnswer ?? ''] ?? 'H');
+	const prefix = 'M';
 
 	const beforeStage = $derived(Math.min(MAX_STAGE, Math.max(0, bodyFatLevel ?? 2)));
 	const afterStage = $derived(Math.min(MAX_STAGE, Math.max(0, bodyFatGoal ?? 1)));

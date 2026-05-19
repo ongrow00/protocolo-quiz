@@ -89,7 +89,6 @@ export const LEGAL_DOCS: Record<string, LegalDoc> = {
   <li>Altura e idade</li>
   <li>Nível de atividade física</li>
   <li>Estimativa de composição corporal</li>
-  <li>Sexo biológico</li>
   <li>Uso de medicamentos para emagrecimento (incluindo GLP-1 e similares)</li>
 </ul>
 

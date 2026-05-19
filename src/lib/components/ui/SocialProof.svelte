@@ -19,6 +19,6 @@
 
 	<p class="text-sm text-muted font-normal leading-snug px-1">
 		<span class="tabular-nums font-bold">{PROTOCOL_SOCIAL_COUNT_DISPLAY}</span>
-		{' '}pessoas já iniciaram o protocolo.
+		{' '}mulheres já iniciaram o protocolo.
 	</p>
 </div>

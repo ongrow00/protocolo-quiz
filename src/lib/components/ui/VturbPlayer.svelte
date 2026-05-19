@@ -83,7 +83,7 @@
 		host.replaceChildren();
 		const el = document.createElement('vturb-smartplayer');
 		el.id = playerId;
-		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;');
+		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;max-width:400px;');
 		host.appendChild(el);
 		playerEl = el;
 		playerMounted = true;

@@ -63,11 +63,7 @@ export interface MicroResultData {
 }
 
 export function getMicroResultData(stepId: string, answers: Answers): MicroResultData {
-	const genderId = answers['gender'] as string | undefined;
-	const isFemale = genderId === 'gender-f';
-	const isMale = genderId === 'gender-m';
-	const pessoaTerm =
-		isFemale ? 'Mulheres' : isMale ? 'Homens' : 'Pessoas na mesma faixa etária';
+	const pessoaTerm = 'Mulheres';
 
 	switch (stepId) {
 		case 'mr-1': {
@@ -100,8 +96,7 @@ export function getMicroResultData(stepId: string, answers: Answers): MicroResul
 			};
 		}
 		case 'mr-2': {
-			const sexo =
-				genderId === 'gender-m' ? 'homens' : genderId === 'gender-f' ? 'mulheres' : 'pessoas';
+			const sexo = 'mulheres';
 			const idadeValida = parseAge(answers);
 
 			const currentNum = parseKg(answers, 'weight_current_kg');
@@ -123,6 +118,13 @@ export function getMicroResultData(stepId: string, answers: Answers): MicroResul
 					idade: idadeValida,
 					projection14Days: true
 				}
+			};
+		}
+		case 'mr-protein': {
+			return {
+				title: '',
+				bullets: [],
+				ctaText: 'Continuar →'
 			};
 		}
 		case 'mr-3': {

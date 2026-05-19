@@ -4,8 +4,8 @@
 	const SMARTPLAYER_WC_SRC =
 		'https://scripts.converteai.net/lib/js/smartplayer-wc/v4/smartplayer.js';
 	const PLAYER_SCRIPT_SRC =
-		'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/67b35883ade3a02f4d967a65/v4/player.js';
-	const PLAYER_ID = 'vid-67b35883ade3a02f4d967a65';
+		'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/6a0c79c1ec6c56d65aedf197/v4/player.js';
+	const PLAYER_ID = 'vid-6a0c79c1ec6c56d65aedf197';
 
 	/** Segundos do vídeo após os quais o VTurb revela o CTA (classe dedicada). */
 	const DELAY_SECONDS = 10;
@@ -67,7 +67,7 @@
 		host.replaceChildren();
 		const el = document.createElement('vturb-smartplayer');
 		el.id = PLAYER_ID;
-		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;');
+		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;max-width:400px;');
 		host.appendChild(el);
 		playerEl = el;
 		playerMounted = true;

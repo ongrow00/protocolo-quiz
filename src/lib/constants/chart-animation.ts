@@ -1,3 +1,6 @@
+/** Contagem 0 → meta de proteína (mr-protein); alinhar ao CTA em `QuizShell`. */
+export const PROTEIN_COUNT_ANIM_MS = 4000;
+
 /** Duração do traçado da linha / clip (s); alinhar a `--wlc-anim` no `WeightLossLineChart`. */
 export const CHART_LINE_ANIM_SEC = 3;
 

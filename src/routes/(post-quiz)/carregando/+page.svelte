@@ -37,14 +37,7 @@
 		return Number.isFinite(n) ? String(Math.round(n)) : '—';
 	});
 
-	/** Concordância com a resposta «Qual é o seu sexo?» (Masculino / Feminino). */
-	const weightGoalFeelingWord = $derived.by(() => {
-		const g = quiz.answers['gender'];
-		const raw = typeof g === 'string' ? g : Array.isArray(g) ? String(g[0] ?? '') : '';
-		if (raw === 'gender-m') return 'realizado';
-		if (raw === 'gender-f') return 'realizada';
-		return 'realizado(a)';
-	});
+	const weightGoalFeelingWord = $derived('realizada');
 
 	let gateModalOpen = $state(false);
 	let gateModalKind = $state<GateModalKind | null>(null);

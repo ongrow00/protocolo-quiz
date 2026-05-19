@@ -6,28 +6,21 @@
 	import arrowsBetweenUrl from '$lib/assets/body-fat/arrow.svg?url';
 	import SwipeRightIcon from '$lib/components/ui/SwipeRightIcon.svelte';
 
-	/** Map gender answer to image prefix: gender-m -> H, gender-f -> M */
-	const GENDER_PREFIX: Record<string, string> = {
-		'gender-m': 'H',
-		'gender-f': 'M'
-	};
-
 	/** 6 estágios: índice 0..5 → imagem 1..6. Padrão: estágio do meio (índice 2). */
 	const STAGES = BODY_FAT_STAGES;
 	const DEFAULT_STAGE = 2;
 
 	interface Props {
 		question: Question;
-		genderAnswer: string | undefined;
 		selectedValue: string | undefined;
 		/** Estágio "antes" (esquerda). Se não informado, usa o mesmo do slider (ambos iguais). */
 		beforeStage?: number;
 		onSelect: (questionId: string, value: string) => void;
 	}
 
-	let { question, genderAnswer, selectedValue, beforeStage, onSelect }: Props = $props();
+	let { question, selectedValue, beforeStage, onSelect }: Props = $props();
 
-	const prefix = $derived(GENDER_PREFIX[genderAnswer ?? ''] ?? 'H');
+	const prefix = 'M';
 
 	/** No step objetivo (body_fat_goal): default = um nível abaixo do anterior. Senão: DEFAULT_STAGE. */
 	const defaultStageForStep = $derived.by(() => {
@@ -100,7 +93,7 @@
 			{#if question.id === 'body_fat_level'}
 				Qual dessas imagens mais se <span class="text-accent">parece com você agora</span>?
 			{:else if question.id === 'body_fat_goal'}
-				Como você gostaria de <span class="text-accent">se enxergar quando alcançar o objetivo</span>?
+				Você gostaria de se enxergar quando alcançar seu <span class="text-accent">objetivo final</span>?
 			{:else}
 				{question.text}
 			{/if}

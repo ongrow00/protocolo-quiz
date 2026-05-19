@@ -7,7 +7,9 @@
 	import WeightLossLineChart from './WeightLossLineChart.svelte';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import Mr3VturbPlayer from './Mr3VturbPlayer.svelte';
+	import ProteinUnlockCard from './ProteinUnlockCard.svelte';
 	import ProtocolCalendarIllustration from './ProtocolCalendarIllustration.svelte';
+	import { computePhase1Macros } from '$lib/utils/macros';
 
 	const DUR = 600;
 	const OUT = 200;
@@ -23,6 +25,7 @@
 
 	const data = $derived(getMicroResultData(question.id, answers));
 	const nexoChart = $derived(nexoMr3ChartFromData(data.nexo));
+	const phase1Macros = $derived(computePhase1Macros(answers));
 
 </script>
 
@@ -53,6 +56,8 @@
 			<Mr1TestimonialCarousel />
 		</div>
 	</div>
+{:else if question.id === 'mr-protein' && phase1Macros != null}
+	<ProteinUnlockCard macros={phase1Macros} />
 {:else if question.id === 'mr-3' && data.bullets.length > 0}
 	<div class="flex flex-col items-center text-center w-full max-w-md mx-auto gap-1 px-4 pb-8 pt-0">
 		<div class="flex flex-col items-center text-center w-full">
@@ -133,6 +138,26 @@
 				{/key}
 			</div>
 		</div>
+{:else if question.id === 'mr-4'}
+	<div class="flex flex-col gap-6 items-center text-center w-full max-w-md mx-auto">
+		<div class="space-y-3 w-full">
+			{#if data.bullets.length > 0}
+				<div
+					in:fly={{ y: Y, duration: DUR, delay: 0, easing: cubicOut }}
+					out:fade={{ duration: OUT }}
+				>
+					<h2
+						class="text-2xl font-medium text-heading leading-[24px] [&_strong]:font-extrabold"
+					>
+						{@html data.bullets[0].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+					</h2>
+				</div>
+			{/if}
+			<div class="mt-6 w-full px-0">
+				<ProtocolCalendarIllustration />
+			</div>
+		</div>
+	</div>
 {:else}
 	<div class="flex flex-col gap-6 items-center text-center w-full max-w-md mx-auto">
 		<div class="space-y-3 w-full">
@@ -142,64 +167,22 @@
 				</div>
 			{/if}
 			{#if data.bullets.length > 0}
-				{#if question.id === 'mr-4'}
-					<div
-						in:fly={{
-							y: Y,
-							duration: DUR,
-							delay: data.title.trim() ? GAP : 0,
-							easing: cubicOut
-						}}
-						out:fade={{ duration: OUT }}
-					>
-						<h2
-							class="text-2xl font-medium text-heading leading-[24px] [&_strong]:font-extrabold"
-						>
-							{@html data.bullets[0].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-						</h2>
-					</div>
-					{#if data.bullets.length > 1}
-						<div
-							in:fly={{
-								y: Y,
-								duration: DUR,
-								delay: GAP,
-								easing: cubicOut
-							}}
-							out:fade={{ duration: OUT }}
-						>
-							<ul class="list-none space-y-2 text-body text-center">
-								{#each data.bullets.slice(1) as bullet (bullet)}
-									<li class="leading-relaxed">
-										{@html bullet.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-				{:else}
-					<div
-						in:fly={{
-							y: Y,
-							duration: DUR,
-							delay: data.title.trim() ? GAP : 0,
-							easing: cubicOut
-						}}
-						out:fade={{ duration: OUT }}
-					>
-						<ul class="list-none space-y-2 text-body text-center">
-							{#each data.bullets as bullet (bullet)}
-								<li class="leading-relaxed">
-									{@html bullet.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
-			{/if}
-			{#if question.id === 'mr-4'}
-				<div class="mt-6 w-full px-0">
-					<ProtocolCalendarIllustration />
+				<div
+					in:fly={{
+						y: Y,
+						duration: DUR,
+						delay: data.title.trim() ? GAP : 0,
+						easing: cubicOut
+					}}
+					out:fade={{ duration: OUT }}
+				>
+					<ul class="list-none space-y-2 text-body text-center">
+						{#each data.bullets as bullet (bullet)}
+							<li class="leading-relaxed">
+								{@html bullet.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}
+							</li>
+						{/each}
+					</ul>
 				</div>
 			{/if}
 			{#if data.insight}

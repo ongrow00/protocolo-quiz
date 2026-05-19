@@ -1,7 +1,6 @@
 <script lang="ts">
-	import type { Question, QuizOption } from '$lib/data/types';
+	import type { Question } from '$lib/data/types';
 	import OptionButton from './OptionButton.svelte';
-
 
 	interface Props {
 		question: Question;
@@ -11,27 +10,16 @@
 		titleOverride?: string;
 		/** Override subtext (e.g. dynamic "seu plano de emagrecimento") */
 		subtextOverride?: string;
-		/** Resposta da pergunta gênero (ex. gender-m) — troca ilustrações em body_bother_areas */
-		genderAnswer?: string;
 	}
 
-	let { question, selectedValue, onSelect, titleOverride, subtextOverride, genderAnswer }: Props = $props();
+	let { question, selectedValue, onSelect, titleOverride, subtextOverride }: Props = $props();
 
 	const displayTitle = $derived(titleOverride ?? question.text);
 	const displaySubtext = $derived(subtextOverride ?? question.subtext ?? '');
 
 	const isMultiple = $derived(question.type === 'multiple');
 
-	/** Masculino: usa imageUrlMale quando definido; demais casos mantêm imageUrl. */
-	const displayOptions = $derived.by((): QuizOption[] => {
-		const opts = question.options ?? [];
-		if (question.id !== 'body_bother_areas' || genderAnswer !== 'gender-m') return opts;
-		return opts.map((o) =>
-			o.imageUrlMale != null && o.imageUrlMale !== ''
-				? { ...o, imageUrl: o.imageUrlMale }
-				: o
-		);
-	});
+	const displayOptions = $derived(question.options ?? []);
 
 	const selected = $derived.by((): string[] => {
 		if (selectedValue === undefined) return [];
@@ -43,23 +31,15 @@
 			const s = String(selectedValue).trim();
 			return s !== '' ? [s] : [];
 		}
-		// Cópia plana: evita proxy $state no .includes() (state_proxy_equality_mismatch).
 		return Array.isArray(selectedValue) ? selectedValue.map(String) : [String(selectedValue)];
 	});
 
-	// Exclusive option ids: when selected, disable other options and keep only this one (Nenhuma, Corpo inteiro)
 	const noneOptionIds = $derived(
 		question.id === 'injuries'
 			? ['inj-nenhuma']
-			: question.id === 'diet_restrictions'
-				? ['diet-nenhuma']
-				: question.id === 'health_conditions'
-					? ['hc-nenhuma']
-					: question.id === 'foods_like'
-						? ['fl-tudo']
-						: question.id === 'foods_avoid'
-							? ['fa-tudo', 'fa-nenhum']
-							: []
+			: question.id === 'health_conditions'
+				? ['hc-nenhuma']
+				: []
 	);
 	const hasNoneSelected = $derived(noneOptionIds.length > 0 && noneOptionIds.some((id) => selected.includes(id)));
 
@@ -87,7 +67,6 @@
 </script>
 
 <div class="flex flex-col gap-6">
-	<!-- Title block -->
 	<div class="space-y-2">
 		{#if displaySubtext && question.id === 'goal_type'}
 			<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
@@ -100,7 +79,6 @@
 		{/if}
 	</div>
 
-	<!-- Options -->
 	<div
 		class="flex flex-col gap-1 {question.optionsLayout === 'horizontal' || question.optionsLayout === 'grid' ? 'w-full' : ''}"
 	>

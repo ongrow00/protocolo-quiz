@@ -137,13 +137,13 @@ input[type='range']::-moz-range-thumb {
 	opacity: 0;
 }
 
-/* Só o CTA “Continuar” no mr-4: esconde até o fim da animação ilustrativa do calendário (10s). */
-.quiz-mr4-cta-delay {
+/* mr-3: CTA escondido até o VTurb revelar após ~10s de vídeo — ver `Mr3VturbPlayer`. */
+.quiz-mr3-cta-delay {
 	display: none;
 }
 
-/* Só o CTA “Continuar” no mr-3: não usar .esconder global — o player VTurb pode usar essa classe no interior. */
-.quiz-mr3-cta-delay {
+/* mr-4: CTA escondido até o fim da animação ilustrativa do calendário (10s). */
+.quiz-mr4-cta-delay {
 	display: none;
 }
 

@@ -182,9 +182,9 @@
 
 	/** Vídeo: como acessar o protocolo (ConverteAI / VTurb). */
 	const vturbProtocoloAccess: VturbPlayerConfig = {
-		smartplayerId: 'vid-67acd27d8fb98f1be6c5f861',
+		smartplayerId: 'vid-6a0c7c09d656f9aacbc4ef85',
 		scriptSrc:
-			'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/67acd27d8fb98f1be6c5f861/v4/player.js'
+			'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/6a0c7c09d656f9aacbc4ef85/v4/player.js'
 	};
 
 
@@ -284,7 +284,7 @@
 	let toggleAerobico = $state(true);
 	let toggleAcelerador = $state(true);
 
-	let countdownSeconds = $state(15 * 60 + 9); // 15:09 — só decrementa após o gatilho do vídeo (resultsContentRevealed)
+	let countdownSeconds = $state(10 * 60); // 10:00 — só decrementa após o gatilho do vídeo (resultsContentRevealed)
 	$effect(() => {
 		if (typeof window === 'undefined') return;
 		const onScroll = () => { scrollY = window.scrollY };
@@ -581,9 +581,15 @@
 							</span>
 						{/if}
 					</div>
-					<span class="text-base text-heading line-through shrink-0">
-						{offerPricing?.compareAtPrice ?? 'R$197'}
-					</span>
+					<div class="flex shrink-0 items-center gap-4">
+						<span class="text-base text-heading line-through">
+							{offerPricing?.compareAtPrice ?? 'R$197'}
+						</span>
+						<div class="flex flex-col items-end gap-0.5">
+							<span class="text-xs font-normal text-muted">Se encerra em</span>
+							<span class="text-lg font-bold tabular-nums text-red-500">{countdownDisplay}</span>
+						</div>
+					</div>
 				</div>
 				<span class="text-sm text-muted">
 					{offerPricing?.secondaryLabel ?? `ou ${offerInstallmentLabel}`}
