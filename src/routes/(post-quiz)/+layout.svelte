@@ -44,6 +44,7 @@
 	);
 
 	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
+	const resultsContentRevealed = $derived($postQuizStore.resultsContentRevealed);
 
 	/** Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`. */
 	const RESULTS_VIDEO_HREF = '/results#video-protocolo';
@@ -129,7 +130,7 @@
 		!isCarregandoPage &&
 			!isBonusPage &&
 			!isAtivacaoContaPage &&
-			(!hideNavOnThisPage || isResultsPage)
+			(!hideNavOnThisPage || (isResultsPage && resultsContentRevealed))
 	);
 
 	/** Destino do “Aceitar desconto”: preço OF002 só com este query na URL. */

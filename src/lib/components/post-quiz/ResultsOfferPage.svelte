@@ -9,6 +9,7 @@
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
+	import { RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import OfferHeroProgress from '$lib/components/post-quiz/OfferHeroProgress.svelte';
@@ -262,9 +263,9 @@
 		return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
 	}
 
-	// Faixa: visível após 50px de scroll, fixa no topo, clique leva ao bloco de preço
+	// Faixa: só após o VTurb revelar o conteúdo (10s); depois, visível com 50px de scroll no <main>
 	let scrollY = $state(0);
-	const showFaixa = $derived(scrollY >= 50);
+	const showFaixa = $derived($postQuizStore.resultsContentRevealed && scrollY >= 50);
 
 	// Código de desconto: # + 4 primeiras letras do nome + 3 dígitos aleatórios (estável na sessão)
 	let randomDigits = $state<number | null>(null);
@@ -439,7 +440,7 @@
 			playerId={vturbProtocoloAccess.smartplayerId}
 			scriptSrc={vturbProtocoloAccess.scriptSrc}
 			revealHiddenAfterPlayback={{
-				seconds: 10,
+				seconds: RESULTS_VTURB_DELAY_SEC,
 				selectors: ['.results-vturb-delay'],
 				persist: !isAtivacaoVariant
 			}}

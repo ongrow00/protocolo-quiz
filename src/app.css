@@ -169,7 +169,7 @@ input[type='range']::-moz-range-thumb {
 	display: none;
 }
 
-/* /results: conteúdo após o vídeo até o VTurb atingir 10s — ver VturbPlayer + classe --revealed. */
+/* /results: conteúdo após o vídeo até o VTurb atingir RESULTS_VTURB_DELAY_SEC — ver VturbPlayer + --revealed. */
 .results-vturb-delay {
 	display: none;
 }
