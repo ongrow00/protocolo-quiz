@@ -218,13 +218,13 @@
 		return () => clearTimeout(t);
 	});
 
-	// whatsapp: address user by name (e.g. "Maria, qual é o seu WhatsApp?")
+	// whatsapp: address user by name (e.g. "Maria, qual o seu WhatsApp para receber o seu protocolo?")
 	const whatsappTitle = $derived.by(() => {
 		if (question?.id !== 'whatsapp') return undefined;
 		const name = quiz.answers['user_name'];
 		if (!name || typeof name !== 'string' || !name.trim()) return undefined;
 		const firstName = name.trim().split(/\s+/)[0] ?? name.trim();
-		return `${firstName}, qual é o seu WhatsApp?`;
+		return `${firstName}, qual o seu WhatsApp para receber o seu protocolo?`;
 	});
 
 	// All steps use same CTA: "Continuar" with thin arrow on the right

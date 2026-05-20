@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import ForgotPasswordSheet from '$lib/components/auth/ForgotPasswordSheet.svelte';
+	import { challengeStore } from '$lib/stores/challenge.store';
 
 	let email = $state('');
 	let senha = $state('');
@@ -8,12 +10,13 @@
 
 	function handleLogin(e: Event) {
 		e.preventDefault();
-		// Autenticação será integrada posteriormente.
+		challengeStore.hydrate();
+		challengeStore.ensureStarted();
+		goto('/inicio');
 	}
 </script>
 
 <svelte:head>
-	<title>Entrar na sua conta — Protocolo Desbloqueio</title>
 	<meta
 		name="description"
 		content="Acesse sua conta do Protocolo Desbloqueio com o e-mail e a senha da sua compra."

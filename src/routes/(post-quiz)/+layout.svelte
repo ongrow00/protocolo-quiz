@@ -74,6 +74,9 @@
 	const isAtivacaoContaPage = $derived(
 		pathname === '/atiavacao-de-conta' || pathname.startsWith('/atiavacao-de-conta/')
 	);
+	const showUpsellChargeAlert = $derived(
+		isAtivacaoContaPage && page.url.searchParams.get('upsell') === 'on'
+	);
 	const isResultsLikePage = $derived(isResultsPage || isAtivacaoContaPage);
 	/** Voltar em /results: 1.ª vez (ainda sem interação no bónus) → /plan/bonus; depois → /metabolismo. */
 	const prevUrl = $derived.by(() => {
@@ -204,21 +207,21 @@
 {/snippet}
 
 <div class="flex h-full min-h-0 flex-col bg-bg">
-	{#if isAtivacaoContaPage}
+	{#if showUpsellChargeAlert}
 		<p
 			class="fixed top-0 left-0 right-0 z-20 w-full px-4 py-2.5 text-center text-xs font-semibold leading-snug text-white bg-gradient-to-r from-red-800 via-red-600 to-red-800"
 			role="alert"
 		>
 			Não feche ou atualize essa página, isso pode gerar duplicação de cobrança.
 		</p>
-	{:else}
+	{:else if !isAtivacaoContaPage}
 		<header class="sticky top-0 z-10 shrink-0 bg-bg px-4 pt-4 pb-3">
 			{@render postQuizHeaderInner()}
 		</header>
 	{/if}
 
 	<main
-		class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-bg {isAtivacaoContaPage
+		class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-bg {showUpsellChargeAlert
 			? 'pt-10'
 			: ''}"
 	>

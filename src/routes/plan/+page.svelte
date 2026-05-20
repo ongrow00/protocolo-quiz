@@ -54,10 +54,6 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 {#if goalQuestion}
 	<div class="flex flex-col w-full flex-1 min-h-0">
 		<div class="max-w-lg mx-auto w-full px-4 pt-8 pb-8 flex-1 flex flex-col min-h-0">

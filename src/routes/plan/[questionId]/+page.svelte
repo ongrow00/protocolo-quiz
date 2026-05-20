@@ -63,10 +63,6 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 {#if $currentQuestion}
 	<QuizShell />
 {/if}

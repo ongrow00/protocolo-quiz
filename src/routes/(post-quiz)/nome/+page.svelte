@@ -9,10 +9,6 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 <div class="flex flex-col gap-6">
 	<div class="space-y-2">
 		<h1 class="text-2xl font-extrabold text-heading leading-none">Qual é o seu nome?</h1>

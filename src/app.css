@@ -2,6 +2,7 @@
 
 @theme {
 	--color-bg: #f3f8f4;
+	--color-sheet-panel: #f7f7f7;
 	--color-surface: #ffffff;
 	--color-surface-2: #efeae8;
 	--color-heading: #000000;
@@ -9,7 +10,11 @@
 	--color-muted: #5c5856;
 	--color-accent: rgba(22, 46, 33, 1);
 	--color-accent-dark: rgba(15, 34, 24, 1);
+	--color-accent-soft: #e8f3ec;
 	--color-line: #dcd6d3;
+	--color-challenge-border: #ececec;
+	--color-challenge-progress-track: #f5f5f5;
+	--radius-challenge: 10px;
 	/** Farol 3 níveis: amarelo (atenção) e vermelho (crítico); verde = --color-accent */
 	--color-farol-yellow: #eab308;
 	--color-farol-red: #ef4444;
@@ -92,6 +97,71 @@ body {
 		display: none;
 		width: 0;
 		height: 0;
+	}
+
+	.bg-challenge-hero {
+		background-color: #ececec;
+		background-image: none;
+	}
+
+	.legal-body :where(h2) {
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: var(--color-heading);
+		margin-top: 2rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.legal-body :where(h2:first-child) {
+		margin-top: 0;
+	}
+
+	.legal-body :where(h3) {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-heading);
+		margin-top: 1.25rem;
+		margin-bottom: 0.375rem;
+	}
+
+	.legal-body :where(p) {
+		font-size: 0.875rem;
+		line-height: 1.65;
+		color: var(--color-body);
+		margin-top: 0.5rem;
+	}
+
+	.legal-body :where(ul, ol) {
+		margin-top: 0.5rem;
+		margin-left: 1.25rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+
+	.legal-body :where(ul) {
+		list-style-type: disc;
+	}
+
+	.legal-body :where(ol) {
+		list-style-type: decimal;
+	}
+
+	.legal-body :where(li) {
+		font-size: 0.875rem;
+		line-height: 1.6;
+		color: var(--color-body);
+	}
+
+	.legal-body :where(strong) {
+		font-weight: 600;
+		color: var(--color-heading);
+	}
+
+	.legal-body :where(a) {
+		color: var(--color-accent);
+		text-decoration: underline;
+		text-underline-offset: 2px;
 	}
 }
 

@@ -4,7 +4,7 @@ export const ATIVACAO_HERO_PROGRESS = {
 	steps: [
 		{ label: 'Anamnese' },
 		{ label: 'Pagamento' },
-		{ label: 'Acesso' },
+		{ label: 'Protocolo' },
 		{ label: 'Liberação' }
 	]
 } as const;

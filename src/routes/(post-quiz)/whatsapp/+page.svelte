@@ -5,7 +5,9 @@
 	const whatsapp = $derived($postQuizStore.whatsapp);
 
 	const whatsappTitle = $derived(
-		name.trim() ? `${name.trim()}, qual é o seu WhatsApp?` : 'Qual é o seu WhatsApp?'
+		name.trim()
+			? `${name.trim()}, qual o seu WhatsApp para receber o seu protocolo?`
+			: 'Qual o seu WhatsApp para receber o seu protocolo?'
 	);
 
 	function formatBrazilPhone(raw: string): string {
@@ -37,10 +39,6 @@
 		}
 	}
 </script>
-
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
 
 <div class="flex flex-col gap-6">
 	<div class="space-y-2">

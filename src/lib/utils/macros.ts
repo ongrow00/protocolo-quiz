@@ -63,3 +63,33 @@ export function macroSplitFromPhase1(macros: Phase1Macros): MacroSplit {
 		fatPct: fatKcal / kcal
 	};
 }
+
+export type DailyMacroGoals = {
+	kcal: number;
+	proteinG: number;
+	carbsG: number;
+	fatG: number;
+};
+
+/** Metas diárias de kcal e macros a partir do quiz (etapa 1). */
+export function dailyMacroGoals(answers: Answers): DailyMacroGoals | null {
+	const phase1 = computePhase1Macros(answers);
+	if (!phase1) return null;
+	const split = macroSplitFromPhase1(phase1);
+	const proteinKcal = phase1.proteinG * 4;
+	const remaining = Math.max(0, phase1.kcal - proteinKcal);
+	return {
+		kcal: phase1.kcal,
+		proteinG: phase1.proteinG,
+		carbsG: Math.round((remaining * split.carbsPct) / 4),
+		fatG: Math.round((remaining * split.fatPct) / 9)
+	};
+}
+
+/** Fallback quando o quiz não está disponível (demo / login direto). */
+export const DEFAULT_DAILY_MACRO_GOALS: DailyMacroGoals = {
+	kcal: 2139,
+	proteinG: 60,
+	carbsG: 20,
+	fatG: 142
+};

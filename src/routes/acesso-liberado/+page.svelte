@@ -43,7 +43,6 @@
 </script>
 
 <svelte:head>
-	<title>Acesso Liberado — Protocolo Desbloqueio</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -175,7 +174,7 @@
 		<!-- CTA -->
 		<div class="anim-item w-full" style="--i:3">
 			<a
-				href={data.appUrl || '/'}
+				href={data.appUrl || '/inicio'}
 				target={data.appUrl ? '_blank' : undefined}
 				rel={data.appUrl ? 'noopener noreferrer' : undefined}
 				class="flex w-full h-[60px] items-center justify-center gap-2 rounded-2xl bg-accent text-bg font-bold text-base transition-all duration-200 hover:bg-accent-dark active:scale-[0.98] shadow-md shadow-accent/15"

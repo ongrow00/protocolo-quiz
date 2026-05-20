@@ -10,9 +10,14 @@
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
 	import { RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
+	import { RESULTS_OFFER } from '$lib/data/results-offer';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import OfferHeroProgress from '$lib/components/post-quiz/OfferHeroProgress.svelte';
+	import MealFoodPreferencePicker from '$lib/components/post-quiz/MealFoodPreferencePicker.svelte';
+	import MealFollowUpQuestions from '$lib/components/post-quiz/MealFollowUpQuestions.svelte';
+	import type { MealBlockId } from '$lib/data/meal-preferences';
+	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -164,8 +169,6 @@
 
 	const activeFaq = $derived(offerFaq ?? DEFAULT_OFFER_FAQ);
 
-	const checkoutUrl = env.PUBLIC_CHECKOUT_URL ?? '';
-
 	const quiz = $derived($quizStore);
 	const name = $derived($postQuizStore.name);
 
@@ -246,7 +249,15 @@
 	/** Preço extra + tag só com ?offer=OF002 na URL (ex.: link de campanha ou após aceitar bónus). */
 	const showOf002Offer = $derived($page.url.searchParams.get('offer') === 'OF002');
 	const offerMainPrice = $derived(showOf002Offer ? 'R$37,00' : 'R$47,00');
-	const offerInstallmentLabel = $derived(showOf002Offer ? '6x de R$9,00' : '6x de R$7,83');
+	const offerInstallmentLabel = $derived(
+		showOf002Offer ? RESULTS_OFFER.installmentLabelOf002 : RESULTS_OFFER.installmentLabel
+	);
+
+	const checkoutUrl = $derived(
+		showOf002Offer
+			? RESULTS_OFFER.checkoutUrlOf002
+			: (env.PUBLIC_CHECKOUT_URL ?? RESULTS_OFFER.checkoutUrl)
+	);
 
 	// Itens "Suas especificidades": só mostram se o usuário escolheu no quiz
 	const showAdaptacao = $derived.by(() => {
@@ -334,6 +345,25 @@
 	let declineModalOpen = $state(false);
 	/** Ativação: headline e vídeo só após animação do stepper. */
 	let ativacaoHeroUnlocked = $state(variant !== 'ativacao');
+	/** Ativação: cardápio + perguntas antes do hero/vídeo/oferta. */
+	let mealPreferencesComplete = $state(variant !== 'ativacao');
+	let followUpQuestionsComplete = $state(variant !== 'ativacao');
+	let mealPreferences = $state<Record<MealBlockId, string[]> | null>(null);
+	let followUpAnswers = $state<Record<string, MealFollowUpAnswer> | null>(null);
+
+	const ativacaoPreOfferComplete = $derived(
+		!isAtivacaoVariant || (mealPreferencesComplete && followUpQuestionsComplete)
+	);
+
+	function handleMealPreferencesComplete(selections: Record<MealBlockId, string[]>) {
+		mealPreferences = selections;
+		mealPreferencesComplete = true;
+	}
+
+	function handleFollowUpQuestionsComplete(answers: Record<string, MealFollowUpAnswer>) {
+		followUpAnswers = answers;
+		followUpQuestionsComplete = true;
+	}
 
 	function openDeclineModal() {
 		declineModalOpen = true;
@@ -377,6 +407,22 @@
 </script>
 
 <div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-bg text-center">
+	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
+		<div class="ativacao-onboarding-transition">
+			{#key mealPreferencesComplete ? 'follow-up' : 'meals'}
+				<div
+					in:fly={{ x: 30, duration: 260, delay: 40 }}
+					out:fly={{ x: -30, duration: 180 }}
+				>
+					{#if !mealPreferencesComplete}
+						<MealFoodPreferencePicker onComplete={handleMealPreferencesComplete} />
+					{:else}
+						<MealFollowUpQuestions onComplete={handleFollowUpQuestionsComplete} />
+					{/if}
+				</div>
+			{/key}
+		</div>
+	{:else}
 	{#if heroProgress}
 		<div
 			class="mb-3 w-full rounded-2xl border border-line/40 bg-surface p-4"
@@ -969,9 +1015,23 @@
 	</div>
 
 	</div>
+	{/if}
 </div>
 
 <style>
+	.ativacao-onboarding-transition {
+		display: grid;
+		grid-template-rows: 1fr;
+		grid-template-columns: 1fr;
+		width: 100%;
+	}
+
+	.ativacao-onboarding-transition > * {
+		grid-row: 1;
+		grid-column: 1;
+		min-width: 0;
+	}
+
 	/* Conteúdo revelado após o vídeo: entra em cascata quando o bloco deixa display:none */
 	@keyframes results-cascade-in {
 		from {

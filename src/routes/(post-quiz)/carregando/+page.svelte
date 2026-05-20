@@ -161,10 +161,6 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 <style>
 	.progress-fill {
 		position: relative;

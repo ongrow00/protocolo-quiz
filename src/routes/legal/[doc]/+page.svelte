@@ -3,7 +3,6 @@
 </script>
 
 <svelte:head>
-	<title>{data.title} — Protocolo Desbloqueio</title>
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
@@ -25,66 +24,3 @@
 		{@html data.html}
 	</div>
 </main>
-
-<style>
-	.legal-body :global(h2) {
-		font-size: 0.9375rem;
-		font-weight: 700;
-		color: var(--color-heading);
-		margin-top: 2rem;
-		margin-bottom: 0.5rem;
-	}
-
-	.legal-body :global(h3) {
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-heading);
-		margin-top: 1.25rem;
-		margin-bottom: 0.375rem;
-	}
-
-	.legal-body :global(p) {
-		font-size: 0.875rem;
-		line-height: 1.65;
-		color: var(--color-body);
-		margin-top: 0.5rem;
-	}
-
-	.legal-body :global(ul),
-	.legal-body :global(ol) {
-		margin-top: 0.5rem;
-		margin-left: 1.25rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-
-	.legal-body :global(ul) {
-		list-style-type: disc;
-	}
-
-	.legal-body :global(ol) {
-		list-style-type: decimal;
-	}
-
-	.legal-body :global(li) {
-		font-size: 0.875rem;
-		line-height: 1.6;
-		color: var(--color-body);
-	}
-
-	.legal-body :global(strong) {
-		font-weight: 600;
-		color: var(--color-heading);
-	}
-
-	.legal-body :global(a) {
-		color: var(--color-accent);
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.legal-body :global(h2:first-child) {
-		margin-top: 0;
-	}
-</style>

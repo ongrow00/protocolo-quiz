@@ -4,10 +4,6 @@
 	import Button from '$lib/components/ui/Button.svelte';
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 <div class="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-bg">
 	<div class="w-full max-w-md flex flex-col items-center gap-8 text-center">
 		<Logo />

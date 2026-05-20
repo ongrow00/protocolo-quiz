@@ -51,10 +51,6 @@
 	});
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 <div
 	class="mx-auto flex w-full max-w-lg flex-1 flex-col items-center justify-start gap-6 text-center min-h-0"
 >

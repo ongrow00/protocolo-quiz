@@ -490,7 +490,8 @@ export const questions: Question[] = [
 		order: 62,
 		section: 'Sobre',
 		text: 'Como você se sentiu depois das tentativas que falharam?',
-		type: 'single',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
 		required: true,
 		variable: 'failed_attempts_feeling',
 		options: [
@@ -526,8 +527,8 @@ export const questions: Question[] = [
 		order: 64,
 		section: 'Sobre',
 		text: 'Qual reflexo do sobrepeso mais te incomoda?',
-		subtext: 'Vamos calibrar o Protocolo pelo que mais te incomoda.',
-		type: 'single',
+		subtext: 'Marque todas que se aplicam.',
+		type: 'multiple',
 		required: true,
 		variable: 'overweight_bother',
 		options: [

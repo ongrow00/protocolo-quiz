@@ -19,7 +19,6 @@
 </script>
 
 <svelte:head>
-	<title>Ativação de conta — Protocolo Desbloqueio</title>
 	<meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 

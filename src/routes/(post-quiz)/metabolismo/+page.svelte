@@ -36,10 +36,6 @@
 	let bloqueioPct = $state(getOrCreateBloqueioPct());
 </script>
 
-<svelte:head>
-	<title>Protocolo Desbloqueio</title>
-</svelte:head>
-
 <div class="flex w-full flex-col gap-6">
 	<div class="w-full space-y-3 text-center">
 		<h2 class="text-2xl font-medium text-heading leading-[24px] [&_strong]:font-extrabold">
@@ -52,14 +48,12 @@
 		</h2>
 		<p class="text-body text-sm leading-[14px] mt-[10px] mb-[25px] [&_strong]:font-extrabold">
 			{#if goalKgLabel != null}
-				Seu protocolo irá <strong>desbloquear</strong> o seu <strong>metabolismo entre</strong> o
-				<strong>dia 1 e 4</strong>, para que você alcance seu objetivo de
-				<span class="text-accent font-extrabold">{goalKgLabel}kg</span> até o dia <strong>14</strong> no seu
-				<strong>protocolo</strong>.
-			{:else}
-				Seu protocolo irá <strong>desbloquear</strong> o seu <strong>metabolismo entre</strong> o
-				<strong>dia 1 e 4</strong>, para que você alcance <strong>sua meta de peso</strong> até o dia
+				Seu protocolo irá <strong>desbloquear</strong> o seu <strong>metabolismo</strong> para que você alcance
+				seu objetivo de <span class="text-accent font-extrabold">{goalKgLabel}kg</span> até o dia
 				<strong>14</strong> no seu <strong>protocolo</strong>.
+			{:else}
+				Seu protocolo irá <strong>desbloquear</strong> o seu <strong>metabolismo</strong> para que você alcance
+				<strong>sua meta de peso</strong> até o dia <strong>14</strong> no seu <strong>protocolo</strong>.
 			{/if}
 		</p>
 	</div>
