@@ -483,29 +483,32 @@
 	{/if}
 	<div
 		id="video-protocolo"
-		class="scroll-mt-24 -mt-2.5 w-full max-w-[400px] mx-auto min-w-0"
+		class="scroll-mt-24 w-full max-w-[400px] mx-auto min-w-0 {isAtivacaoVariant ? '' : '-mt-2.5'}"
 		in:fly={{ y: cascadeY, duration: cascadeDur, delay: cascadeGap, easing: cubicOut }}
 	>
-		<!-- 10px acima da aba (compensa o gap-2.5 do container) -->
-		<div class="pt-2.5">
-		<!-- Aba de macros: mesma largura do player; o vídeo cobre a base da aba -->
+		<div class={isAtivacaoVariant ? 'w-full' : 'pt-2.5'}>
+		{#if !isAtivacaoVariant}
+			<!-- Aba de macros (/results): mesma largura do player; o vídeo cobre a base da aba -->
+			<div
+				class="relative z-0 flex w-full items-stretch justify-center gap-0 rounded-t-2xl border border-b-0 border-line/50 bg-white px-4 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+				aria-label="Metas diárias do seu protocolo: calorias e proteína"
+			>
+				<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
+					<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
+					<span class="text-sm font-extrabold tabular-nums text-heading">
+						{displayKcal.toLocaleString('pt-BR')} kcal
+					</span>
+				</div>
+				<div class="my-1 w-px shrink-0 self-stretch bg-line/50" aria-hidden="true"></div>
+				<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
+					<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Proteína</span>
+					<span class="text-sm font-extrabold tabular-nums text-heading">{displayProteinG} g</span>
+				</div>
+			</div>
+		{/if}
 		<div
-			class="relative z-0 flex w-full items-stretch justify-center gap-0 rounded-t-2xl border border-b-0 border-line/50 bg-white px-4 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
-			aria-label="Metas diárias do seu protocolo: calorias e proteína"
+			class="w-full bg-bg {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
 		>
-			<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
-				<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
-				<span class="text-sm font-extrabold tabular-nums text-heading">
-					{displayKcal.toLocaleString('pt-BR')} kcal
-				</span>
-			</div>
-			<div class="my-1 w-px shrink-0 self-stretch bg-line/50" aria-hidden="true"></div>
-			<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
-				<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Proteína</span>
-				<span class="text-sm font-extrabold tabular-nums text-heading">{displayProteinG} g</span>
-			</div>
-		</div>
-		<div class="relative z-10 -mt-2 w-full bg-bg">
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
 				scriptSrc={vturbProtocoloAccess.scriptSrc}
@@ -640,7 +643,7 @@
 	<!-- Price Card: um único bloco verde (borda + fundo) com conteúdo arredondado em cima e embaixo -->
 	<div
 		id="bloco-preco"
-		class="bloco-preco-shimmer relative w-full flex flex-col gap-2.5 text-left rounded-2xl border-[2px] border-accent bg-accent overflow-hidden mt-2.5"
+		class="bloco-preco-shimmer scroll-mt-24 relative w-full flex flex-col gap-2.5 text-left rounded-2xl border-[2px] border-accent bg-accent overflow-hidden mt-2.5"
 	>
 		<div class="flex flex-col gap-5 p-5 mx-0.5 mt-0.5 mb-0.5 rounded-2xl overflow-hidden border border-line/30 bg-surface">
 			<!-- Header: título + preço (+ 20% OFF à direita se ?offer=OF002) e R$197 -->

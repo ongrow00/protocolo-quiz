@@ -103,13 +103,14 @@ function createPostQuizStore() {
 		},
 
 		acceptBonusDiscount() {
-			update((s) =>
-				persist({
+			update((s) => ({
+				...persist({
 					...s,
 					bonusInteracted: true,
 					bonusDiscountAccepted: true
-				})
-			);
+				}),
+				resultsContentRevealed: true
+			}));
 		},
 
 		declineBonusDiscount() {

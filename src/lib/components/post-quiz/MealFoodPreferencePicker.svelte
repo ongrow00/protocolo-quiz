@@ -180,15 +180,15 @@
 									aria-disabled={isDisabled}
 									disabled={isDisabled}
 									onclick={() => toggleItem(block.id, item.id)}
-									class="flex items-center gap-2 rounded-xl border px-2.5 py-2.5 text-left text-sm transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+									class="meal-food-btn @container flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
 										{isSelected
 										? 'border-accent bg-accent text-bg font-medium'
 										: isDisabled
 											? 'border-line/40 bg-surface text-muted/50 cursor-not-allowed'
 											: 'border-line bg-surface text-body hover:border-accent/40 hover:bg-surface-2'}"
 								>
-									<span class="text-base shrink-0" aria-hidden="true">{item.emoji}</span>
-									<span class="min-w-0 leading-[14px]">{item.label}</span>
+									<span class="meal-food-emoji shrink-0" aria-hidden="true">{item.emoji}</span>
+									<span class="meal-food-label min-w-0 w-full text-balance">{item.label}</span>
 								</button>
 							{/each}
 						</div>
@@ -198,3 +198,34 @@
 		{/each}
 	</div>
 </div>
+
+<style>
+	.meal-picker {
+		container-type: inline-size;
+		container-name: meal-picker;
+	}
+
+	.meal-food-btn {
+		container-type: inline-size;
+	}
+
+	.meal-food-emoji {
+		font-size: clamp(0.875rem, 12cqi, 1rem);
+		line-height: 1;
+	}
+
+	.meal-food-label {
+		font-size: clamp(0.5625rem, 10cqi, 0.75rem);
+		line-height: 1.15;
+	}
+
+	@container meal-picker (min-width: 24rem) {
+		.meal-food-label {
+			font-size: clamp(0.6875rem, 8cqi, 0.8125rem);
+		}
+
+		.meal-food-emoji {
+			font-size: clamp(1rem, 10cqi, 1.125rem);
+		}
+	}
+</style>
