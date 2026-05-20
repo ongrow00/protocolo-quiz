@@ -4,7 +4,6 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { env } from '$env/dynamic/public';
 	import { quizStore } from '$lib/stores/quiz.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
@@ -18,6 +17,7 @@
 	import MealFollowUpQuestions from '$lib/components/post-quiz/MealFollowUpQuestions.svelte';
 	import type { MealBlockId } from '$lib/data/meal-preferences';
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
+	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -246,6 +246,9 @@
 		quiz.answers['goal_type'] === 'goal-definir' ? 'definir o corpo' : 'emagrecer'
 	);
 
+	const phase1Macros = $derived(computePhase1Macros(quiz.answers));
+	const displayKcal = $derived(phase1Macros?.kcal ?? DEFAULT_DAILY_MACRO_GOALS.kcal);
+
 	/** Preço extra + tag só com ?offer=OF002 na URL (ex.: link de campanha ou após aceitar bónus). */
 	const showOf002Offer = $derived($page.url.searchParams.get('offer') === 'OF002');
 	const offerMainPrice = $derived(showOf002Offer ? 'R$37,00' : 'R$47,00');
@@ -256,7 +259,7 @@
 	const checkoutUrl = $derived(
 		showOf002Offer
 			? RESULTS_OFFER.checkoutUrlOf002
-			: (env.PUBLIC_CHECKOUT_URL ?? RESULTS_OFFER.checkoutUrl)
+			: (import.meta.env.PUBLIC_CHECKOUT_URL || RESULTS_OFFER.checkoutUrl)
 	);
 
 	// Itens "Suas especificidades": só mostram se o usuário escolheu no quiz
@@ -479,19 +482,34 @@
 	{/if}
 	<div
 		id="video-protocolo"
-		class="scroll-mt-24 w-full max-w-md mx-auto min-w-0"
+		class="scroll-mt-24 -mt-2.5 w-full max-w-[400px] mx-auto min-w-0"
 		in:fly={{ y: cascadeY, duration: cascadeDur, delay: cascadeGap, easing: cubicOut }}
 	>
-		<VturbPlayer
-			playerId={vturbProtocoloAccess.smartplayerId}
-			scriptSrc={vturbProtocoloAccess.scriptSrc}
-			revealHiddenAfterPlayback={{
-				seconds: RESULTS_VTURB_DELAY_SEC,
-				selectors: ['.results-vturb-delay'],
-				persist: !isAtivacaoVariant
-			}}
-			onReveal={() => postQuizStore.markResultsContentRevealed()}
-		/>
+		<!-- 10px acima da aba (compensa o gap-2.5 do container) -->
+		<div class="pt-2.5">
+		<!-- Aba de calorias: mesma largura do player; o vídeo cobre a base da aba -->
+		<div
+			class="relative z-0 flex w-full items-center justify-between gap-4 rounded-t-2xl border border-b-0 border-line/50 bg-white px-5 py-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+			aria-label="Meta de calorias do seu protocolo"
+		>
+			<span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
+			<span class="text-base font-extrabold tabular-nums text-heading">
+				{displayKcal.toLocaleString('pt-BR')} kcal
+			</span>
+		</div>
+		<div class="relative z-10 -mt-2 w-full bg-bg">
+			<VturbPlayer
+				playerId={vturbProtocoloAccess.smartplayerId}
+				scriptSrc={vturbProtocoloAccess.scriptSrc}
+				revealHiddenAfterPlayback={{
+					seconds: RESULTS_VTURB_DELAY_SEC,
+					selectors: ['.results-vturb-delay'],
+					persist: !isAtivacaoVariant
+				}}
+				onReveal={() => postQuizStore.markResultsContentRevealed()}
+			/>
+		</div>
+		</div>
 	</div>
 	{/if}
 

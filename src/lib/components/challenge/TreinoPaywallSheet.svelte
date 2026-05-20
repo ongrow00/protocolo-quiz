@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import { TREINO_PAYWALL } from '$lib/data/treino-paywall';
 
@@ -10,7 +9,7 @@
 
 	let { open, onClose }: Props = $props();
 
-	const checkoutUrl = $derived(env.PUBLIC_CHECKOUT_URL ?? TREINO_PAYWALL.checkoutUrl);
+	const checkoutUrl = $derived(import.meta.env.PUBLIC_CHECKOUT_URL || TREINO_PAYWALL.checkoutUrl);
 	const ctaLabel = $derived(`${TREINO_PAYWALL.ctaLabel} - ${TREINO_PAYWALL.priceLabel}`);
 </script>
 

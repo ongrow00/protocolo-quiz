@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { env } from '$env/dynamic/public';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
 
-	const playerId = $derived(env.PUBLIC_CONSULTORIA_VTURB_PLAYER_ID ?? '');
-	const scriptSrc = $derived(env.PUBLIC_CONSULTORIA_VTURB_SCRIPT_SRC ?? '');
+	const playerId = import.meta.env.PUBLIC_CONSULTORIA_VTURB_PLAYER_ID ?? '';
+	const scriptSrc = import.meta.env.PUBLIC_CONSULTORIA_VTURB_SCRIPT_SRC ?? '';
 	const hasVturb = $derived(Boolean(playerId && scriptSrc));
 </script>
 
