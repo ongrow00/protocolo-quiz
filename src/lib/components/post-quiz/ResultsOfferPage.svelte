@@ -248,6 +248,7 @@
 
 	const phase1Macros = $derived(computePhase1Macros(quiz.answers));
 	const displayKcal = $derived(phase1Macros?.kcal ?? DEFAULT_DAILY_MACRO_GOALS.kcal);
+	const displayProteinG = $derived(phase1Macros?.proteinG ?? DEFAULT_DAILY_MACRO_GOALS.proteinG);
 
 	/** Preço extra + tag só com ?offer=OF002 na URL (ex.: link de campanha ou após aceitar bónus). */
 	const showOf002Offer = $derived($page.url.searchParams.get('offer') === 'OF002');
@@ -459,7 +460,7 @@
 	</h1>
 	{#if !hasCustomHeroHeadline}
 	<p
-		class="text-sm text-body leading-[14px] max-w-md mx-auto min-w-0"
+		class="text-sm text-body leading-[14px] max-w-md mx-auto min-w-0 mb-[25px]"
 		in:fly={{ y: cascadeY, duration: cascadeDur, delay: cascadeGap, easing: cubicOut }}
 	>
 		Nesse video você vai entender como acessar o protocolo desenhado para você sair de
@@ -487,15 +488,22 @@
 	>
 		<!-- 10px acima da aba (compensa o gap-2.5 do container) -->
 		<div class="pt-2.5">
-		<!-- Aba de calorias: mesma largura do player; o vídeo cobre a base da aba -->
+		<!-- Aba de macros: mesma largura do player; o vídeo cobre a base da aba -->
 		<div
-			class="relative z-0 flex w-full items-center justify-between gap-4 rounded-t-2xl border border-b-0 border-line/50 bg-white px-5 py-2.5 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
-			aria-label="Meta de calorias do seu protocolo"
+			class="relative z-0 flex w-full items-stretch justify-center gap-0 rounded-t-2xl border border-b-0 border-line/50 bg-white px-4 py-2 shadow-[0_2px_10px_rgba(0,0,0,0.06)]"
+			aria-label="Metas diárias do seu protocolo: calorias e proteína"
 		>
-			<span class="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
-			<span class="text-base font-extrabold tabular-nums text-heading">
-				{displayKcal.toLocaleString('pt-BR')} kcal
-			</span>
+			<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
+				<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
+				<span class="text-sm font-extrabold tabular-nums text-heading">
+					{displayKcal.toLocaleString('pt-BR')} kcal
+				</span>
+			</div>
+			<div class="my-1 w-px shrink-0 self-stretch bg-line/50" aria-hidden="true"></div>
+			<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
+				<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Proteína</span>
+				<span class="text-sm font-extrabold tabular-nums text-heading">{displayProteinG} g</span>
+			</div>
 		</div>
 		<div class="relative z-10 -mt-2 w-full bg-bg">
 			<VturbPlayer
