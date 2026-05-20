@@ -89,11 +89,12 @@
 			aria-modal="true"
 			aria-labelledby={titleId}
 			tabindex="-1"
-			class="meal-confirm-panel mx-2 mb-2 w-[calc(100%-1rem)] max-w-sm self-center rounded-2xl bg-surface/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-4 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl sm:mx-auto"
+			class="meal-confirm-panel mx-2 mb-2 w-[calc(100%-1rem)] max-w-sm self-center rounded-2xl bg-surface/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] backdrop-blur-xl sm:mx-auto"
 			class:meal-confirm-panel--closing={closing}
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => e.stopPropagation()}
 		>
+			<div class="mx-auto mb-4 h-1 w-10 shrink-0 rounded-full bg-line" aria-hidden="true"></div>
 			<p id={titleId} class="px-2 pb-4 text-center text-[15px] font-medium leading-snug text-body">
 				{message}
 			</p>
