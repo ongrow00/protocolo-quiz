@@ -27,9 +27,13 @@
 	let carouselDragDx = $state(0);
 	let carouselDragBaseSlide = 0;
 	let carouselDragStartX = 0;
+	let carouselDragStartY = 0;
+	let carouselLockAxis: 'x' | 'y' | null = null;
 	let carouselDidDrag = false;
 	let carouselPointerDownTarget: HTMLElement | null = null;
 	let carouselPointerDownSlide = 0;
+
+	const AXIS_LOCK_PX = 8;
 
 	const SWIPE_THRESHOLD_PX = 48;
 	const listaSlideIndex = $derived((showIntake ? 2 : 1) as 0 | 1 | 2);
@@ -60,21 +64,59 @@
 		}
 	});
 
+	function cancelCarouselDrag() {
+		if (!isCarouselDragging) return;
+		isCarouselDragging = false;
+		carouselLockAxis = null;
+		carouselDragDx = 0;
+		detachWindowDragListeners();
+	}
+
+	function updateCarouselDrag(clientX: number, clientY: number, preventDefault?: () => void) {
+		const dx = clientX - carouselDragStartX;
+		const dy = clientY - carouselDragStartY;
+
+		if (carouselLockAxis === null) {
+			if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
+			carouselLockAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+			if (carouselLockAxis === 'y') {
+				cancelCarouselDrag();
+				return;
+			}
+		}
+
+		if (carouselLockAxis === 'x') {
+			preventDefault?.();
+			carouselDragDx = dx;
+			if (Math.abs(dx) > 6) carouselDidDrag = true;
+		}
+	}
+
 	function onWindowPointerMove(e: PointerEvent) {
 		if (!isCarouselDragging) return;
-		carouselDragDx = e.clientX - carouselDragStartX;
-		if (Math.abs(carouselDragDx) > 6) carouselDidDrag = true;
+		updateCarouselDrag(e.clientX, e.clientY, () => e.preventDefault());
+	}
+
+	function onWindowTouchMove(e: TouchEvent) {
+		if (!isCarouselDragging) return;
+		const touch = e.touches[0];
+		if (!touch) return;
+		updateCarouselDrag(touch.clientX, touch.clientY, () => e.preventDefault());
 	}
 
 	function detachWindowDragListeners() {
 		window.removeEventListener('pointermove', onWindowPointerMove);
+		window.removeEventListener('touchmove', onWindowTouchMove);
 		window.removeEventListener('pointerup', onWindowPointerUp);
 		window.removeEventListener('pointercancel', onWindowPointerUp);
+		window.removeEventListener('touchend', onWindowPointerUp);
+		window.removeEventListener('touchcancel', onWindowPointerUp);
 	}
 
 	function onWindowPointerUp() {
 		if (!isCarouselDragging) return;
 		isCarouselDragging = false;
+		carouselLockAxis = null;
 		detachWindowDragListeners();
 
 		if (carouselDidDrag) {
@@ -106,16 +148,21 @@
 		if (e.button !== 0 || shouldIgnoreCarouselPointer(e.target)) return;
 		isCarouselDragging = true;
 		carouselDidDrag = false;
+		carouselLockAxis = null;
 		carouselDragStartX = e.clientX;
+		carouselDragStartY = e.clientY;
 		carouselDragBaseSlide = activeSlide;
 		carouselDragDx = 0;
 		carouselPointerDownSlide = slideIndex;
 		carouselPointerDownTarget =
 			e.target instanceof HTMLElement ? e.target : null;
 
-		window.addEventListener('pointermove', onWindowPointerMove);
+		window.addEventListener('pointermove', onWindowPointerMove, { passive: false });
+		window.addEventListener('touchmove', onWindowTouchMove, { passive: false });
 		window.addEventListener('pointerup', onWindowPointerUp);
 		window.addEventListener('pointercancel', onWindowPointerUp);
+		window.addEventListener('touchend', onWindowPointerUp);
+		window.addEventListener('touchcancel', onWindowPointerUp);
 	}
 
 	function openIntakePanel() {
@@ -239,7 +286,7 @@
 
 <div class="flex flex-col gap-3">
 	<div
-		class="carousel-outer {activeSlide > 0 ? 'carousel-outer--peek-left' : ''}"
+		class="carousel-outer {activeSlide > 0 ? 'carousel-outer--peek-left' : ''} {carouselLockAxis === 'x' ? 'carousel-outer--panning' : ''}"
 		role="region"
 		aria-label="Protocolo e ingestão diária"
 		aria-roledescription="carrossel"
@@ -363,7 +410,12 @@
 		overflow: hidden;
 		margin-right: -40px;
 		padding-right: 40px;
-		touch-action: pan-x pan-y;
+		touch-action: pan-x;
+		overscroll-behavior-x: contain;
+	}
+
+	.carousel-outer--panning {
+		touch-action: none;
 	}
 
 	.carousel-outer--peek-left {
