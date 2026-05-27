@@ -23,18 +23,20 @@
 	let activeSlide = $state(0);
 	let listaSheetOpen = $state(false);
 
-	let carouselOuterEl = $state<HTMLDivElement | null>(null);
 	let isCarouselDragging = $state(false);
 	let carouselDragDx = $state(0);
 	let carouselDragBaseSlide = 0;
 	let carouselDragStartX = 0;
 	let carouselDidDrag = false;
+	let carouselPointerDownTarget: HTMLElement | null = null;
+	let carouselPointerDownSlide = 0;
 
 	const SWIPE_THRESHOLD_PX = 48;
-	const MAX_SLIDE = 2;
+	const listaSlideIndex = $derived((showIntake ? 2 : 1) as 0 | 1 | 2);
+	const maxSlideIndex = $derived(showIntake ? 2 : 1);
 
-	function scrollToSlide(index: 0 | 1 | 2) {
-		activeSlide = index;
+	function scrollToSlide(index: number) {
+		activeSlide = Math.min(maxSlideIndex, Math.max(0, index)) as 0 | 1 | 2;
 	}
 
 	const carouselTransform = $derived.by(() => {
@@ -47,51 +49,73 @@
 		isCarouselDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
 	);
 
-	function isCarouselDragTarget(target: EventTarget | null): boolean {
+	function shouldIgnoreCarouselPointer(target: EventTarget | null): boolean {
 		if (!(target instanceof HTMLElement)) return false;
-		if (target.closest('.timeline-scroll')) return false;
-		return Boolean(target.closest('[data-carousel-slide]'));
+		return Boolean(target.closest('.timeline-scroll, a[href]'));
 	}
 
-	function onCarouselPointerDown(e: PointerEvent) {
-		if (e.button !== 0 || !isCarouselDragTarget(e.target)) return;
-		isCarouselDragging = true;
-		carouselDidDrag = false;
-		carouselDragStartX = e.clientX;
-		carouselDragBaseSlide = activeSlide;
-		carouselDragDx = 0;
-		try {
-			carouselOuterEl?.setPointerCapture(e.pointerId);
-		} catch {
-			/* */
+	$effect(() => {
+		if (activeSlide > maxSlideIndex) {
+			activeSlide = maxSlideIndex as 0 | 1 | 2;
 		}
-	}
+	});
 
-	function onCarouselPointerMove(e: PointerEvent) {
+	function onWindowPointerMove(e: PointerEvent) {
 		if (!isCarouselDragging) return;
 		carouselDragDx = e.clientX - carouselDragStartX;
 		if (Math.abs(carouselDragDx) > 6) carouselDidDrag = true;
 	}
 
-	function endCarouselDrag(e: PointerEvent) {
+	function detachWindowDragListeners() {
+		window.removeEventListener('pointermove', onWindowPointerMove);
+		window.removeEventListener('pointerup', onWindowPointerUp);
+		window.removeEventListener('pointercancel', onWindowPointerUp);
+	}
+
+	function onWindowPointerUp() {
 		if (!isCarouselDragging) return;
 		isCarouselDragging = false;
-		if (carouselOuterEl?.hasPointerCapture(e.pointerId)) {
-			carouselOuterEl.releasePointerCapture(e.pointerId);
-		}
+		detachWindowDragListeners();
 
 		if (carouselDidDrag) {
-			if (carouselDragDx < -SWIPE_THRESHOLD_PX && activeSlide < MAX_SLIDE) {
-				scrollToSlide((activeSlide + 1) as 0 | 1 | 2);
+			if (carouselDragDx < -SWIPE_THRESHOLD_PX && activeSlide < maxSlideIndex) {
+				scrollToSlide(activeSlide + 1);
 			} else if (carouselDragDx > SWIPE_THRESHOLD_PX && activeSlide > 0) {
-				scrollToSlide((activeSlide - 1) as 0 | 1 | 2);
+				scrollToSlide(activeSlide - 1);
 			}
 			setTimeout(() => {
 				carouselDidDrag = false;
 			}, 0);
+		} else {
+			const target = carouselPointerDownTarget;
+			if (
+				activeSlide === listaSlideIndex &&
+				target?.closest('[data-lista-trigger]')
+			) {
+				listaSheetOpen = true;
+			} else if (carouselPointerDownSlide !== activeSlide) {
+				scrollToSlide(carouselPointerDownSlide);
+			}
 		}
 
 		carouselDragDx = 0;
+		carouselPointerDownTarget = null;
+	}
+
+	function onSlidePointerDown(e: PointerEvent, slideIndex: number) {
+		if (e.button !== 0 || shouldIgnoreCarouselPointer(e.target)) return;
+		isCarouselDragging = true;
+		carouselDidDrag = false;
+		carouselDragStartX = e.clientX;
+		carouselDragBaseSlide = activeSlide;
+		carouselDragDx = 0;
+		carouselPointerDownSlide = slideIndex;
+		carouselPointerDownTarget =
+			e.target instanceof HTMLElement ? e.target : null;
+
+		window.addEventListener('pointermove', onWindowPointerMove);
+		window.addEventListener('pointerup', onWindowPointerUp);
+		window.addEventListener('pointercancel', onWindowPointerUp);
 	}
 
 	function openIntakePanel() {
@@ -173,7 +197,18 @@
 {/snippet}
 
 {#snippet listaFace()}
-	<button type="button" class="flex flex-1 flex-col justify-center gap-3 p-5 text-left" onclick={() => (listaSheetOpen = true)}>
+	<div
+		data-lista-trigger
+		role="button"
+		tabindex="0"
+		class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				listaSheetOpen = true;
+			}
+		}}
+	>
 		<span class="text-sm font-extrabold text-heading">Lista de compras</span>
 		<p class="text-xs leading-relaxed text-body">Geramos sua lista de compras para 14 dias com base na sua seleção de alimentos.</p>
 		<span class="mt-1 flex items-center gap-1 text-xs font-bold text-accent">
@@ -182,7 +217,7 @@
 				<path d="M5 12h14M13 6l6 6-6 6" />
 			</svg>
 		</span>
-	</button>
+	</div>
 {/snippet}
 
 {#snippet protocolSlide(face: Snippet, index: 0 | 1 | 2)}
@@ -191,10 +226,7 @@
 		data-carousel-slide
 		class="protocol-slide carousel-slide-box flex shrink-0 snap-start snap-always flex-col overflow-hidden rounded-challenge border border-challenge-border transition-opacity duration-300"
 		style:opacity={activeSlide === index ? 1 : 0.5}
-		onclick={() => {
-			if (carouselDidDrag) return;
-			if (activeSlide !== index) scrollToSlide(index);
-		}}
+		onpointerdown={(e) => onSlidePointerDown(e, index)}
 	>
 		<div class="protocol-slide-face relative flex min-h-0 flex-1 flex-col bg-surface">
 			{@render face()}
@@ -207,15 +239,10 @@
 
 <div class="flex flex-col gap-3">
 	<div
-		bind:this={carouselOuterEl}
 		class="carousel-outer {activeSlide > 0 ? 'carousel-outer--peek-left' : ''}"
 		role="region"
 		aria-label="Protocolo e ingestão diária"
 		aria-roledescription="carrossel"
-		onpointerdown={onCarouselPointerDown}
-		onpointermove={onCarouselPointerMove}
-		onpointerup={endCarouselDrag}
-		onpointercancel={endCarouselDrag}
 	>
 		<div
 			class="protocol-carousel flex gap-3"
@@ -226,7 +253,7 @@
 			{#if showIntake}
 				{@render protocolSlide(intakeFace, 1)}
 			{/if}
-			{@render protocolSlide(listaFace, 2)}
+			{@render protocolSlide(listaFace, listaSlideIndex)}
 		</div>
 	</div>
 
@@ -256,10 +283,10 @@
 		<button
 			type="button"
 			role="tab"
-			aria-selected={activeSlide === 2}
+			aria-selected={activeSlide === listaSlideIndex}
 			aria-label="Lista de compras"
-			onclick={() => scrollToSlide(2)}
-			class="h-2 rounded-full transition-all duration-200 {activeSlide === 2
+			onclick={() => scrollToSlide(listaSlideIndex)}
+			class="h-2 rounded-full transition-all duration-200 {activeSlide === listaSlideIndex
 				? 'w-5 bg-accent'
 				: 'w-2 bg-line'}"
 		></button>
@@ -336,7 +363,7 @@
 		overflow: hidden;
 		margin-right: -40px;
 		padding-right: 40px;
-		touch-action: pan-y;
+		touch-action: pan-x pan-y;
 	}
 
 	.carousel-outer--peek-left {
