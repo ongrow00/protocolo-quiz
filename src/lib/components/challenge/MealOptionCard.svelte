@@ -25,6 +25,16 @@
 	const isChosen = $derived(status === 'completed' || status === 'skipped');
 	const isDimmed = $derived(blockResolved && !isChosen);
 	const canMarkFromCircle = $derived(!isChosen && !isDimmed);
+
+	const displayName = $derived(meal.shortName || meal.name);
+	const initials = $derived(
+		displayName
+			.split(/\s+/)
+			.filter((w) => /[a-zA-ZÀ-ÿ]/.test(w[0]))
+			.slice(0, 2)
+			.map((w) => w[0].toUpperCase())
+			.join('')
+	);
 </script>
 
 <div
@@ -83,20 +93,20 @@
 		type="button"
 		onclick={onCardClick}
 		class="flex min-w-0 flex-1 items-center gap-3 text-left active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-challenge"
-		aria-label="{mealOptionLabel(meal.optionIndex)}, {meal.name}, {meal.calories} calorias{isChosen ? ', consumida' : isDimmed ? ', outra opção escolhida' : ''}"
+		aria-label="{mealOptionLabel(meal.optionIndex)}, {displayName}, {meal.calories} calorias{isChosen ? ', consumida' : isDimmed ? ', outra opção escolhida' : ''}"
 	>
 		<div
-			class="relative h-14 w-14 shrink-0 overflow-hidden rounded-challenge bg-accent-soft {isDimmed
+			class="flex h-14 w-14 shrink-0 items-center justify-center rounded-challenge bg-accent-soft {isDimmed
 				? 'grayscale'
 				: ''}"
 		>
-			<img src={meal.image} alt="" class="h-full w-full object-cover" loading="lazy" />
+			<span class="text-base font-extrabold text-accent">{initials}</span>
 		</div>
 		<div class="min-w-0 flex-1">
 			<p class="text-[10px] font-medium uppercase tracking-wide text-muted">
 				{mealOptionLabel(meal.optionIndex)}
 			</p>
-			<p class="truncate text-sm font-bold text-heading">{meal.name}</p>
+			<p class="truncate text-sm font-bold text-heading">{displayName}</p>
 		</div>
 		<div class="flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted tabular-nums">
 			<span>{meal.calories} kcal</span>

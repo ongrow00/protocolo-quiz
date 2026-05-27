@@ -1,9 +1,20 @@
 import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
+import type { MealSelections } from '$lib/data/meal-preferences';
+import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
+import { setChallengeSelections } from '$lib/data/challenge-plan';
 
 export interface PostQuizState {
 	name: string;
 	whatsapp: string;
+	mealSelections: MealSelections | null;
+	/** Respostas das perguntas de follow-up (sim/não). Persistido para retomar o fluxo. */
+	followUpAnswers: Record<string, MealFollowUpAnswer> | null;
+	/**
+	 * true quando o onboarding in-app está completo (usuário passou pela oferta e salvou no Supabase).
+	 * Enquanto false, o layout redireciona para /ativacao.
+	 */
+	onboardingComplete: boolean;
 	/** Clicou no CTA "COMEÇAR AGORA" no bloco de preço (results). */
 	clickedComecarAgora: boolean;
 	/**
@@ -23,26 +34,41 @@ export interface PostQuizState {
 	bonusDiscountAccepted: boolean;
 }
 
-const SESSION_KEY = 'lotz-post-quiz-state';
+const STORAGE_KEY = 'pd-post-quiz-state-v1';
 
 const INITIAL: PostQuizState = {
 	name: '',
 	whatsapp: '',
+	mealSelections: null,
+	followUpAnswers: null,
+	onboardingComplete: false,
 	clickedComecarAgora: false,
 	resultsContentRevealed: false,
 	bonusInteracted: false,
 	bonusDiscountAccepted: false
 };
 
-function loadFromSession(): PostQuizState {
+function loadState(): PostQuizState {
 	if (!browser) return INITIAL;
 	try {
-		const raw = sessionStorage.getItem(SESSION_KEY);
+		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return INITIAL;
 		const parsed = JSON.parse(raw) as Partial<PostQuizState>;
+		const selections =
+			parsed.mealSelections && typeof parsed.mealSelections === 'object'
+				? (parsed.mealSelections as MealSelections)
+				: null;
+		if (selections) setChallengeSelections(selections);
+		const followUp =
+			parsed.followUpAnswers && typeof parsed.followUpAnswers === 'object'
+				? (parsed.followUpAnswers as Record<string, MealFollowUpAnswer>)
+				: null;
 		return {
 			name: typeof parsed.name === 'string' ? parsed.name : '',
 			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
+			mealSelections: selections,
+			followUpAnswers: followUp,
+			onboardingComplete: parsed.onboardingComplete === true,
 			clickedComecarAgora: parsed.clickedComecarAgora === true,
 			resultsContentRevealed: false,
 			bonusInteracted: parsed.bonusInteracted === true,
@@ -53,14 +79,17 @@ function loadFromSession(): PostQuizState {
 	}
 }
 
-function saveToSession(state: PostQuizState): void {
+function saveState(state: PostQuizState): void {
 	if (!browser) return;
 	try {
-		sessionStorage.setItem(
-			SESSION_KEY,
+		localStorage.setItem(
+			STORAGE_KEY,
 			JSON.stringify({
 				name: state.name,
 				whatsapp: state.whatsapp,
+				mealSelections: state.mealSelections,
+				followUpAnswers: state.followUpAnswers,
+				onboardingComplete: state.onboardingComplete,
 				clickedComecarAgora: state.clickedComecarAgora,
 				bonusInteracted: state.bonusInteracted,
 				bonusDiscountAccepted: state.bonusDiscountAccepted
@@ -72,10 +101,10 @@ function saveToSession(state: PostQuizState): void {
 }
 
 function createPostQuizStore() {
-	const { subscribe, set, update } = writable<PostQuizState>(loadFromSession());
+	const { subscribe, set, update } = writable<PostQuizState>(loadState());
 
 	function persist(state: PostQuizState): PostQuizState {
-		saveToSession(state);
+		saveState(state);
 		return state;
 	}
 
@@ -88,6 +117,19 @@ function createPostQuizStore() {
 
 		setWhatsapp(value: string) {
 			update((s) => persist({ ...s, whatsapp: value }));
+		},
+
+		setMealSelections(selections: MealSelections) {
+			setChallengeSelections(selections);
+			update((s) => persist({ ...s, mealSelections: selections }));
+		},
+
+		setFollowUpAnswers(answers: Record<string, MealFollowUpAnswer>) {
+			update((s) => persist({ ...s, followUpAnswers: answers }));
+		},
+
+		markOnboardingComplete() {
+			update((s) => (s.onboardingComplete ? s : persist({ ...s, onboardingComplete: true })));
 		},
 
 		markComecarAgoraClicked() {
@@ -125,7 +167,7 @@ function createPostQuizStore() {
 
 		reset() {
 			set(INITIAL);
-			if (browser) sessionStorage.removeItem(SESSION_KEY);
+			if (browser) localStorage.removeItem(STORAGE_KEY);
 		}
 	};
 }

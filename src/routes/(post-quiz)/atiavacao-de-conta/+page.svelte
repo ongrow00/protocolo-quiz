@@ -2,13 +2,16 @@
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import ResultsOfferPage from '$lib/components/post-quiz/ResultsOfferPage.svelte';
 	import AtivacaoLoadingScreen from './AtivacaoLoadingScreen.svelte';
-	import { ATIVACAO_OFFER_FEATURES } from './offer-features';
-	import { ATIVACAO_OFFER_PRICING } from './offer-pricing';
-	import { ATIVACAO_OFFER_GUARANTEE } from './offer-guarantee';
-	import { ATIVACAO_OFFER_FAQ } from './offer-faq';
-	import { ATIVACAO_HERO_HEADLINE, ATIVACAO_HERO_PROGRESS } from './offer-hero';
-	import { ATIVACAO_OFFER_CTA } from './offer-cta';
-	import { ATIVACAO_OFFER_ACCESS_SECTION } from './offer-access-section';
+	import {
+		ATIVACAO_OFFER_FEATURES,
+		ATIVACAO_OFFER_PRICING,
+		ATIVACAO_OFFER_GUARANTEE,
+		ATIVACAO_OFFER_FAQ,
+		ATIVACAO_HERO_HEADLINE,
+		ATIVACAO_HERO_PROGRESS,
+		ATIVACAO_OFFER_CTA,
+		ATIVACAO_OFFER_ACCESS_SECTION
+	} from '$lib/data/ativacao-offer';
 
 	let pageReady = $state(false);
 

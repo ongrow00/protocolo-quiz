@@ -6,26 +6,37 @@
 		/** Texto pequeno acima do título (ex.: "Opção 1") */
 		subtitle?: string;
 		title?: string;
+		/** Texto logo abaixo do título */
+		titleDetail?: string;
 		onClose: () => void;
 		onSave?: () => void;
 		/** Toolbar estilo iOS: X à esquerda, check à direita (sem título central) */
 		toolbar?: boolean;
-		/** Altura conforme o conteúdo (ex.: paywall) em vez de 80dvh fixo */
+		/** Altura conforme o conteúdo (ex.: paywall) em vez de altura fixa */
 		autoHeight?: boolean;
+		/** Altura do painel em % da viewport (padrão 80) */
+		heightPercent?: number;
+		/** Acima de outro bottom sheet (z-index maior) */
+		elevated?: boolean;
 		children?: Snippet;
 		headerTrailing?: Snippet;
+		footer?: Snippet;
 	}
 
 	let {
 		open,
 		subtitle,
 		title,
+		titleDetail,
 		onClose,
 		onSave,
 		toolbar = false,
 		autoHeight = false,
+		heightPercent = 80,
+		elevated = false,
 		children,
-		headerTrailing
+		headerTrailing,
+		footer
 	}: Props = $props();
 
 	const CLOSE_MS = 280;
@@ -87,7 +98,9 @@
 {#if mounted}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
-		class="bottom-sheet-backdrop fixed inset-0 z-50 flex flex-col justify-end bg-black/40 backdrop-blur-sm"
+		class="bottom-sheet-backdrop fixed inset-0 flex h-dvh flex-col justify-end bg-black/40 backdrop-blur-sm {elevated
+			? 'z-[60]'
+			: 'z-50'}"
 		class:bottom-sheet-backdrop--closing={closing}
 		role="presentation"
 		onclick={handleBackdropClick}
@@ -100,7 +113,8 @@
 			aria-labelledby={title ? 'bottom-sheet-title' : undefined}
 			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-hidden rounded-t-[28px] px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] {autoHeight
 				? 'h-auto max-h-[min(90dvh,100%)]'
-				: 'h-[80dvh] max-h-[80dvh]'} {!toolbar ? 'bg-surface' : ''}"
+				: 'min-h-0'} {!toolbar ? 'bg-surface' : ''}"
+			style={autoHeight ? undefined : `height: ${heightPercent}%; max-height: ${heightPercent}%`}
 			class:bottom-sheet-panel--toolbar={toolbar}
 			class:bottom-sheet-panel--closing={closing}
 			onclick={(e) => e.stopPropagation()}
@@ -131,8 +145,8 @@
 						</svg>
 					</button>
 				</div>
-			{:else if subtitle || title || headerTrailing}
-				<div class="mb-2.5 flex shrink-0 items-start justify-between gap-3">
+			{:else if subtitle || title || titleDetail || headerTrailing}
+				<div class="mb-[25px] flex shrink-0 items-start justify-between gap-3">
 					<div class="min-w-0 flex flex-col gap-0.5">
 						{#if subtitle}
 							<p class="text-[10px] font-medium uppercase tracking-wide text-muted">{subtitle}</p>
@@ -141,6 +155,9 @@
 							<h2 id="bottom-sheet-title" class="text-lg font-extrabold text-heading leading-tight">
 								{title}
 							</h2>
+						{/if}
+						{#if titleDetail}
+							<p class="mt-1 text-xs font-medium text-muted">{titleDetail}</p>
 						{/if}
 					</div>
 					{#if headerTrailing}
@@ -156,6 +173,12 @@
 			>
 				{@render children?.()}
 			</div>
+
+			{#if footer}
+				<div class="shrink-0 pt-3">
+					{@render footer()}
+				</div>
+			{/if}
 		</div>
 	</div>
 {/if}

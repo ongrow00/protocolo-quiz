@@ -1,18 +1,28 @@
 <script lang="ts">
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { profileStore } from '$lib/stores/profile.store';
+	import { authStore } from '$lib/stores/auth.store';
 
 	interface Props {
 		class?: string;
+		light?: boolean;
 	}
 
-	let { class: className = '' }: Props = $props();
+	let { class: className = '', light = false }: Props = $props();
 
 	const defaultLabel = 'Usuário';
 
 	const displayName = $derived.by(() => {
-		const name = $postQuizStore.name?.trim();
-		return name || defaultLabel;
+		const profileName = $profileStore.firstName?.trim();
+		if (profileName) return profileName;
+
+		const quizName = $postQuizStore.name?.trim();
+		if (quizName) return quizName.split(/\s+/)[0] ?? defaultLabel;
+
+		const email = $authStore.user?.email;
+		if (email) return email.split('@')[0];
+
+		return defaultLabel;
 	});
 
 	const firstName = $derived.by(() => displayName.split(/\s+/)[0] ?? defaultLabel);
@@ -40,10 +50,10 @@
 
 <header class="flex w-full items-center justify-between gap-3 {className}">
 	<div class="min-w-0 flex-1">
-		<p class="text-sm font-bold leading-tight text-heading">
-			Olá, <span class="text-accent">{displayName}</span>!
+		<p class="text-sm font-bold leading-tight {light ? 'text-white' : 'text-heading'}">
+			Olá, <span class={light ? 'text-white/80' : 'text-accent'}>{displayName}</span>!
 		</p>
-		<p class="mt-0.5 text-[12px] font-light leading-tight text-heading">{todayLabel}</p>
+		<p class="mt-0.5 text-[12px] font-light leading-tight {light ? 'text-white/70' : 'text-heading'}">{todayLabel}</p>
 	</div>
 	<a
 		href="/perfil"

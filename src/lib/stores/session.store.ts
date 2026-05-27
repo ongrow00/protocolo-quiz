@@ -2,7 +2,7 @@ import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 import type { SessionParams, UtmParams } from '$lib/data/types';
 
-const SESSION_KEY = 'lotz-session-params';
+const SESSION_KEY = 'pd-session-params';
 
 const EMPTY: SessionParams = {
 	utm: {},

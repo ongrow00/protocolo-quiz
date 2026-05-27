@@ -5,6 +5,7 @@
 	import { get } from 'svelte/store';
 	import { profileStore, type ProfileData } from '$lib/stores/profile.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
+	import { supabase } from '$lib/supabase';
 
 	interface Props {
 		open: boolean;
@@ -30,14 +31,65 @@
 		photoDataUrl: null
 	});
 
+	let loading = $state(false);
+
 	$effect(() => {
 		if (!open) return;
+		loadFromSupabase();
+	});
+
+	async function loadFromSupabase() {
+		loading = true;
+		try {
+			const { data: { user } } = await supabase.auth.getUser();
+			if (!user) {
+				loadLocal();
+				return;
+			}
+
+			const { data, error } = await supabase
+				.from('profiles')
+				.select('first_name, last_name, email, phone, document_type, document, street, number, neighborhood, city, state, zip, country')
+				.eq('id', user.id)
+				.maybeSingle();
+
+			if (error || !data) {
+				loadLocal();
+				return;
+			}
+
+			draft = {
+				firstName: data.first_name ?? '',
+				lastName: data.last_name ?? '',
+				email: data.email ?? user.email ?? '',
+				phone: data.phone ?? '',
+				documentType: data.document_type ?? 'CPF',
+				document: data.document ?? '',
+				street: data.street ?? '',
+				number: data.number ?? '',
+				neighborhood: data.neighborhood ?? '',
+				city: data.city ?? '',
+				state: data.state ?? '',
+				zip: data.zip ?? '',
+				country: data.country ?? 'Brasil',
+				photoDataUrl: null
+			};
+
+			profileStore.setAll({ ...draft });
+		} catch {
+			loadLocal();
+		} finally {
+			loading = false;
+		}
+	}
+
+	function loadLocal() {
 		const data = { ...get(profileStore) };
 		const nameParts = $postQuizStore.name?.trim().split(/\s+/).filter(Boolean) ?? [];
 		if (!data.firstName && nameParts[0]) data.firstName = nameParts[0];
 		if (!data.lastName && nameParts.length > 1) data.lastName = nameParts.slice(1).join(' ');
 		draft = data;
-	});
+	}
 
 	const fullName = $derived(
 		[draft.firstName, draft.lastName].filter(Boolean).join(' ') || '—'
@@ -46,9 +98,41 @@
 	const inputClass =
 		'w-full min-w-0 bg-transparent text-right text-[14px] font-medium text-heading outline-none placeholder:text-muted/40';
 
-	function save() {
+	let saving = $state(false);
+
+	async function save() {
+		saving = true;
 		profileStore.setAll({ ...draft });
-		onClose();
+
+		try {
+			const { data: { user } } = await supabase.auth.getUser();
+			if (user) {
+				await supabase
+					.from('profiles')
+					.upsert({
+						id: user.id,
+						first_name: draft.firstName || null,
+						last_name: draft.lastName || null,
+						email: draft.email || null,
+						phone: draft.phone || null,
+						document_type: draft.documentType || 'CPF',
+						document: draft.document || null,
+						street: draft.street || null,
+						number: draft.number || null,
+						neighborhood: draft.neighborhood || null,
+						city: draft.city || null,
+						state: draft.state || null,
+						zip: draft.zip || null,
+						country: draft.country || 'Brasil',
+						updated_at: new Date().toISOString()
+					});
+			}
+		} catch (e) {
+			console.warn('Profile sync failed:', e);
+		} finally {
+			saving = false;
+			onClose();
+		}
 	}
 
 	function handleClose() {

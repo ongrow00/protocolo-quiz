@@ -28,15 +28,4 @@
 		<a href="/legal/politica-de-privacidade" class="text-accent underline underline-offset-2"
 			>Política de Privacidade</a>.
 	</p>
-	<nav
-		class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[11px] pt-1"
-		aria-label="Documentos legais"
-	>
-		{#each links as item, i (item.href)}
-			{#if i > 0}
-				<span class="text-[#C1C1C1]/50 select-none" aria-hidden="true">|</span>
-			{/if}
-			<a href={item.href} class="text-accent underline underline-offset-2">{item.label}</a>
-		{/each}
-	</nav>
 </footer>

@@ -1,6 +1,7 @@
 import {
 	CHALLENGE_PLAN,
 	MEAL_BLOCK_ORDER,
+	activeBlocksForDay,
 	type MealBlockId
 } from '$lib/data/challenge-plan';
 import { CHALLENGE_TOTAL_DAYS } from '$lib/constants/challenge-storage-keys';
@@ -15,11 +16,9 @@ export type DaySummary = {
 	percent: number;
 };
 
-/** Dia visitável: desbloqueado no protocolo ou com pelo menos uma refeição registrada. */
-export function isDayNavigable(state: ChallengeState, day: number): boolean {
-	const status = state.days[day] ?? 'locked';
-	if (status !== 'locked') return true;
-	return countMealsResolvedForDay(state, day) > 0;
+/** Todos os dias são navegáveis — o usuário pode explorar qualquer dia do protocolo. */
+export function isDayNavigable(_state: ChallengeState, _day: number): boolean {
+	return true;
 }
 
 export function getMealStatusesForDay(
@@ -33,6 +32,10 @@ export function getMealStatusesForDay(
 	const result = {} as Record<MealBlockId, MealCheckStatus | 'pending'>;
 	for (const block of MEAL_BLOCK_ORDER) {
 		const options = plan.blocks[block];
+		if (!options || options.length === 0) {
+			result[block] = 'skipped';
+			continue;
+		}
 		let status: MealCheckStatus | 'pending' = 'pending';
 		for (const opt of options) {
 			const key = `${day}-${block}-${opt.id}`;
@@ -49,16 +52,23 @@ export function getMealStatusesForDay(
 
 export function countMealsResolvedForDay(state: ChallengeState, day: number): number {
 	const statuses = getMealStatusesForDay(state, day);
-	return MEAL_BLOCK_ORDER.filter((b) => statuses[b] !== 'pending').length;
+	const active = activeBlocksForDay(day);
+	return active.filter((b) => statuses[b] !== 'pending').length;
+}
+
+export function dayMealsTotal(day: number): number {
+	return activeBlocksForDay(day).length;
 }
 
 export function dayPercentComplete(state: ChallengeState, day: number): number {
+	const total = dayMealsTotal(day);
+	if (total === 0) return 100;
 	const done = countMealsResolvedForDay(state, day);
-	return Math.round((done / MEAL_BLOCK_ORDER.length) * 100);
+	return Math.round((done / total) * 100);
 }
 
 export function isDayFullyResolved(state: ChallengeState, day: number): boolean {
-	return countMealsResolvedForDay(state, day) === MEAL_BLOCK_ORDER.length;
+	return countMealsResolvedForDay(state, day) === dayMealsTotal(day);
 }
 
 export function globalPercentComplete(state: ChallengeState): number {
@@ -81,9 +91,10 @@ export function getTodayMealsSummary(state: ChallengeState): {
 } {
 	const day = state.currentDay;
 	const done = countMealsResolvedForDay(state, day);
+	const total = dayMealsTotal(day);
 	return {
 		done,
-		total: MEAL_BLOCK_ORDER.length,
+		total,
 		percent: dayPercentComplete(state, day)
 	};
 }
@@ -93,12 +104,13 @@ export function getAllDaySummaries(state: ChallengeState): DaySummary[] {
 		const day = i + 1;
 		const status = state.days[day] ?? 'locked';
 		const mealsDone = countMealsResolvedForDay(state, day);
+		const mealsTotal = dayMealsTotal(day);
 		return {
 			day,
 			status,
 			navigable: isDayNavigable(state, day),
 			mealsDone,
-			mealsTotal: MEAL_BLOCK_ORDER.length,
+			mealsTotal,
 			percent: dayPercentComplete(state, day)
 		};
 	});

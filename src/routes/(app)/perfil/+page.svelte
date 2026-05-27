@@ -5,6 +5,7 @@
 	import ProfileDadosPessoaisSheet from '$lib/components/profile/ProfileDadosPessoaisSheet.svelte';
 	import ProfileLegalSheet from '$lib/components/profile/ProfileLegalSheet.svelte';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
+	import { authStore } from '$lib/stores/auth.store';
 	import { challengeStore } from '$lib/stores/challenge.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -44,11 +45,12 @@
 		return id !== null && (LEGAL_SHEET_IDS as readonly string[]).includes(id);
 	}
 
-	function signOut() {
+	async function signOut() {
+		await authStore.signOut();
 		challengeStore.reset();
 		postQuizStore.reset();
 		profileStore.reset();
-		goto('/');
+		goto('/', { replaceState: true });
 	}
 </script>
 

@@ -1,5 +1,6 @@
-/** Itens do bloco "Você vai receber" — exclusivo de `/atiavacao-de-conta`. */
-export const ATIVACAO_OFFER_FEATURES = [
+import type { OfferFeatureItem } from '$lib/components/post-quiz/ResultsOfferPage.svelte';
+
+export const ATIVACAO_OFFER_FEATURES: OfferFeatureItem[] = [
 	{
 		icon: 'calendar',
 		title: '12 Meses de Acompanhamento Completo',

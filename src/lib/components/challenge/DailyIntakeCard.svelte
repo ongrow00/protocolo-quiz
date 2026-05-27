@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { challengeStore } from '$lib/stores/challenge.store';
-	import { quizStore } from '$lib/stores/quiz.store';
-	import { getDayIntakeConsumed, intakeProgress } from '$lib/utils/daily-intake';
-	import {
-		DEFAULT_DAILY_MACRO_GOALS,
-		dailyMacroGoals,
-		type DailyMacroGoals
-	} from '$lib/utils/macros';
+	import { getDayIntakeConsumed, getDayIntakeGoals, intakeProgress } from '$lib/utils/daily-intake';
 
 	interface Props {
 		day: number;
-		/** Dentro do carrossel do protocolo — sem borda/card duplicado */
 		embedded?: boolean;
 		class?: string;
 	}
@@ -23,12 +16,15 @@
 			: `rounded-challenge border border-challenge-border bg-surface px-4 py-4 ${className}`
 	);
 
-	const goals = $derived.by((): DailyMacroGoals => {
-		const fromQuiz = dailyMacroGoals($quizStore.answers);
-		return fromQuiz ?? DEFAULT_DAILY_MACRO_GOALS;
-	});
+	const goals = $derived(getDayIntakeGoals(day));
+	const rawConsumed = $derived(getDayIntakeConsumed($challengeStore, day));
 
-	const consumed = $derived(getDayIntakeConsumed($challengeStore, day));
+	const consumed = $derived({
+		kcal: Math.round(rawConsumed.kcal),
+		proteinG: Math.round(rawConsumed.proteinG),
+		carbsG: Math.round(rawConsumed.carbsG),
+		fatG: Math.round(rawConsumed.fatG)
+	});
 
 	const kcalPct = $derived(intakeProgress(consumed.kcal, goals.kcal));
 	const carbsPct = $derived(intakeProgress(consumed.carbsG, goals.carbsG));

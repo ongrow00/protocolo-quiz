@@ -1,5 +1,4 @@
-/**
- * Browser Supabase client (anon key) — optional for auth/realtime later.
- * Lead capture uses POST /api/leads + service role on the server; see $lib/server/supabase-admin.ts
- */
-export {};
+import { createClient } from '@supabase/supabase-js';
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+
+export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);

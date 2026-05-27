@@ -1,5 +1,6 @@
-/** CTAs do bloco de preço — exclusivo de `/atiavacao-de-conta`. */
-export const ATIVACAO_OFFER_CTA = {
+import type { OfferCta } from '$lib/components/post-quiz/ResultsOfferPage.svelte';
+
+export const ATIVACAO_OFFER_CTA: OfferCta = {
 	primaryLabel: 'Aceitar Oferta',
 	declineLabel: 'Recusar Oferta',
 	declineModal: {
@@ -7,4 +8,4 @@ export const ATIVACAO_OFFER_CTA = {
 		confirmLabel: 'Sim',
 		cancelLabel: 'Não'
 	}
-} as const;
+};

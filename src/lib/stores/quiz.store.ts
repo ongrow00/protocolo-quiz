@@ -5,10 +5,10 @@ import type { Answers, CategoryKey, Question, QuizState, Scores } from '$lib/dat
 import { computeVisibleQuestions } from '$lib/utils/branching';
 import { calculateScores } from '$lib/utils/scoring';
 import { AUDIENCE_GENDER } from '$lib/constants/audience';
-import { QUIZ_SESSION_STORAGE_KEY } from '$lib/constants/storage-keys';
+import { QUIZ_STORAGE_KEY } from '$lib/constants/storage-keys';
 import { easeOutProgress01 } from '$lib/utils/progress-easing';
 
-const SESSION_KEY = QUIZ_SESSION_STORAGE_KEY;
+const STORAGE_KEY = QUIZ_STORAGE_KEY;
 
 const INITIAL_SCORES: Scores = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 };
 
@@ -26,10 +26,10 @@ function newFunnelSessionId(): string {
 	return crypto.randomUUID();
 }
 
-function loadFromSession(): QuizState {
+function loadState(): QuizState {
 	if (!browser) return INITIAL_STATE;
 	try {
-		const raw = sessionStorage.getItem(SESSION_KEY);
+		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return INITIAL_STATE;
 		let state = JSON.parse(raw) as QuizState;
 		if (state.answers.gender == null) {
@@ -37,7 +37,7 @@ function loadFromSession(): QuizState {
 		}
 		if (state.startedAt != null && !state.funnelSessionId) {
 			state = { ...state, funnelSessionId: newFunnelSessionId() };
-			sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 		}
 		return state;
 	} catch {
@@ -45,20 +45,20 @@ function loadFromSession(): QuizState {
 	}
 }
 
-function saveToSession(state: QuizState): void {
+function saveState(state: QuizState): void {
 	if (!browser) return;
 	try {
-		sessionStorage.setItem(SESSION_KEY, JSON.stringify(state));
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 	} catch {
 		// Storage quota exceeded — silently ignore
 	}
 }
 
 function createQuizStore() {
-	const { subscribe, set, update } = writable<QuizState>(loadFromSession());
+	const { subscribe, set, update } = writable<QuizState>(loadState());
 
 	function persist(state: QuizState): QuizState {
-		saveToSession(state);
+		saveState(state);
 		return state;
 	}
 
@@ -108,7 +108,7 @@ function createQuizStore() {
 
 		reset() {
 			const fresh = { ...INITIAL_STATE };
-			saveToSession(fresh);
+			saveState(fresh);
 			set(fresh);
 		}
 	};

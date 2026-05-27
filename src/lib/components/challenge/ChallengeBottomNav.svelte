@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { canAccessConsultoria } from '$lib/stores/access.store';
+	import { generatingPlan } from '$lib/stores/generating.store';
 
-	type TabId = 'protocolo' | 'lista' | 'treino' | 'consultoria';
+	type TabId = 'protocolo' | 'treino' | 'consultoria';
 
-	const tabs: { id: TabId; label: string; href: string; match: (path: string) => boolean }[] = [
+	const allTabs: { id: TabId; label: string; href: string; match: (path: string) => boolean }[] = [
 		{ id: 'protocolo', label: 'Protocolo', href: '/inicio', match: (p) => p === '/inicio' },
-		{ id: 'lista', label: 'Lista', href: '/lista', match: (p) => p === '/lista' },
 		{ id: 'treino', label: 'Treino', href: '/treino', match: (p) => p === '/treino' },
 		{
 			id: 'consultoria',
@@ -14,6 +15,15 @@
 			match: (p) => p === '/consultoria'
 		}
 	];
+
+	const tabs = $derived(
+		$canAccessConsultoria
+			? allTabs.filter((t) => t.id !== 'consultoria')
+			: allTabs
+	);
+
+	const gridCols = $derived(tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-3');
+	const navWidth = $derived(`${tabs.length * 75}px`);
 </script>
 
 <div
@@ -21,16 +31,22 @@
 	style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))"
 >
 	<nav
-		class="pointer-events-auto grid h-[4rem] w-[300px] grid-cols-4 items-center rounded-[1.75rem] border border-line/40 bg-surface px-3"
+		class="pointer-events-auto grid h-[4rem] {gridCols} items-center rounded-[1.75rem] border border-line/40 bg-surface px-3"
+		style="width: {navWidth}"
 		aria-label="Navegação principal"
 	>
 		{#each tabs as tab (tab.id)}
 			{@const active = tab.match($page.url.pathname)}
+			{@const disabled = $generatingPlan && tab.id !== 'protocolo'}
 			<a
-				href={tab.href}
-				class="flex flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1 transition-colors duration-200 {active
-					? 'text-accent'
-					: 'text-[#c5c5c5]'}"
+				href={disabled ? undefined : tab.href}
+				role={disabled ? 'link' : undefined}
+				aria-disabled={disabled || undefined}
+				class="flex flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 py-1 transition-colors duration-200 {disabled
+					? 'opacity-30 pointer-events-none'
+					: active
+						? 'text-accent'
+						: 'text-[#c5c5c5]'}"
 				aria-current={active ? 'page' : undefined}
 			>
 				<span
@@ -57,30 +73,6 @@
 							>
 								<rect x="4" y="5" width="16" height="16" rx="2" />
 								<path d="M8 3v2M16 3v2M4 10h16M9 14h2M13 14h2M9 17h2" stroke-linecap="round" />
-							</svg>
-						{/if}
-					{:else if tab.id === 'lista'}
-						{#if active}
-							<svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-								<path
-									fill-rule="evenodd"
-									d="M3 5a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V5zm0 6a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm7-12a1 1 0 011-1h10a1 1 0 110 2H11a1 1 0 01-1-1zm0 6a1 1 0 011-1h10a1 1 0 110 2H11a1 1 0 01-1-1zm0 6a1 1 0 011-1h10a1 1 0 110 2H11a1 1 0 01-1-1z"
-									clip-rule="evenodd"
-								/>
-							</svg>
-						{:else}
-							<svg
-								class="h-[22px] w-[22px]"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="1.75"
-								aria-hidden="true"
-							>
-								<path d="M9 6h12M9 12h12M9 18h12" stroke-linecap="round" />
-								<circle cx="5" cy="6" r="1" fill="currentColor" stroke="none" />
-								<circle cx="5" cy="12" r="1" fill="currentColor" stroke="none" />
-								<circle cx="5" cy="18" r="1" fill="currentColor" stroke="none" />
 							</svg>
 						{/if}
 					{:else if tab.id === 'treino'}

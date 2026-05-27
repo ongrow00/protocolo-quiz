@@ -7,7 +7,7 @@
 </script>
 
 <div
-	class="relative w-full overflow-hidden rounded-challenge bg-[#1c1c1c] shadow-[0_8px_28px_rgba(0,0,0,0.14)] aspect-video"
+	class="relative w-full overflow-hidden rounded-t-challenge bg-[#1c1c1c] aspect-video"
 >
 	{#if hasVturb}
 		<div class="absolute inset-0 flex items-center justify-center">

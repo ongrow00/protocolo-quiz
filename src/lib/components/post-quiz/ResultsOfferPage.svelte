@@ -15,7 +15,7 @@
 	import OfferHeroProgress from '$lib/components/post-quiz/OfferHeroProgress.svelte';
 	import MealFoodPreferencePicker from '$lib/components/post-quiz/MealFoodPreferencePicker.svelte';
 	import MealFollowUpQuestions from '$lib/components/post-quiz/MealFollowUpQuestions.svelte';
-	import type { MealBlockId } from '$lib/data/meal-preferences';
+	import type { MealBlockId, MealSelections } from '$lib/data/meal-preferences';
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
 
@@ -149,6 +149,10 @@
 		offerCta?: OfferCta;
 		/** Textos da seção acima do bloco de preço (ex.: `/atiavacao-de-conta`). */
 		offerAccessSection?: OfferAccessSection;
+		/** When provided, the primary CTA becomes a button that calls this instead of navigating to checkout. */
+		onPrimaryCta?: () => void;
+		/** When provided, declining the offer calls this instead of navigating back. */
+		onDeclineCta?: () => void;
 	}
 
 	let {
@@ -160,7 +164,9 @@
 		heroHeadline,
 		heroProgress,
 		offerCta,
-		offerAccessSection
+		offerAccessSection,
+		onPrimaryCta,
+		onDeclineCta
 	}: Props = $props();
 
 	const isAtivacaoVariant = $derived(variant === 'ativacao');
@@ -349,24 +355,28 @@
 	let declineModalOpen = $state(false);
 	/** Ativação: headline e vídeo só após animação do stepper. */
 	let ativacaoHeroUnlocked = $state(variant !== 'ativacao');
-	/** Ativação: cardápio + perguntas antes do hero/vídeo/oferta. */
-	let mealPreferencesComplete = $state(variant !== 'ativacao');
-	let followUpQuestionsComplete = $state(variant !== 'ativacao');
-	let mealPreferences = $state<Record<MealBlockId, string[]> | null>(null);
-	let followUpAnswers = $state<Record<string, MealFollowUpAnswer> | null>(null);
+	/** Ativação: cardápio + perguntas antes do hero/vídeo/oferta. Resume from store if available. */
+	const storedSelections = $postQuizStore.mealSelections;
+	const storedFollowUp = $postQuizStore.followUpAnswers;
+	let mealPreferencesComplete = $state(variant !== 'ativacao' || storedSelections !== null);
+	let followUpQuestionsComplete = $state(variant !== 'ativacao' || storedFollowUp !== null);
+	let mealPreferences = $state<MealSelections | null>(storedSelections);
+	let followUpAnswers = $state<Record<string, MealFollowUpAnswer> | null>(storedFollowUp);
 
 	const ativacaoPreOfferComplete = $derived(
 		!isAtivacaoVariant || (mealPreferencesComplete && followUpQuestionsComplete)
 	);
 
-	function handleMealPreferencesComplete(selections: Record<MealBlockId, string[]>) {
+	function handleMealPreferencesComplete(selections: MealSelections) {
 		mealPreferences = selections;
 		mealPreferencesComplete = true;
+		postQuizStore.setMealSelections(selections);
 	}
 
 	function handleFollowUpQuestionsComplete(answers: Record<string, MealFollowUpAnswer>) {
 		followUpAnswers = answers;
 		followUpQuestionsComplete = true;
+		postQuizStore.setFollowUpAnswers(answers);
 	}
 
 	function openDeclineModal() {
@@ -379,7 +389,9 @@
 
 	function confirmDeclineOffer() {
 		declineModalOpen = false;
-		if (browser) {
+		if (onDeclineCta) {
+			onDeclineCta();
+		} else if (browser) {
 			if (window.history.length > 1) {
 				window.history.back();
 			} else {
@@ -410,7 +422,7 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-bg text-center">
+<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-challenge-hero text-center">
 	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
 		<div class="ativacao-onboarding-transition">
 			{#key mealPreferencesComplete ? 'follow-up' : 'meals'}
@@ -507,7 +519,7 @@
 			</div>
 		{/if}
 		<div
-			class="w-full bg-bg {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
+			class="w-full bg-challenge-hero {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
 		>
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
@@ -883,23 +895,36 @@
 		</div>
 
 		<!-- Bloco do botão: div "debaixo" com efeito sobreposto -->
-		<a
-			href={checkoutUrl || '#'}
-			target={checkoutUrl ? '_blank' : undefined}
-			rel={checkoutUrl ? 'noopener noreferrer' : undefined}
-			class="mx-0.5 mb-0.5 flex items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
-			onclick={(e) => {
-				postQuizStore.markComecarAgoraClicked();
-				if (!checkoutUrl) e.preventDefault();
-			}}
-		>
-			{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
-			{#if !offerCta}
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="cta-arrow">
-					<path d="M5 12h14M12 5l7 7-7 7"/>
-				</svg>
-			{/if}
-		</a>
+		{#if onPrimaryCta}
+			<button
+				type="button"
+				class="mx-0.5 mb-0.5 flex w-full items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
+				onclick={() => {
+					postQuizStore.markComecarAgoraClicked();
+					onPrimaryCta();
+				}}
+			>
+				{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
+			</button>
+		{:else}
+			<a
+				href={checkoutUrl || '#'}
+				target={checkoutUrl ? '_blank' : undefined}
+				rel={checkoutUrl ? 'noopener noreferrer' : undefined}
+				class="mx-0.5 mb-0.5 flex items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
+				onclick={(e) => {
+					postQuizStore.markComecarAgoraClicked();
+					if (!checkoutUrl) e.preventDefault();
+				}}
+			>
+				{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
+				{#if !offerCta}
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="cta-arrow">
+						<path d="M5 12h14M12 5l7 7-7 7"/>
+					</svg>
+				{/if}
+			</a>
+		{/if}
 	</div>
 
 	{#if offerCta?.declineLabel}

@@ -1,18 +1,47 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import ForgotPasswordSheet from '$lib/components/auth/ForgotPasswordSheet.svelte';
-	import { challengeStore } from '$lib/stores/challenge.store';
+	import { authStore, isAuthenticated, authLoading } from '$lib/stores/auth.store';
 
 	let email = $state('');
 	let senha = $state('');
 	let senhaVisible = $state(false);
 	let forgotPasswordOpen = $state(false);
+	let error = $state('');
+	let loading = $state(false);
 
-	function handleLogin(e: Event) {
+	onMount(() => {
+		authStore.init();
+	});
+
+	$effect(() => {
+		if (!$authLoading && $isAuthenticated) {
+			goto('/inicio', { replaceState: true });
+		}
+	});
+
+	async function handleLogin(e: Event) {
 		e.preventDefault();
-		challengeStore.hydrate();
-		challengeStore.ensureStarted();
-		goto('/inicio');
+		error = '';
+		const trimmedEmail = email.trim();
+		if (!trimmedEmail || !senha) {
+			error = 'Preencha e-mail e senha.';
+			return;
+		}
+		loading = true;
+		try {
+			await authStore.signIn(trimmedEmail, senha);
+			goto('/inicio', { replaceState: true });
+		} catch (err: any) {
+			if (err?.message?.includes('Invalid login')) {
+				error = 'E-mail ou senha incorretos.';
+			} else {
+				error = 'Erro ao entrar. Tente novamente.';
+			}
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -107,13 +136,18 @@
 					</div>
 				</div>
 
-				<button
-					type="submit"
-					class="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl bg-accent text-base font-bold text-bg transition-all duration-200 hover:bg-accent-dark active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-				>
-					Entrar
-				</button>
-			</form>
+			{#if error}
+				<p class="text-sm text-red-600" role="alert">{error}</p>
+			{/if}
+
+			<button
+				type="submit"
+				disabled={loading}
+				class="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl bg-accent text-base font-bold text-bg transition-all duration-200 hover:bg-accent-dark active:scale-[0.98] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+			>
+				{loading ? 'Entrando…' : 'Entrar'}
+			</button>
+		</form>
 
 			<p class="mt-4 text-center text-xs text-muted">
 				Esqueceu sua senha?

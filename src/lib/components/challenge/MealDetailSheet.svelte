@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
+	import MealMarkConfirmSheet from '$lib/components/challenge/MealMarkConfirmSheet.svelte';
 	import { mealOptionLabel, type MealOption } from '$lib/data/challenge-plan';
+	import { MEAL_BLOCKS, type MealBlockId, type MealFoodItem } from '$lib/data/meal-preferences';
 	import type { MealCheckStatus } from '$lib/stores/challenge.store';
 
 	interface Props {
@@ -11,6 +13,7 @@
 		onClose: () => void;
 		onComplete: () => void;
 		onUndo: () => void;
+		onSubstitute: (carbId: string, proteinId: string) => void;
 	}
 
 	let {
@@ -20,7 +23,8 @@
 		blockResolved = false,
 		onClose,
 		onComplete,
-		onUndo
+		onUndo,
+		onSubstitute
 	}: Props = $props();
 
 	const isChosen = $derived(status === 'completed' || status === 'skipped');
@@ -28,115 +32,274 @@
 	const statusTagLabel = $derived(
 		status === 'skipped' ? 'Refeição ignorada' : status === 'completed' ? 'Refeição concluída' : ''
 	);
+
+	let view = $state<'detail' | 'substitute'>('detail');
+	let selectedCarb = $state<string | null>(null);
+	let selectedProtein = $state<string | null>(null);
+	let confirmOpen = $state(false);
+
+	function extractBlockId(mealId: string): MealBlockId {
+		const parts = mealId.split('-');
+		return parts[1] as MealBlockId;
+	}
+
+	const blockId = $derived(meal ? extractBlockId(meal.id) : 'almoco');
+	const block = $derived(MEAL_BLOCKS.find((b) => b.id === blockId));
+	const showVegetais = $derived(blockId === 'almoco' || blockId === 'janta');
+	const carbOptions = $derived<MealFoodItem[]>(block?.carbs ?? []);
+	const proteinOptions = $derived<MealFoodItem[]>(block?.proteins ?? []);
+
+	function openSubstitute() {
+		selectedCarb = null;
+		selectedProtein = null;
+		view = 'substitute';
+	}
+
+	function backToDetail() {
+		view = 'detail';
+	}
+
+	function handleClose() {
+		view = 'detail';
+		onClose();
+	}
+
+	function handleSubstitute() {
+		if (!selectedCarb || !selectedProtein) return;
+		onSubstitute(selectedCarb, selectedProtein);
+		view = 'detail';
+	}
+
+	function handleFinalize() {
+		confirmOpen = true;
+	}
+
+	function confirmFinalize() {
+		confirmOpen = false;
+		onComplete();
+	}
+
+	$effect(() => {
+		if (!open) view = 'detail';
+	});
 </script>
 
-{#snippet mealHeaderCheck()}
-	{#if meal && !blockTakenByOther}
+{#snippet footerButtons()}
+	{#if meal && view === 'detail'}
+		{#if blockTakenByOther}
+			<!-- noop -->
+		{:else if !isChosen}
+			<div class="flex flex-col gap-2">
+				<button
+					type="button"
+					onclick={handleFinalize}
+					class="w-full rounded-challenge bg-accent py-3.5 text-sm font-bold text-bg shadow-sm transition-all active:scale-[0.98]"
+				>
+					Refeição Finalizada
+				</button>
+				<button
+					type="button"
+					onclick={openSubstitute}
+					class="w-full rounded-challenge border border-line/40 bg-surface py-3.5 text-sm font-bold text-heading transition-all active:scale-[0.98]"
+				>
+					Substituir Refeição
+				</button>
+			</div>
+		{:else}
+			<button
+				type="button"
+				onclick={onUndo}
+				class="w-full rounded-challenge border border-line/40 bg-surface py-3.5 text-sm font-bold text-heading transition-all active:scale-[0.98]"
+			>
+				Desfazer
+			</button>
+		{/if}
+	{:else if meal && view === 'substitute'}
 		<button
 			type="button"
-			onclick={isChosen ? onUndo : onComplete}
-			class="flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface {isChosen
-				? 'border-2 border-accent bg-accent text-bg'
-				: 'border-2 border-line/70 bg-surface-2/80 text-[#c5c5c5]'}"
-			aria-label={isChosen ? 'Desfazer conclusão da refeição' : 'Marcar como consumido'}
+			disabled={!selectedCarb || !selectedProtein}
+			onclick={handleSubstitute}
+			class="w-full rounded-challenge py-3.5 text-sm font-bold shadow-sm transition-all active:scale-[0.98] {selectedCarb && selectedProtein
+				? 'bg-accent text-bg'
+				: 'bg-line/30 text-muted cursor-not-allowed'}"
 		>
-			<svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-				<path
-					d="M3 8.5 L6.5 12 L13 5"
-					stroke="currentColor"
-					stroke-width="2"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-				/>
-			</svg>
+			Confirmar Substituição
 		</button>
 	{/if}
 {/snippet}
 
 <BottomSheet
 	{open}
-	{onClose}
-	subtitle={meal ? mealOptionLabel(meal.optionIndex) : undefined}
-	title={meal?.name}
-	headerTrailing={mealHeaderCheck}
+	onClose={handleClose}
+	heightPercent={90}
+	footer={footerButtons}
 >
 	{#if meal}
-		<div class="flex flex-col gap-5 pb-2">
-			<div class="relative overflow-hidden rounded-challenge bg-accent-soft">
-				<img
-					src={meal.image}
-					alt={meal.name}
-					class="h-40 w-full object-cover"
-					loading="lazy"
-				/>
-				{#if isChosen}
-					<div class="absolute inset-0 bg-black/45" aria-hidden="true"></div>
-					<div class="absolute inset-0 flex items-center justify-center p-4">
-						<span
-							class="inline-flex items-center gap-1.5 rounded-challenge bg-accent px-3 py-1.5 text-xs font-bold tracking-wide text-bg shadow-md"
-						>
-							{#if status === 'completed'}
-								<svg
-									class="h-3.5 w-3.5 shrink-0"
-									viewBox="0 0 16 16"
-									fill="none"
-									aria-hidden="true"
-								>
-									<path
-										d="M3 8.5 L6.5 12 L13 5"
-										stroke="currentColor"
-										stroke-width="2"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-									/>
-								</svg>
-							{/if}
-							{statusTagLabel}
-						</span>
+		{#key meal.name + meal.calories}
+		{#if view === 'detail'}
+			<div class="flex flex-col gap-5 pb-2">
+				<div class="relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-challenge bg-accent-soft px-5 py-6 text-center">
+					<p class="text-xs font-medium uppercase tracking-wide text-accent/70">
+						{mealOptionLabel(meal.optionIndex)}
+					</p>
+					<h2 class="text-lg font-extrabold leading-tight text-heading">{meal.shortName || meal.name}</h2>
+				</div>
+
+				<div class="grid grid-cols-4 divide-x divide-line/40 rounded-challenge border border-line/30 py-3">
+					<div class="text-center">
+						<p class="text-base font-extrabold text-heading">{meal.calories}</p>
+						<p class="text-[10px] font-medium text-muted">kcal</p>
+					</div>
+					<div class="text-center">
+						<p class="text-base font-extrabold text-heading">{meal.macros.protein}g</p>
+						<p class="text-[10px] font-medium text-muted">proteína</p>
+					</div>
+					<div class="text-center">
+						<p class="text-base font-extrabold text-heading">{meal.macros.carbs}g</p>
+						<p class="text-[10px] font-medium text-muted">carbo</p>
+					</div>
+					<div class="text-center">
+						<p class="text-base font-extrabold text-heading">{meal.macros.fat}g</p>
+						<p class="text-[10px] font-medium text-muted">gordura</p>
+					</div>
+				</div>
+
+				<details class="collapse-section border-t border-line/20 pt-5" open>
+					<summary class="flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+						<div>
+							<h3 class="text-sm font-bold text-heading">Ingredientes</h3>
+							<p class="text-[10px] text-muted">O que você vai precisar para preparar</p>
+						</div>
+						<svg class="collapse-chevron h-4 w-4 shrink-0 text-muted transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+						</svg>
+					</summary>
+					<ul class="mt-2 list-inside list-disc space-y-1 text-sm text-body">
+						{#each meal.ingredients as item}
+							<li>{item}</li>
+						{/each}
+					</ul>
+				</details>
+
+				{#if showVegetais}
+					<details class="collapse-section border-t border-line/20 pt-5">
+						<summary class="flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+							<div>
+								<h3 class="text-sm font-bold text-heading">Vegetais livres</h3>
+								<p class="text-[10px] text-muted">Consuma à vontade</p>
+							</div>
+							<svg class="collapse-chevron h-4 w-4 shrink-0 text-muted transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+							</svg>
+						</summary>
+						<div class="mt-2 flex flex-wrap gap-1.5">
+							{#each ['Alface', 'Rúcula', 'Agrião', 'Espinafre', 'Acelga', 'Couve', 'Pepino', 'Tomate', 'Aipo', 'Rabanete', 'Pimentão', 'Brócolis', 'Couve-flor', 'Abobrinha', 'Berinjela', 'Aspargo', 'Repolho', 'Cogumelo', 'Vagem', 'Chuchu'] as vegetal}
+								<span class="rounded-full bg-accent-soft/30 px-2.5 py-1 text-xs text-muted">{vegetal}</span>
+							{/each}
+						</div>
+					</details>
+
+					<details class="collapse-section border-t border-line/20 pt-5">
+						<summary class="flex cursor-pointer list-none items-center justify-between [&::-webkit-details-marker]:hidden">
+							<div>
+								<h3 class="text-sm font-bold text-heading">Vegetais controlados</h3>
+								<p class="text-[10px] text-muted">Coma até 150g por refeição</p>
+							</div>
+							<svg class="collapse-chevron h-4 w-4 shrink-0 text-muted transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6" />
+							</svg>
+						</summary>
+						<div class="mt-2 flex flex-wrap gap-1.5">
+							{#each ['Cenoura', 'Beterraba', 'Abóbora cabotiá', 'Quiabo', 'Couve (porção maior)'] as vegetal}
+								<span class="rounded-full bg-accent-soft/30 px-2.5 py-1 text-xs text-muted">{vegetal}</span>
+							{/each}
+						</div>
+					</details>
+				{/if}
+
+				{#if meal.notes}
+					<div class="rounded-challenge border border-challenge-border bg-accent-soft/50 px-3 py-2">
+						<p class="text-xs font-semibold text-accent">Observações</p>
+						<p class="mt-1 text-sm text-body">{meal.notes}</p>
 					</div>
 				{/if}
+
+				{#if blockTakenByOther}
+					<p class="text-center text-sm font-medium text-muted">
+						Você já registrou outra opção neste período.
+					</p>
+				{/if}
 			</div>
+		{:else}
+			<div class="flex flex-col gap-5 pb-2">
+				<div class="flex items-center gap-3">
+					<button
+						type="button"
+						onclick={backToDetail}
+						class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2/80 text-heading transition-colors active:scale-95"
+						aria-label="Voltar"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+							<path d="M15 18l-6-6 6-6" />
+						</svg>
+					</button>
+					<h2 class="text-lg font-extrabold text-heading">Substituir Refeição</h2>
+				</div>
 
-			<div class="grid grid-cols-4 gap-2 rounded-challenge border border-challenge-border bg-surface-2/50 p-3">
-				<div class="text-center">
-					<p class="text-lg font-extrabold text-heading">{meal.calories}</p>
-					<p class="text-[10px] font-medium text-muted uppercase">kcal</p>
+				<div class="flex flex-col gap-2">
+					<h3 class="text-sm font-bold text-heading">
+						{block?.carbLabel ?? 'Carboidrato'}
+					</h3>
+					<div class="grid grid-cols-2 gap-2">
+						{#each carbOptions as item (item.id)}
+							<button
+								type="button"
+								onclick={() => (selectedCarb = selectedCarb === item.id ? null : item.id)}
+								class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedCarb === item.id
+									? 'border-accent bg-accent-soft font-bold text-heading'
+									: 'border-line/40 bg-surface text-body'}"
+							>
+								<span class="text-base">{item.emoji}</span>
+								<span class="truncate">{item.label}</span>
+							</button>
+						{/each}
+					</div>
 				</div>
-				<div class="text-center">
-					<p class="text-lg font-extrabold text-heading">{meal.macros.protein}g</p>
-					<p class="text-[10px] font-medium text-muted uppercase">Proteína</p>
-				</div>
-				<div class="text-center">
-					<p class="text-lg font-extrabold text-heading">{meal.macros.carbs}g</p>
-					<p class="text-[10px] font-medium text-muted uppercase">Carbo</p>
-				</div>
-				<div class="text-center">
-					<p class="text-lg font-extrabold text-heading">{meal.macros.fat}g</p>
-					<p class="text-[10px] font-medium text-muted uppercase">Gordura</p>
+
+				<div class="flex flex-col gap-2">
+					<h3 class="text-sm font-bold text-heading">
+						{block?.proteinLabel ?? 'Proteína'}
+					</h3>
+					<div class="grid grid-cols-2 gap-2">
+						{#each proteinOptions as item (item.id)}
+							<button
+								type="button"
+								onclick={() => (selectedProtein = selectedProtein === item.id ? null : item.id)}
+								class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedProtein === item.id
+									? 'border-accent bg-accent-soft font-bold text-heading'
+									: 'border-line/40 bg-surface text-body'}"
+							>
+								<span class="text-base">{item.emoji}</span>
+								<span class="truncate">{item.label}</span>
+							</button>
+						{/each}
+					</div>
 				</div>
 			</div>
-
-			<div>
-				<h3 class="text-sm font-bold text-heading">Ingredientes</h3>
-				<ul class="mt-2 list-inside list-disc space-y-1 text-sm text-body">
-					{#each meal.ingredients as item}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			</div>
-
-			{#if meal.notes}
-				<div class="rounded-challenge border border-challenge-border bg-accent-soft/50 px-3 py-2">
-					<p class="text-xs font-semibold text-accent">Observações</p>
-					<p class="mt-1 text-sm text-body">{meal.notes}</p>
-				</div>
-			{/if}
-
-			{#if blockTakenByOther}
-				<p class="text-center text-sm font-medium text-muted">
-					Você já registrou outra opção neste período.
-				</p>
-			{/if}
-		</div>
+		{/if}
+		{/key}
 	{/if}
 </BottomSheet>
+
+<MealMarkConfirmSheet
+	open={confirmOpen}
+	message="Deseja marcar como refeição feita?"
+	onClose={() => (confirmOpen = false)}
+	onConfirm={confirmFinalize}
+/>
+
+<style>
+	.collapse-section[open] > summary .collapse-chevron {
+		transform: rotate(180deg);
+	}
+</style>

@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import type { PageLoad } from './$types';
 import { quizConfig } from '$lib/data/quiz.config';
-import { QUIZ_SESSION_STORAGE_KEY } from '$lib/constants/storage-keys';
+import { QUIZ_STORAGE_KEY } from '$lib/constants/storage-keys';
 
 export const load: PageLoad = ({ params }) => {
 	const { questionId } = params;
@@ -25,7 +25,7 @@ export const load: PageLoad = ({ params }) => {
 	// Guard: quiz não iniciado → entrada em /plan (only client-side)
 	if (browser) {
 		try {
-			const raw = sessionStorage.getItem(QUIZ_SESSION_STORAGE_KEY);
+			const raw = localStorage.getItem(QUIZ_STORAGE_KEY);
 			if (!raw) redirect(302, '/plan');
 			const state = JSON.parse(raw);
 			if (!state.startedAt) redirect(302, '/plan');

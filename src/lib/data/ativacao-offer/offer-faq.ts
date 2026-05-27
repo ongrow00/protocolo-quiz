@@ -1,5 +1,6 @@
-/** FAQ — exclusivo de `/atiavacao-de-conta`. */
-export const ATIVACAO_OFFER_FAQ = {
+import type { OfferFaq } from '$lib/components/post-quiz/ResultsOfferPage.svelte';
+
+export const ATIVACAO_OFFER_FAQ: OfferFaq = {
 	intro:
 		'Aqui estão algumas das perguntas que mais recebemos sobre a Consultoria Liberdade.',
 	items: [
@@ -36,4 +37,4 @@ export const ATIVACAO_OFFER_FAQ = {
 			a: 'Você tem 21 dias de garantia incondicional. Basta chamar no WhatsApp e devolvemos 100% do valor sem burocracia.'
 		}
 	]
-} as const;
+};

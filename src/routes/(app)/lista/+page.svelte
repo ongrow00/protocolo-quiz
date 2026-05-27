@@ -1,7 +1,21 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import ChallengePageShell from '$lib/components/challenge/ChallengePageShell.svelte';
-	import { SHOPPING_LIST, type ShoppingCategory } from '$lib/data/shopping-list';
+	import { generateShoppingList, SHOPPING_LIST, type ShoppingCategory } from '$lib/data/shopping-list';
+	import { postQuizStore } from '$lib/stores/post-quiz.store';
+
+	let ready = $state(false);
+
+	onMount(() => {
+		requestAnimationFrame(() => { ready = true; });
+	});
+
+	const shoppingList = $derived(
+		$postQuizStore.mealSelections
+			? generateShoppingList($postQuizStore.mealSelections)
+			: SHOPPING_LIST
+	);
 
 	const STORAGE_KEY = 'pd-shopping-checked';
 
@@ -40,7 +54,27 @@
 
 <ChallengePageShell>
 	<div class="mx-auto max-w-sm space-y-5 pb-2">
-		{#each SHOPPING_LIST as category (category.id)}
+		<div class="px-1">
+			<h2 class="text-lg font-extrabold text-heading">Lista de compras</h2>
+			<p class="mt-1 text-sm text-muted">Lista de compras para 14 dias com base na sua seleção de alimentos</p>
+		</div>
+
+		{#if !ready}
+			<div class="flex flex-col gap-4 animate-pulse">
+				{#each Array(4) as _}
+					<div class="rounded-2xl bg-surface p-4">
+						<div class="h-4 w-28 rounded bg-surface-2 mb-3"></div>
+						<div class="flex flex-col gap-2.5">
+							<div class="h-[44px] rounded-xl bg-surface-2"></div>
+							<div class="h-[44px] rounded-xl bg-surface-2"></div>
+							<div class="h-[44px] rounded-xl bg-surface-2"></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else}
+
+		{#each shoppingList as category (category.id)}
 			{@const done = checkedInCat(category)}
 			{@const total = category.items.length}
 			{@const catDone = done === total}
@@ -113,5 +147,7 @@
 		<p class="px-1 text-center text-xs leading-relaxed text-muted/50">
 			Quantidades estimadas para 14 dias, 1 pessoa.
 		</p>
+
+		{/if}
 	</div>
 </ChallengePageShell>
