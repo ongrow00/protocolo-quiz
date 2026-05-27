@@ -23,8 +23,75 @@
 	let activeSlide = $state(0);
 	let listaSheetOpen = $state(false);
 
+	let carouselOuterEl = $state<HTMLDivElement | null>(null);
+	let isCarouselDragging = $state(false);
+	let carouselDragDx = $state(0);
+	let carouselDragBaseSlide = 0;
+	let carouselDragStartX = 0;
+	let carouselDidDrag = false;
+
+	const SWIPE_THRESHOLD_PX = 48;
+	const MAX_SLIDE = 2;
+
 	function scrollToSlide(index: 0 | 1 | 2) {
 		activeSlide = index;
+	}
+
+	const carouselTransform = $derived.by(() => {
+		const slide = isCarouselDragging ? carouselDragBaseSlide : activeSlide;
+		const drag = isCarouselDragging ? `${carouselDragDx}px` : '0px';
+		return `translateX(calc(${slide} * (-100% - 12px) + ${drag}))`;
+	});
+
+	const carouselTransition = $derived(
+		isCarouselDragging ? 'none' : 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+	);
+
+	function isCarouselDragTarget(target: EventTarget | null): boolean {
+		if (!(target instanceof HTMLElement)) return false;
+		if (target.closest('.timeline-scroll')) return false;
+		return Boolean(target.closest('[data-carousel-slide]'));
+	}
+
+	function onCarouselPointerDown(e: PointerEvent) {
+		if (e.button !== 0 || !isCarouselDragTarget(e.target)) return;
+		isCarouselDragging = true;
+		carouselDidDrag = false;
+		carouselDragStartX = e.clientX;
+		carouselDragBaseSlide = activeSlide;
+		carouselDragDx = 0;
+		try {
+			carouselOuterEl?.setPointerCapture(e.pointerId);
+		} catch {
+			/* */
+		}
+	}
+
+	function onCarouselPointerMove(e: PointerEvent) {
+		if (!isCarouselDragging) return;
+		carouselDragDx = e.clientX - carouselDragStartX;
+		if (Math.abs(carouselDragDx) > 6) carouselDidDrag = true;
+	}
+
+	function endCarouselDrag(e: PointerEvent) {
+		if (!isCarouselDragging) return;
+		isCarouselDragging = false;
+		if (carouselOuterEl?.hasPointerCapture(e.pointerId)) {
+			carouselOuterEl.releasePointerCapture(e.pointerId);
+		}
+
+		if (carouselDidDrag) {
+			if (carouselDragDx < -SWIPE_THRESHOLD_PX && activeSlide < MAX_SLIDE) {
+				scrollToSlide((activeSlide + 1) as 0 | 1 | 2);
+			} else if (carouselDragDx > SWIPE_THRESHOLD_PX && activeSlide > 0) {
+				scrollToSlide((activeSlide - 1) as 0 | 1 | 2);
+			}
+			setTimeout(() => {
+				carouselDidDrag = false;
+			}, 0);
+		}
+
+		carouselDragDx = 0;
 	}
 
 	function openIntakePanel() {
@@ -124,7 +191,10 @@
 		data-carousel-slide
 		class="protocol-slide carousel-slide-box flex shrink-0 snap-start snap-always flex-col overflow-hidden rounded-challenge border border-challenge-border transition-opacity duration-300"
 		style:opacity={activeSlide === index ? 1 : 0.5}
-		onclick={() => { if (activeSlide !== index) scrollToSlide(index); }}
+		onclick={() => {
+			if (carouselDidDrag) return;
+			if (activeSlide !== index) scrollToSlide(index);
+		}}
 	>
 		<div class="protocol-slide-face relative flex min-h-0 flex-1 flex-col bg-surface">
 			{@render face()}
@@ -137,14 +207,20 @@
 
 <div class="flex flex-col gap-3">
 	<div
-		class="carousel-outer"
+		bind:this={carouselOuterEl}
+		class="carousel-outer {activeSlide > 0 ? 'carousel-outer--peek-left' : ''}"
 		role="region"
 		aria-label="Protocolo e ingestão diária"
 		aria-roledescription="carrossel"
+		onpointerdown={onCarouselPointerDown}
+		onpointermove={onCarouselPointerMove}
+		onpointerup={endCarouselDrag}
+		onpointercancel={endCarouselDrag}
 	>
 		<div
 			class="protocol-carousel flex gap-3"
-			style="transform: translateX(calc({activeSlide} * (-100% - 12px))); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);"
+			style:transform={carouselTransform}
+			style:transition={carouselTransition}
 		>
 			{@render protocolSlide(protocolFace, 0)}
 			{#if showIntake}
@@ -260,6 +336,12 @@
 		overflow: hidden;
 		margin-right: -40px;
 		padding-right: 40px;
+		touch-action: pan-y;
+	}
+
+	.carousel-outer--peek-left {
+		margin-left: -40px;
+		padding-left: 40px;
 	}
 
 	.protocol-carousel {

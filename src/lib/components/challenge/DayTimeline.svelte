@@ -58,6 +58,7 @@
 	}
 
 	function onPointerDown(e: PointerEvent) {
+		e.stopPropagation();
 		if (!timelineEl || e.button !== 0) return;
 		isDragging = true;
 		didDrag = false;
@@ -67,6 +68,7 @@
 	}
 
 	function onPointerMove(e: PointerEvent) {
+		e.stopPropagation();
 		if (!isDragging || !timelineEl) return;
 		const dx = e.clientX - dragStartX;
 		if (Math.abs(dx) > 5) {
@@ -81,6 +83,7 @@
 	}
 
 	function endDrag(e: PointerEvent) {
+		e.stopPropagation();
 		if (!timelineEl) return;
 		isDragging = false;
 		activePointerId = null;
@@ -100,7 +103,7 @@
 </script>
 
 <div class={rootClass}>
-	<div class="mb-3 flex items-center justify-between">
+	<div class="mb-3 flex items-center justify-between" data-carousel-drag-zone>
 		<p class="text-sm font-bold text-heading">Protocolo de Desbloqueio</p>
 		<button
 			type="button"

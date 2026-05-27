@@ -23,6 +23,7 @@
 	}: Props = $props();
 
 	const isChosen = $derived(status === 'completed' || status === 'skipped');
+	const isCompleted = $derived(status === 'completed');
 	const isDimmed = $derived(blockResolved && !isChosen);
 	const canMarkFromCircle = $derived(!isChosen && !isDimmed);
 
@@ -67,7 +68,10 @@
 			aria-label="Desfazer conclusão da refeição"
 		>
 			<span
-				class="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-accent bg-transparent text-accent"
+				class="flex h-[22px] w-[22px] items-center justify-center rounded-full border-2
+					{isCompleted
+					? 'border-accent-dark bg-accent-dark text-white'
+					: 'border-accent bg-transparent text-accent'}"
 				aria-hidden="true"
 			>
 				<svg class="h-3 w-3" viewBox="0 0 16 16" fill="none">
