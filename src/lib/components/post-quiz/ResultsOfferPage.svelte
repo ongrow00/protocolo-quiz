@@ -420,6 +420,19 @@
 		mo.observe(el, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
 		return () => mo.disconnect();
 	});
+
+	/** Ativação (/ativacao): VTurb só revela após tempo de reprodução; após login o vídeo costuma não tocar. */
+	$effect(() => {
+		if (!browser || !isAtivacaoVariant) return;
+		if (!ativacaoPreOfferComplete || !ativacaoHeroUnlocked) return;
+		if ($postQuizStore.resultsContentRevealed) return;
+
+		const t = window.setTimeout(() => {
+			postQuizStore.markResultsContentRevealed();
+		}, RESULTS_VTURB_DELAY_SEC * 1000);
+
+		return () => window.clearTimeout(t);
+	});
 </script>
 
 <div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-challenge-hero text-center">
