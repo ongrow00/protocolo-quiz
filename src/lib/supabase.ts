@@ -1,4 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
-export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY);
+const url = env.PUBLIC_SUPABASE_URL;
+const anonKey = env.PUBLIC_SUPABASE_ANON_KEY;
+
+if (!url || !anonKey) {
+	throw new Error(
+		'Missing PUBLIC_SUPABASE_URL or PUBLIC_SUPABASE_ANON_KEY. Configure no .env local ou nas Environment Variables do projeto na Vercel.'
+	);
+}
+
+export const supabase = createClient(url, anonKey);
