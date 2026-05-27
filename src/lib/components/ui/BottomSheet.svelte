@@ -18,6 +18,10 @@
 		heightPercent?: number;
 		/** Acima de outro bottom sheet (z-index maior) */
 		elevated?: boolean;
+		/** Empilhado sobre outro sheet: sobe por cima, altura ~10% menor (largura 100%) para indicar camadas */
+		stacked?: boolean;
+		/** Bloqueia scroll do body (desligado automaticamente em sheets empilhados) */
+		lockBodyScroll?: boolean;
 		children?: Snippet;
 		headerTrailing?: Snippet;
 		footer?: Snippet;
@@ -34,12 +38,18 @@
 		autoHeight = false,
 		heightPercent = 80,
 		elevated = false,
+		stacked = false,
+		lockBodyScroll = !stacked,
 		children,
 		headerTrailing,
 		footer
 	}: Props = $props();
 
 	const CLOSE_MS = 280;
+
+	const panelHeightPercent = $derived(
+		stacked && !autoHeight ? heightPercent * 0.9 : heightPercent
+	);
 
 	let mounted = $state(false);
 	let closing = $state(false);
@@ -84,7 +94,7 @@
 	});
 
 	$effect(() => {
-		if (!mounted) return;
+		if (!mounted || !lockBodyScroll) return;
 		const prev = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
 		return () => {
@@ -98,9 +108,9 @@
 {#if mounted}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<div
-		class="bottom-sheet-backdrop fixed inset-0 flex h-dvh flex-col justify-end bg-black/40 backdrop-blur-sm {elevated
-			? 'z-[60]'
-			: 'z-50'}"
+		class="bottom-sheet-backdrop fixed inset-0 flex h-dvh flex-col justify-end backdrop-blur-sm {stacked
+			? 'bg-black/25'
+			: 'bg-black/40'} {elevated || stacked ? 'z-[60]' : 'z-50'}"
 		class:bottom-sheet-backdrop--closing={closing}
 		role="presentation"
 		onclick={handleBackdropClick}
@@ -114,7 +124,9 @@
 			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-hidden rounded-t-[28px] px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] {autoHeight
 				? 'h-auto max-h-[min(90dvh,100%)]'
 				: 'min-h-0'} {!toolbar ? 'bg-surface' : ''}"
-			style={autoHeight ? undefined : `height: ${heightPercent}%; max-height: ${heightPercent}%`}
+			style={autoHeight
+				? undefined
+				: `height: ${panelHeightPercent}%; max-height: ${panelHeightPercent}%`}
 			class:bottom-sheet-panel--toolbar={toolbar}
 			class:bottom-sheet-panel--closing={closing}
 			onclick={(e) => e.stopPropagation()}

@@ -29,11 +29,8 @@
 
 	const isChosen = $derived(status === 'completed' || status === 'skipped');
 	const blockTakenByOther = $derived(blockResolved && !isChosen);
-	const statusTagLabel = $derived(
-		status === 'skipped' ? 'Refeição ignorada' : status === 'completed' ? 'Refeição concluída' : ''
-	);
 
-	let view = $state<'detail' | 'substitute'>('detail');
+	let substituteOpen = $state(false);
 	let selectedCarb = $state<string | null>(null);
 	let selectedProtein = $state<string | null>(null);
 	let confirmOpen = $state(false);
@@ -52,22 +49,22 @@
 	function openSubstitute() {
 		selectedCarb = null;
 		selectedProtein = null;
-		view = 'substitute';
+		substituteOpen = true;
 	}
 
-	function backToDetail() {
-		view = 'detail';
+	function closeSubstitute() {
+		substituteOpen = false;
 	}
 
 	function handleClose() {
-		view = 'detail';
+		substituteOpen = false;
 		onClose();
 	}
 
 	function handleSubstitute() {
 		if (!selectedCarb || !selectedProtein) return;
 		onSubstitute(selectedCarb, selectedProtein);
-		view = 'detail';
+		closeSubstitute();
 	}
 
 	function handleFinalize() {
@@ -80,12 +77,12 @@
 	}
 
 	$effect(() => {
-		if (!open) view = 'detail';
+		if (!open) substituteOpen = false;
 	});
 </script>
 
 {#snippet footerButtons()}
-	{#if meal && view === 'detail'}
+	{#if meal}
 		{#if blockTakenByOther}
 			<!-- noop -->
 		{:else if !isChosen}
@@ -114,29 +111,25 @@
 				Desfazer
 			</button>
 		{/if}
-	{:else if meal && view === 'substitute'}
-		<button
-			type="button"
-			disabled={!selectedCarb || !selectedProtein}
-			onclick={handleSubstitute}
-			class="w-full rounded-challenge py-3.5 text-sm font-bold shadow-sm transition-all active:scale-[0.98] {selectedCarb && selectedProtein
-				? 'bg-accent text-bg'
-				: 'bg-line/30 text-muted cursor-not-allowed'}"
-		>
-			Confirmar Substituição
-		</button>
 	{/if}
 {/snippet}
 
-<BottomSheet
-	{open}
-	onClose={handleClose}
-	heightPercent={90}
-	footer={footerButtons}
->
+{#snippet substituteFooter()}
+	<button
+		type="button"
+		disabled={!selectedCarb || !selectedProtein}
+		onclick={handleSubstitute}
+		class="w-full rounded-challenge py-3.5 text-sm font-bold shadow-sm transition-all active:scale-[0.98] {selectedCarb && selectedProtein
+			? 'bg-accent text-bg'
+			: 'bg-line/30 text-muted cursor-not-allowed'}"
+	>
+		Confirmar Substituição
+	</button>
+{/snippet}
+
+<BottomSheet {open} onClose={handleClose} heightPercent={90} footer={footerButtons}>
 	{#if meal}
 		{#key meal.name + meal.calories}
-		{#if view === 'detail'}
 			<div class="flex flex-col gap-5 pb-2">
 				<div class="relative flex flex-col items-center justify-center gap-1 overflow-hidden rounded-challenge bg-accent-soft px-5 py-6 text-center">
 					<p class="text-xs font-medium uppercase tracking-wide text-accent/70">
@@ -230,64 +223,60 @@
 					</p>
 				{/if}
 			</div>
-		{:else}
-			<div class="flex flex-col gap-5 pb-2">
-				<div class="flex items-center gap-3">
-					<button
-						type="button"
-						onclick={backToDetail}
-						class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-2/80 text-heading transition-colors active:scale-95"
-						aria-label="Voltar"
-					>
-						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-							<path d="M15 18l-6-6 6-6" />
-						</svg>
-					</button>
-					<h2 class="text-lg font-extrabold text-heading">Substituir Refeição</h2>
-				</div>
+		{/key}
+	{/if}
+</BottomSheet>
 
-				<div class="flex flex-col gap-2">
-					<h3 class="text-sm font-bold text-heading">
-						{block?.carbLabel ?? 'Carboidrato'}
-					</h3>
-					<div class="grid grid-cols-2 gap-2">
-						{#each carbOptions as item (item.id)}
-							<button
-								type="button"
-								onclick={() => (selectedCarb = selectedCarb === item.id ? null : item.id)}
-								class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedCarb === item.id
-									? 'border-accent bg-accent-soft font-bold text-heading'
-									: 'border-line/40 bg-surface text-body'}"
-							>
-								<span class="text-base">{item.emoji}</span>
-								<span class="truncate">{item.label}</span>
-							</button>
-						{/each}
-					</div>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<h3 class="text-sm font-bold text-heading">
-						{block?.proteinLabel ?? 'Proteína'}
-					</h3>
-					<div class="grid grid-cols-2 gap-2">
-						{#each proteinOptions as item (item.id)}
-							<button
-								type="button"
-								onclick={() => (selectedProtein = selectedProtein === item.id ? null : item.id)}
-								class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedProtein === item.id
-									? 'border-accent bg-accent-soft font-bold text-heading'
-									: 'border-line/40 bg-surface text-body'}"
-							>
-								<span class="text-base">{item.emoji}</span>
-								<span class="truncate">{item.label}</span>
-							</button>
-						{/each}
-					</div>
+<BottomSheet
+	open={substituteOpen && !!meal}
+	onClose={closeSubstitute}
+	title="Substituir Refeição"
+	heightPercent={90}
+	stacked
+	footer={substituteFooter}
+>
+	{#if meal}
+		<div class="flex flex-col gap-5 pb-2">
+			<div class="flex flex-col gap-2">
+				<h3 class="text-sm font-bold text-heading">
+					{block?.carbLabel ?? 'Carboidrato'}
+				</h3>
+				<div class="grid grid-cols-2 gap-2">
+					{#each carbOptions as item (item.id)}
+						<button
+							type="button"
+							onclick={() => (selectedCarb = selectedCarb === item.id ? null : item.id)}
+							class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedCarb === item.id
+								? 'border-accent bg-accent-soft font-bold text-heading'
+								: 'border-line/40 bg-surface text-body'}"
+						>
+							<span class="text-base">{item.emoji}</span>
+							<span class="truncate">{item.label}</span>
+						</button>
+					{/each}
 				</div>
 			</div>
-		{/if}
-		{/key}
+
+			<div class="flex flex-col gap-2">
+				<h3 class="text-sm font-bold text-heading">
+					{block?.proteinLabel ?? 'Proteína'}
+				</h3>
+				<div class="grid grid-cols-2 gap-2">
+					{#each proteinOptions as item (item.id)}
+						<button
+							type="button"
+							onclick={() => (selectedProtein = selectedProtein === item.id ? null : item.id)}
+							class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedProtein === item.id
+								? 'border-accent bg-accent-soft font-bold text-heading'
+								: 'border-line/40 bg-surface text-body'}"
+						>
+							<span class="text-base">{item.emoji}</span>
+							<span class="truncate">{item.label}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
+		</div>
 	{/if}
 </BottomSheet>
 

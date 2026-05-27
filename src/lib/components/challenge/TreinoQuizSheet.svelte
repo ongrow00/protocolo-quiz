@@ -29,49 +29,57 @@
 	const progress = $derived(((currentStep + 1) / totalSteps) * 100);
 
 	const noneOptionIds: Record<string, string[]> = {
-		treino_equipamentos_academia: ['academia_completa'],
-		treino_equipamentos_casa: ['nenhum_equipamento'],
-		treino_dores: ['nenhuma']
+		treino_dores: ['nenhuma'],
+		treino_restricoes_exercicio: ['sem_restricao']
 	};
 
 	/** Restrições de exercício: pode finalizar sem seleção (= nenhuma restrição). */
 	const allowsEmptySelection = $derived(question.id === 'treino_restricoes_exercicio');
 
-	function selectedForCurrent(): string[] {
-		const val = answers[question.id];
+	const selectedIds = $derived.by(() => {
+		const q = visibleQuestions[currentStep];
+		if (!q) return [];
+		const val = answers[q.id];
 		if (!val) return [];
 		return Array.isArray(val) ? val : [val];
-	}
+	});
 
-	function clearEquipmentAnswers() {
-		delete answers.treino_equipamentos_academia;
-		delete answers.treino_equipamentos_casa;
+	const noneIdsForQuestion = $derived(noneOptionIds[question.id] ?? []);
+	const hasNoneSelected = $derived(noneIdsForQuestion.some((id) => selectedIds.includes(id)));
+
+	function setAnswer(questionId: string, value: string | string[]) {
+		answers = { ...answers, [questionId]: value };
 	}
 
 	function handleSelect(optionId: string) {
 		if (question.type === 'single') {
-			if (question.id === 'treino_local') {
-				clearEquipmentAnswers();
-			}
-			answers[question.id] = optionId;
+			setAnswer(question.id, optionId);
 			advanceAfterDelay();
 			return;
 		}
 
-		const current = selectedForCurrent();
 		const noneIds = noneOptionIds[question.id] ?? [];
 		const isNone = noneIds.includes(optionId);
 
 		if (isNone) {
-			answers[question.id] = current.includes(optionId)
-				? current.filter((id) => id !== optionId)
-				: [optionId];
-		} else if (noneIds.some((id) => current.includes(id))) {
-			answers[question.id] = [optionId];
-		} else if (current.includes(optionId)) {
-			answers[question.id] = current.filter((id) => id !== optionId);
+			setAnswer(
+				question.id,
+				selectedIds.includes(optionId)
+					? selectedIds.filter((id) => id !== optionId)
+					: [optionId]
+			);
+			return;
+		}
+
+		if (hasNoneSelected) return;
+
+		if (selectedIds.includes(optionId)) {
+			setAnswer(
+				question.id,
+				selectedIds.filter((id) => id !== optionId)
+			);
 		} else {
-			answers[question.id] = [...current.filter((id) => !noneIds.includes(id)), optionId];
+			setAnswer(question.id, [...selectedIds.filter((id) => !noneIds.includes(id)), optionId]);
 		}
 	}
 
@@ -99,10 +107,9 @@
 	}
 
 	function goNext() {
-		const sel = selectedForCurrent();
-		if (sel.length === 0 && !allowsEmptySelection) return;
-		if (sel.length === 0 && allowsEmptySelection) {
-			answers[question.id] = [];
+		if (selectedIds.length === 0 && !allowsEmptySelection) return;
+		if (selectedIds.length === 0 && allowsEmptySelection) {
+			setAnswer(question.id, []);
 		}
 		if (currentStep < totalSteps - 1) {
 			direction = 'forward';
@@ -183,18 +190,17 @@
 			{#key animKey}
 				<div class="flex flex-col gap-3 quiz-slide {direction === 'forward' ? 'slide-in-right' : 'slide-in-left'}">
 					{#each question.options as option (option.id)}
-						{@const isSelected = selectedForCurrent().includes(option.id)}
+						{@const isSelected = selectedIds.includes(option.id)}
 						{@const isMultiple = question.type === 'multiple'}
-						{@const qNoneIds = noneOptionIds[question.id] ?? []}
-						{@const hasNoneSelected = qNoneIds.some((id) => selectedForCurrent().includes(id))}
-						{@const isDisabled = hasNoneSelected && !qNoneIds.includes(option.id)}
+						{@const isNoneOption = noneIdsForQuestion.includes(option.id)}
+						{@const isDisabled = hasNoneSelected && !isNoneOption}
 						<button
 							type="button"
 							role={isMultiple ? 'checkbox' : 'radio'}
 							aria-checked={isSelected}
 							aria-disabled={isDisabled}
 							disabled={isDisabled}
-							onclick={() => handleSelect(option.id)}
+							onclick={() => !isDisabled && handleSelect(option.id)}
 							class="flex w-full items-center gap-3 rounded-2xl border-2 px-5 py-4 text-left transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface
 								{isSelected
 								? 'border-accent bg-accent text-bg'
@@ -224,8 +230,7 @@
 
 	{#snippet footer()}
 		{#if question.type === 'multiple'}
-			{@const sel = selectedForCurrent()}
-			{@const canContinue = sel.length > 0 || allowsEmptySelection}
+			{@const canContinue = selectedIds.length > 0 || allowsEmptySelection}
 			<button
 				type="button"
 				disabled={!canContinue}

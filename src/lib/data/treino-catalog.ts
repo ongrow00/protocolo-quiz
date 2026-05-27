@@ -140,19 +140,38 @@ export function getCatalogWorkout(local: TreinoLocal, letter: TreinoLetter): Cat
 	return CATALOG[local][letter];
 }
 
+const ACADEMIA_FULL_EQUIPMENT = [
+	'leg_press',
+	'cadeira_extensora',
+	'puxador',
+	'smith',
+	'halteres',
+	'colchonete',
+	'step',
+	'banco'
+] as const;
+
+const CASA_FULL_EQUIPMENT = [
+	'halteres',
+	'mochila_peso',
+	'colchonete',
+	'sofa_cadeira',
+	'step'
+] as const;
+
 /** Expand quiz selections into available equipment ids */
 export function resolveAvailableEquipment(answers: Record<string, string | string[]>): Set<string> {
 	const local = (answers.treino_local as string) ?? 'academia';
-	const key = local === 'casa' ? 'treino_equipamentos_casa' : 'treino_equipamentos_academia';
-	const raw = answers[key];
-	const selected = Array.isArray(raw) ? raw : raw ? [raw] : [];
 	const available = new Set<string>();
 
 	if (local === 'academia') {
-		if (selected.includes('academia_completa')) {
-			['leg_press', 'cadeira_extensora', 'puxador', 'smith', 'halteres', 'colchonete', 'step', 'banco'].forEach(
-				(e) => available.add(e)
-			);
+		const raw = answers.treino_equipamentos_academia;
+		const selected = Array.isArray(raw) ? raw : raw ? [raw] : [];
+		if (
+			selected.length === 0 ||
+			selected.includes('academia_completa')
+		) {
+			for (const e of ACADEMIA_FULL_EQUIPMENT) available.add(e);
 			return available;
 		}
 		for (const id of selected) available.add(id);
@@ -162,9 +181,16 @@ export function resolveAvailableEquipment(answers: Record<string, string | strin
 		return available;
 	}
 
+	const raw = answers.treino_equipamentos_casa;
+	const selected = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
 	if (selected.includes('nenhum_equipamento')) {
 		available.add('colchonete');
 		available.add('sofa_cadeira');
+		return available;
+	}
+	if (selected.length === 0) {
+		for (const e of CASA_FULL_EQUIPMENT) available.add(e);
 		return available;
 	}
 	for (const id of selected) available.add(id);
@@ -180,5 +206,6 @@ export function getDores(answers: Record<string, string | string[]>): string[] {
 
 export function getRestricoes(answers: Record<string, string | string[]>): string[] {
 	const raw = answers.treino_restricoes_exercicio;
-	return Array.isArray(raw) ? raw : raw ? [raw] : [];
+	const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+	return arr.filter((id) => id !== 'sem_restricao');
 }

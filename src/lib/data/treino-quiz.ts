@@ -23,36 +23,6 @@ export const treinoQuizQuestions: TreinoQuizQuestion[] = [
 		]
 	},
 	{
-		id: 'treino_equipamentos_academia',
-		text: 'Quais equipamentos você terá disponível?',
-		type: 'multiple',
-		showIf: { questionId: 'treino_local', values: ['academia'] },
-		options: [
-			{ id: 'academia_completa', text: 'Academia completa' },
-			{ id: 'leg_press', text: 'Leg press' },
-			{ id: 'cadeira_extensora', text: 'Cadeira extensora' },
-			{ id: 'puxador', text: 'Puxador' },
-			{ id: 'smith', text: 'Smith' },
-			{ id: 'halteres', text: 'Halteres' },
-			{ id: 'colchonete', text: 'Colchonete' },
-			{ id: 'step', text: 'Step / plataforma' }
-		]
-	},
-	{
-		id: 'treino_equipamentos_casa',
-		text: 'Quais equipamentos você terá disponível?',
-		type: 'multiple',
-		showIf: { questionId: 'treino_local', values: ['casa'] },
-		options: [
-			{ id: 'nenhum_equipamento', text: 'Só peso do corpo e móveis' },
-			{ id: 'halteres', text: 'Halteres' },
-			{ id: 'mochila_peso', text: 'Mochila com peso' },
-			{ id: 'colchonete', text: 'Colchonete' },
-			{ id: 'sofa_cadeira', text: 'Sofá/cadeira firme' },
-			{ id: 'step', text: 'Step' }
-		]
-	},
-	{
 		id: 'treino_frequencia',
 		text: 'Quantos dias consegue treinar por semana?',
 		type: 'single',
@@ -84,6 +54,7 @@ export const treinoQuizQuestions: TreinoQuizQuestion[] = [
 		text: 'Existe algum exercício que você não consegue de fazer?',
 		type: 'multiple',
 		options: [
+			{ id: 'sem_restricao', text: 'Sem restrição' },
 			{ id: 'agachamento', text: 'Agachamento' },
 			{ id: 'flexao', text: 'Flexão de braço' },
 			{ id: 'prancha', text: 'Prancha' },

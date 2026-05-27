@@ -24,7 +24,7 @@
 <BottomSheet
 	open={open}
 	onClose={onClose}
-	elevated
+	stacked
 	heightPercent={90}
 	title="Substituir exercício"
 	titleDetail={exercise && alternative ? `${exercise.active.name} → ${alternative.name}` : undefined}
