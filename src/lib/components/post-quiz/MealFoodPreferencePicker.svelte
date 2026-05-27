@@ -171,7 +171,7 @@
 								{#if blockComplete}
 									{totalSelected(block.id)} alimentos selecionados
 								{:else}
-									Selecione os alimentos.
+									Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
 								{/if}
 							</p>
 						</div>

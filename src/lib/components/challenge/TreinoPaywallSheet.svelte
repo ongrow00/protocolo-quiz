@@ -1,6 +1,10 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import { TREINO_PAYWALL } from '$lib/data/treino-paywall';
+	import type { UtmParams } from '$lib/data/types';
+	import { authStore } from '$lib/stores/auth.store';
+	import { loadProfileUtm } from '$lib/services/profile-utm.service';
+	import { appendCheckoutParams } from '$lib/utils/checkout-url';
 
 	interface Props {
 		open: boolean;
@@ -9,7 +13,37 @@
 
 	let { open, onClose }: Props = $props();
 
-	const checkoutUrl = $derived(import.meta.env.PUBLIC_CHECKOUT_URL || TREINO_PAYWALL.checkoutUrl);
+	let profileUtm = $state<UtmParams>({});
+
+	$effect(() => {
+		if (!open) return;
+		const userId = $authStore.user?.id;
+		if (!userId) {
+			profileUtm = {};
+			return;
+		}
+		let cancelled = false;
+		void loadProfileUtm(userId).then((utm) => {
+			if (!cancelled) profileUtm = utm;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const checkoutBaseUrl = $derived(
+		import.meta.env.PUBLIC_CHECKOUT_URL || TREINO_PAYWALL.checkoutUrl
+	);
+
+	const checkoutUrl = $derived(
+		checkoutBaseUrl
+			? appendCheckoutParams(checkoutBaseUrl, {
+					utm: profileUtm,
+					extra: { src: TREINO_PAYWALL.checkoutSrc }
+				})
+			: ''
+	);
+
 	const ctaLabel = $derived(`${TREINO_PAYWALL.ctaLabel} - ${TREINO_PAYWALL.priceLabel}`);
 </script>
 

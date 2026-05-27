@@ -2,6 +2,35 @@
 	import ChallengePageShell from '$lib/components/challenge/ChallengePageShell.svelte';
 	import ConsultoriaVideoPlayer from '$lib/components/challenge/ConsultoriaVideoPlayer.svelte';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
+	import { CONSULTORIA_OFFER } from '$lib/data/consultoria-offer';
+	import type { UtmParams } from '$lib/data/types';
+	import { authStore } from '$lib/stores/auth.store';
+	import { loadProfileUtm } from '$lib/services/profile-utm.service';
+	import { appendCheckoutParams } from '$lib/utils/checkout-url';
+
+	let profileUtm = $state<UtmParams>({});
+
+	$effect(() => {
+		const userId = $authStore.user?.id;
+		if (!userId) {
+			profileUtm = {};
+			return;
+		}
+		let cancelled = false;
+		void loadProfileUtm(userId).then((utm) => {
+			if (!cancelled) profileUtm = utm;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const checkoutUrl = $derived(
+		appendCheckoutParams(CONSULTORIA_OFFER.checkoutUrl, {
+			utm: profileUtm,
+			extra: { src: CONSULTORIA_OFFER.checkoutSrc }
+		})
+	);
 </script>
 
 <ChallengePageShell>
@@ -38,8 +67,10 @@
 			</div>
 		</div>
 
-		<button
-			type="button"
+		<a
+			href={checkoutUrl}
+			target="_blank"
+			rel="noopener noreferrer"
 			class="cta-shine relative flex h-[60px] w-full items-center justify-between gap-3 overflow-hidden rounded-challenge border-2 border-white bg-accent px-5 text-base font-bold text-bg transition-all duration-200 hover:bg-accent-dark active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
 		>
 			<span class="relative z-[1]">Teste por 14 Dias</span>
@@ -55,7 +86,7 @@
 			>
 				<path d="M5 12h14M13 6l6 6-6 6" />
 			</svg>
-		</button>
+		</a>
 	</div>
 </ChallengePageShell>
 

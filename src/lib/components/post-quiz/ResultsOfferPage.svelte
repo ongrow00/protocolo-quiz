@@ -18,6 +18,7 @@
 	import type { MealBlockId, MealSelections } from '$lib/data/meal-preferences';
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
+	import { persistActivationMealPlan } from '$lib/services/meal-plan-activation.service';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -362,6 +363,8 @@
 	let followUpQuestionsComplete = $state(variant !== 'ativacao' || storedFollowUp !== null);
 	let mealPreferences = $state<MealSelections | null>(storedSelections);
 	let followUpAnswers = $state<Record<string, MealFollowUpAnswer> | null>(storedFollowUp);
+	let mealPlanPersistInFlight = $state(false);
+	let mealPlanPersisted = $state(false);
 
 	const ativacaoPreOfferComplete = $derived(
 		!isAtivacaoVariant || (mealPreferencesComplete && followUpQuestionsComplete)
@@ -373,11 +376,37 @@
 		postQuizStore.setMealSelections(selections);
 	}
 
+	/** Gera e salva o plano em segundo plano; loading fica só em /inicio. */
+	function triggerMealPlanPersist() {
+		if (!isAtivacaoVariant || mealPlanPersistInFlight || mealPlanPersisted) return;
+
+		const selections = mealPreferences ?? $postQuizStore.mealSelections;
+		if (!selections) return;
+
+		mealPlanPersistInFlight = true;
+		void persistActivationMealPlan(selections).then((result) => {
+			mealPlanPersistInFlight = false;
+			if (result.ok) {
+				mealPlanPersisted = true;
+			} else {
+				console.warn('persistActivationMealPlan:', result.error);
+			}
+		});
+	}
+
 	function handleFollowUpQuestionsComplete(answers: Record<string, MealFollowUpAnswer>) {
 		followUpAnswers = answers;
-		followUpQuestionsComplete = true;
 		postQuizStore.setFollowUpAnswers(answers);
+		followUpQuestionsComplete = true;
+
+		if (isAtivacaoVariant) triggerMealPlanPersist();
 	}
+
+	$effect(() => {
+		if (!browser || !isAtivacaoVariant) return;
+		if (!mealPreferencesComplete || !followUpQuestionsComplete) return;
+		triggerMealPlanPersist();
+	});
 
 	function openDeclineModal() {
 		declineModalOpen = true;
@@ -445,7 +474,7 @@
 				>
 					{#if !mealPreferencesComplete}
 						<MealFoodPreferencePicker onComplete={handleMealPreferencesComplete} />
-					{:else}
+					{:else if !followUpQuestionsComplete}
 						<MealFollowUpQuestions onComplete={handleFollowUpQuestionsComplete} />
 					{/if}
 				</div>
