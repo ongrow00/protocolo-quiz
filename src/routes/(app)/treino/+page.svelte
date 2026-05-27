@@ -14,12 +14,13 @@
 	import TreinoSessionPlayer from '$lib/components/challenge/TreinoSessionPlayer.svelte';
 	import MealMarkConfirmSheet from '$lib/components/challenge/MealMarkConfirmSheet.svelte';
 	import { canAccessTreino, canAccessConsultoria } from '$lib/stores/access.store';
-	import { authStore } from '$lib/stores/auth.store';
+	import { authStore, authLoading } from '$lib/stores/auth.store';
 	import { challengeStore } from '$lib/stores/challenge.store';
 	import { treinoStore } from '$lib/stores/treino.store';
 	import { generatingTreino } from '$lib/stores/generating-treino.store';
 	import {
 		workoutPlanStore,
+		clearWorkoutPlan,
 		setWorkoutPlanDirect,
 		setWorkoutPlanFromQuiz,
 		swapWorkoutExerciseVariant
@@ -51,6 +52,7 @@
 	let highlightExerciseId = $state<string | null>(null);
 	let selectedDay = $state(1);
 	let generating = $state(false);
+	let planHydrated = $state(false);
 
 	const phases = [
 		{ num: 1, name: 'Desbloqueio', from: 1, to: 3 },
@@ -60,14 +62,13 @@
 	] as const;
 
 	const workoutPlan = $derived($workoutPlanStore);
-	const protocolCreated = $derived(!!workoutPlan || $treinoStore.quizCompleted);
+	const protocolCreated = $derived(!!workoutPlan);
 	const dayPlan = $derived(workoutPlan?.days.find((d) => d.protocolDay === selectedDay));
 	const canPlay = $derived($canAccessTreino);
 
 	onMount(async () => {
 		treinoStore.hydrate();
 		await treinoStore.hydrateProgressFromSupabase();
-		await loadPlanFromDb();
 
 		const dayParam = Number($page.url.searchParams.get('day'));
 		if (dayParam >= 1 && dayParam <= 14) {
@@ -77,16 +78,39 @@
 		}
 	});
 
+	$effect(() => {
+		if ($authLoading || planHydrated) return;
+		if ($workoutPlanStore) {
+			planHydrated = true;
+			return;
+		}
+		const userId = $authStore.user?.id;
+		if (!userId) {
+			planHydrated = true;
+			return;
+		}
+		void loadPlanFromDb();
+	});
+
 	async function loadPlanFromDb() {
 		const userId = $authStore.user?.id;
-		if (!userId || $workoutPlanStore) return;
+		if (!userId) return;
+
+		if ($workoutPlanStore) {
+			planHydrated = true;
+			return;
+		}
 
 		const { plan, answers, error } = await loadActiveWorkoutPlan(userId);
 		if (error) console.warn('loadWorkoutPlan:', error);
 		if (plan) {
 			setWorkoutPlanDirect(plan, answers);
 			treinoStore.markQuizComplete();
+		} else {
+			clearWorkoutPlan();
+			treinoStore.resetQuiz();
 		}
+		planHydrated = true;
 	}
 
 	async function fetchActivityLevel(userId: string): Promise<string | undefined> {
@@ -495,7 +519,7 @@
 				<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
 				<p class="text-sm font-medium text-body">Montando seu protocolo de treino…</p>
 			</div>
-		{:else if protocolCreated && !workoutPlan}
+		{:else if !planHydrated && $authStore.user?.id}
 			<div class="flex flex-col items-center gap-4 py-8 text-center">
 				<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
 				<p class="text-sm text-body">Carregando seu protocolo de treino…</p>
