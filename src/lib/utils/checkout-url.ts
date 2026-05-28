@@ -15,10 +15,37 @@ export function mergeUtmParams(...sources: (UtmParams | undefined)[]): UtmParams
 	return merged;
 }
 
-/** Anexa UTMs e parâmetros extras à URL de checkout (Lastlink). */
+/** Dados do lead para checkout pré-populado (Lastlink: name, phone, sck). */
+export type CheckoutBuyerParams = {
+	name?: string;
+	phone?: string;
+	/** Rastreamento — ex.: funnel_session_id do funil. */
+	sck?: string;
+};
+
+/** Telefone no formato Lastlink (+55…), a partir do valor salvo no funil. */
+export function formatCheckoutPhone(raw: string): string | undefined {
+	const digits = raw.replace(/\D/g, '');
+	if (!digits) return undefined;
+	if (digits.startsWith('55') && digits.length >= 12) return `+${digits}`;
+	if (digits.length >= 10) return `+55${digits}`;
+	return undefined;
+}
+
+function applyQueryParams(url: URL, params: Record<string, string | undefined>) {
+	for (const [key, value] of Object.entries(params)) {
+		if (value) url.searchParams.set(key, value);
+	}
+}
+
+/** Anexa UTMs, dados do comprador e parâmetros extras à URL de checkout (Lastlink). */
 export function appendCheckoutParams(
 	baseUrl: string,
-	options: { utm?: UtmParams; extra?: Record<string, string | undefined> }
+	options: {
+		utm?: UtmParams;
+		buyer?: CheckoutBuyerParams;
+		extra?: Record<string, string | undefined>;
+	}
 ): string {
 	const url = new URL(baseUrl);
 
@@ -29,10 +56,20 @@ export function appendCheckoutParams(
 		}
 	}
 
+	const buyer = options.buyer;
+	if (buyer) {
+		const name = buyer.name?.trim();
+		const phone = buyer.phone ? formatCheckoutPhone(buyer.phone) : undefined;
+		const sck = buyer.sck?.trim();
+		applyQueryParams(url, {
+			...(name ? { name } : {}),
+			...(phone ? { phone } : {}),
+			...(sck ? { sck } : {})
+		});
+	}
+
 	if (options.extra) {
-		for (const [key, value] of Object.entries(options.extra)) {
-			if (value) url.searchParams.set(key, value);
-		}
+		applyQueryParams(url, options.extra);
 	}
 
 	return url.toString();

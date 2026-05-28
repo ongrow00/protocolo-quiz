@@ -8,7 +8,7 @@
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
-	import { RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
+	import { RESULTS_VTURB_DELAY_SEC, RESULTS_VTURB_PERSIST } from '$lib/constants/mr3-vturb';
 	import { RESULTS_OFFER } from '$lib/data/results-offer';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
@@ -185,7 +185,8 @@
 	const activeFaq = $derived(offerFaq ?? DEFAULT_OFFER_FAQ);
 
 	const quiz = $derived($quizStore);
-	const name = $derived($postQuizStore.name);
+	const postQuiz = $derived($postQuizStore);
+	const name = $derived(postQuiz.name);
 
 	/** Primeiro token do nome (ex.: saudação "Maria, ..."). */
 	const firstName = $derived.by(() => {
@@ -305,8 +306,14 @@
 		const src =
 			offerCta?.checkoutSrc ??
 			(showOf002Offer ? undefined : RESULTS_OFFER.checkoutSrc);
+		const funnelSessionId = quiz.funnelSessionId?.trim();
 		return appendCheckoutParams(baseUrl, {
 			utm: checkoutUtm,
+			buyer: {
+				name: postQuiz.name,
+				phone: postQuiz.whatsapp,
+				...(funnelSessionId ? { sck: funnelSessionId } : {})
+			},
 			extra: src ? { src } : undefined
 		});
 	});
@@ -472,20 +479,27 @@
 		}
 	}
 
+	function revealResultsAfterVideo() {
+		resultsVturbDelayEl?.classList.remove('esconder');
+		postQuizStore.markResultsContentRevealed();
+	}
+
 	function isVturbDelaySlotVisible(el: HTMLElement) {
-		return getComputedStyle(el).display !== 'none';
+		if (el.classList.contains('esconder')) return false;
+		const st = getComputedStyle(el);
+		return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
 	}
 
 	$effect(() => {
 		if (!browser || !resultsVturbDelayEl) return;
 		const el = resultsVturbDelayEl;
 		if (isVturbDelaySlotVisible(el)) {
-			postQuizStore.markResultsContentRevealed();
+			revealResultsAfterVideo();
 			return;
 		}
 		const mo = new MutationObserver(() => {
 			if (isVturbDelaySlotVisible(el)) {
-				postQuizStore.markResultsContentRevealed();
+				revealResultsAfterVideo();
 				mo.disconnect();
 			}
 		});
@@ -500,7 +514,7 @@
 		if ($postQuizStore.resultsContentRevealed) return;
 
 		const t = window.setTimeout(() => {
-			postQuizStore.markResultsContentRevealed();
+			revealResultsAfterVideo();
 		}, RESULTS_VTURB_DELAY_SEC * 1000);
 
 		return () => window.clearTimeout(t);
@@ -611,10 +625,10 @@
 				scriptSrc={vturbProtocoloAccess.scriptSrc}
 				revealHiddenAfterPlayback={{
 					seconds: RESULTS_VTURB_DELAY_SEC,
-					selectors: ['.results-vturb-delay'],
-					persist: !isAtivacaoVariant
+					selectors: ['.esconder'],
+					persist: isAtivacaoVariant ? false : RESULTS_VTURB_PERSIST
 				}}
-				onReveal={() => postQuizStore.markResultsContentRevealed()}
+				onReveal={revealResultsAfterVideo}
 			/>
 		</div>
 		</div>
@@ -649,7 +663,7 @@
 	{/if}
 
 	<div
-		class="results-vturb-delay"
+		class="results-vturb-delay esconder"
 		class:results-vturb-delay--revealed={$postQuizStore.resultsContentRevealed}
 		bind:this={resultsVturbDelayEl}
 	>

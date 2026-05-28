@@ -3,7 +3,8 @@
 	import {
 		MR3_CTA_REGISTERED_EVENT,
 		MR3_CTA_REVEAL_EVENT,
-		MR3_VTURB_DELAY_SEC
+		MR3_VTURB_DELAY_SEC,
+		MR3_VTURB_PERSIST
 	} from '$lib/constants/mr3-vturb';
 
 	const PLAYER_SCRIPT_SRC =
@@ -25,8 +26,8 @@
 		scriptSrc={PLAYER_SCRIPT_SRC}
 		revealHiddenAfterPlayback={{
 			seconds: MR3_VTURB_DELAY_SEC,
-			selectors: ['#quiz-mr3-cta-wrap'],
-			persist: false
+			selectors: ['.esconder'],
+			persist: MR3_VTURB_PERSIST
 		}}
 		onReveal={handleReveal}
 		onDelayRegistered={handleDelayRegistered}

@@ -229,9 +229,12 @@ input[type='range']::-moz-range-thumb {
 	opacity: 0;
 }
 
-/* mr-3: CTA oculto até o VTurb revelar via `displayHiddenElements` (classe `esconder` — ver VTurb). */
-#quiz-mr3-cta-wrap.esconder {
-	display: none;
+/*
+ * VTurb delay — classe oficial para `displayHiddenElements`:
+ * https://help.vturb.com/pt-br/article/codigo-de-delay-para-sincronizar-elementos-da-pagina-com-o-seu-video-1loyzpq/
+ */
+.esconder {
+	display: none !important;
 }
 
 /* mr-4: CTA escondido até o fim da animação ilustrativa do calendário (10s). */
@@ -239,12 +242,8 @@ input[type='range']::-moz-range-thumb {
 	display: none;
 }
 
-/* /results: conteúdo após o vídeo até o VTurb atingir RESULTS_VTURB_DELAY_SEC — ver VturbPlayer + --revealed. */
+/* /results: layout do bloco após o vídeo (ocultação via `.esconder` + VturbPlayer). */
 .results-vturb-delay {
-	display: none;
-}
-
-.results-vturb-delay.results-vturb-delay--revealed {
 	display: flex;
 	flex-direction: column;
 	gap: 0.625rem;

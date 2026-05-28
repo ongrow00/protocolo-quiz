@@ -18,7 +18,7 @@ export interface PostQuizState {
 	/** Clicou no CTA "COMEÇAR AGORA" no bloco de preço (results). */
 	clickedComecarAgora: boolean;
 	/**
-	 * /results: mesmo gatilho do VTurb que exibe `.results-vturb-delay` (revealHiddenAfterPlayback).
+	 * /results: mesmo gatilho do VTurb que remove `.esconder` (revealHiddenAfterPlayback).
 	 * Não vai para sessionStorage — só memória na visita atual.
 	 */
 	resultsContentRevealed: boolean;
