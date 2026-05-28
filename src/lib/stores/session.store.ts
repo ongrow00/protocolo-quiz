@@ -55,15 +55,30 @@ function createSessionStore() {
 		subscribe,
 
 		/**
-		 * Call from layout on client: fills store from URL only if nothing was in sessionStorage (first entry).
+		 * Sincroniza UTMs (first-touch) e `offer` (sempre que vier na URL) a partir dos query params.
 		 */
 		hydrateFromUrl(searchParams: URLSearchParams) {
 			update((state) => {
-				if (hasAnyParams(state)) return state;
-				const utm = parseUtmFromSearchParams(searchParams);
-				const offer = searchParams.get('offer')?.trim() ?? null;
-				if (Object.keys(utm).length === 0 && offer == null) return state;
-				const next: SessionParams = { utm, offer };
+				const urlUtm = parseUtmFromSearchParams(searchParams);
+				const urlOffer = searchParams.get('offer')?.trim() || null;
+				const hasUrlUtm = Object.keys(urlUtm).length > 0;
+				const firstTouch = !hasAnyParams(state);
+
+				if (!firstTouch && !hasUrlUtm && urlOffer == null) return state;
+
+				const next: SessionParams = { ...state };
+				let changed = false;
+
+				if (firstTouch && hasUrlUtm) {
+					next.utm = urlUtm;
+					changed = true;
+				}
+				if (urlOffer != null && next.offer !== urlOffer) {
+					next.offer = urlOffer;
+					changed = true;
+				}
+
+				if (!changed) return state;
 				saveToSession(next);
 				return next;
 			});

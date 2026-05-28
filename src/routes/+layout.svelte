@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 	import '../app.css';
 	import { sessionStore } from '$lib/stores/session.store';
 
 	let { children } = $props();
 
-	onMount(() => {
-		sessionStore.hydrateFromUrl(new URLSearchParams(window.location.search));
+	/** UTMs first-touch; `offer` atualiza em cada rota com query na URL. */
+	$effect(() => {
+		if (!browser) return;
+		sessionStore.hydrateFromUrl(page.url.searchParams);
 	});
 </script>
 

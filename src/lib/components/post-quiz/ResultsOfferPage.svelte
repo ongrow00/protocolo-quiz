@@ -285,6 +285,11 @@
 
 	const checkoutUtm = $derived(mergeUtmParams(session.utm, profileUtm));
 
+	/** Campanha `?offer=` (URL atual ou sessão) → parâmetro `src` no Lastlink (exceto OF002 sem bónus). */
+	const funnelOfferForCheckout = $derived(
+		$page.url.searchParams.get('offer')?.trim() || session.offer?.trim() || undefined
+	);
+
 	$effect(() => {
 		if (!browser) return;
 		const userId = $authStore.user?.id;
@@ -304,7 +309,14 @@
 	const primaryCheckoutUrl = $derived.by(() => {
 		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
 		const src =
-			offerCta?.checkoutSrc ?? (isAtivacaoVariant ? undefined : showOf002Offer ? 'OF002' : undefined);
+			offerCta?.checkoutSrc ??
+			(isAtivacaoVariant
+				? undefined
+				: showOf002Offer
+					? 'OF002'
+					: funnelOfferForCheckout && funnelOfferForCheckout !== 'OF002'
+						? funnelOfferForCheckout
+						: undefined);
 		const funnelSessionId = quiz.funnelSessionId?.trim();
 		return appendCheckoutParams(baseUrl, {
 			utm: checkoutUtm,
