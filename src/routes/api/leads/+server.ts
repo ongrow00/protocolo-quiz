@@ -2,6 +2,8 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createSupabaseAdmin } from '$lib/server/supabase-admin';
 
+const TABLE = 'quiz_responses';
+
 function pickUtm(v: unknown): string | null {
 	if (typeof v !== 'string' || !v.trim()) return null;
 	return v.trim().slice(0, 500);
@@ -42,6 +44,28 @@ function utmFields(utmRaw: Record<string, unknown>) {
 	};
 }
 
+function hasUtmPayload(b: Record<string, unknown>): boolean {
+	return b.utm != null && typeof b.utm === 'object' && !Array.isArray(b.utm);
+}
+
+function parseCurrentQuestionId(b: Record<string, unknown>): string | null {
+	const raw = b.currentQuestionId;
+	if (typeof raw !== 'string' || !raw.trim()) return null;
+	return raw.trim().slice(0, 200);
+}
+
+async function upsertByFunnelSession(
+	supabase: ReturnType<typeof createSupabaseAdmin>,
+	funnelSessionId: string,
+	row: Record<string, unknown>
+) {
+	const { error: upErr } = await supabase.from(TABLE).upsert(row, { onConflict: 'funnel_session_id' });
+	if (upErr) {
+		console.error('[api/leads]', upErr);
+		throw error(500, 'Não foi possível salvar o progresso.');
+	}
+}
+
 async function handleProgress(
 	supabase: ReturnType<typeof createSupabaseAdmin>,
 	b: Record<string, unknown>
@@ -49,13 +73,15 @@ async function handleProgress(
 	const funnelSessionId = parseUuid(b.funnelSessionId);
 	if (!funnelSessionId) throw error(400, 'Sessão inválida');
 
+	const anonymousId = parseUuid(b.anonymousId);
+	if (!anonymousId) throw error(400, 'Identificador anônimo inválido');
+
 	if (!b.scores || typeof b.scores !== 'object' || Array.isArray(b.scores))
 		throw error(400, 'Scores inválidos');
 	if (!b.answers || typeof b.answers !== 'object' || Array.isArray(b.answers))
 		throw error(400, 'Respostas inválidas');
 
 	const visited_questions = parseVisitedQuestions(b);
-	const utmRaw = b.utm && typeof b.utm === 'object' && !Array.isArray(b.utm) ? b.utm : {};
 	const offerRaw = b.offer;
 	const offer =
 		typeof offerRaw === 'string' && offerRaw.trim() ? offerRaw.trim().slice(0, 200) : null;
@@ -80,53 +106,30 @@ async function handleProgress(
 		postQuizEmail.includes('@') &&
 		/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(postQuizEmail);
 
-	const patch: Record<string, unknown> = {
+	const row: Record<string, unknown> = {
+		funnel_session_id: funnelSessionId,
+		anonymous_id: anonymousId,
 		scores: b.scores,
 		answers: b.answers,
 		visited_questions,
+		current_question_id: parseCurrentQuestionId(b),
 		quiz_started_at: msToIso(b.startedAt),
 		quiz_completed_at: msToIso(b.completedAt),
-		...utmFields(utmRaw as Record<string, unknown>),
-		offer
+		last_activity_at: msToIso(b.lastActivityAt) ?? new Date().toISOString(),
+		updated_at: new Date().toISOString()
 	};
-	if (postQuizName) patch.name = postQuizName;
-	if (postQuizWhatsapp) patch.whatsapp = postQuizWhatsapp;
-	if (emailOk) patch.email = postQuizEmail;
 
-	const { data: existing, error: selErr } = await supabase
-		.from('lotz_quiz_leads')
-		.select('id')
-		.eq('funnel_session_id', funnelSessionId)
-		.maybeSingle();
-
-	if (selErr) {
-		console.error('[api/leads]', selErr);
-		throw error(500, 'Não foi possível salvar o progresso.');
+	if (hasUtmPayload(b)) {
+		Object.assign(row, utmFields(b.utm as Record<string, unknown>));
 	}
-
-	if (existing) {
-		const { error: upErr } = await supabase
-			.from('lotz_quiz_leads')
-			.update(patch)
-			.eq('funnel_session_id', funnelSessionId);
-		if (upErr) {
-			console.error('[api/leads]', upErr);
-			throw error(500, 'Não foi possível salvar o progresso.');
-		}
-	} else {
-		const { error: insErr } = await supabase.from('lotz_quiz_leads').insert({
-			funnel_session_id: funnelSessionId,
-			name: null,
-			email: null,
-			profile_id: null,
-			...patch,
-			clicked_comecar_agora: false
-		});
-		if (insErr) {
-			console.error('[api/leads]', insErr);
-			throw error(500, 'Não foi possível salvar o progresso.');
-		}
+	if ('offer' in b) {
+		row.offer = offer;
 	}
+	if (postQuizName) row.name = postQuizName;
+	if (postQuizWhatsapp) row.whatsapp = postQuizWhatsapp;
+	if (emailOk) row.email = postQuizEmail;
+
+	await upsertByFunnelSession(supabase, funnelSessionId, row);
 
 	return json({ ok: true });
 }
@@ -143,13 +146,15 @@ async function handleSubmit(
 	if (!email || email.length > 320 || !email.includes('@')) throw error(400, 'E-mail inválido');
 	if (!profileId || profileId.length > 120) throw error(400, 'Perfil inválido');
 
+	const anonymousId = parseUuid(b.anonymousId);
+	if (!anonymousId) throw error(400, 'Identificador anônimo inválido');
+
 	if (!b.scores || typeof b.scores !== 'object' || Array.isArray(b.scores))
 		throw error(400, 'Scores inválidos');
 	if (!b.answers || typeof b.answers !== 'object' || Array.isArray(b.answers))
 		throw error(400, 'Respostas inválidas');
 
 	const visited_questions = parseVisitedQuestions(b);
-
 	const utmRaw = b.utm && typeof b.utm === 'object' && !Array.isArray(b.utm) ? b.utm : {};
 	const utm = utmRaw as Record<string, unknown>;
 
@@ -158,24 +163,26 @@ async function handleSubmit(
 		typeof offerRaw === 'string' && offerRaw.trim() ? offerRaw.trim().slice(0, 200) : null;
 
 	const clicked_comecar_agora = b.clickedComecarAgora === true;
-
 	const funnelSessionId = parseUuid(b.funnelSessionId);
 
 	const row: Record<string, unknown> = {
+		anonymous_id: anonymousId,
 		name,
 		email,
 		profile_id: profileId,
 		scores: b.scores,
 		answers: b.answers,
 		visited_questions,
+		current_question_id: parseCurrentQuestionId(b),
 		quiz_started_at: msToIso(b.startedAt),
 		quiz_completed_at: msToIso(b.completedAt),
+		last_activity_at: new Date().toISOString(),
 		...utmFields(utm),
 		offer,
-		clicked_comecar_agora
+		clicked_comecar_agora,
+		updated_at: new Date().toISOString()
 	};
 
-	/** Só atualiza se o cliente mandou a chave (evita apagar WhatsApp/objetivo já gravados no sync). */
 	if ('whatsapp' in b) {
 		const whatsappRaw = b.whatsapp;
 		row.whatsapp =
@@ -194,38 +201,9 @@ async function handleSubmit(
 
 	if (funnelSessionId) {
 		row.funnel_session_id = funnelSessionId;
-	}
-
-	if (funnelSessionId) {
-		const { data: existing, error: selErr } = await supabase
-			.from('lotz_quiz_leads')
-			.select('id')
-			.eq('funnel_session_id', funnelSessionId)
-			.maybeSingle();
-
-		if (selErr) {
-			console.error('[api/leads]', selErr);
-			throw error(500, 'Não foi possível salvar. Tente novamente.');
-		}
-
-		if (existing) {
-			const { error: upErr } = await supabase
-				.from('lotz_quiz_leads')
-				.update(row)
-				.eq('funnel_session_id', funnelSessionId);
-			if (upErr) {
-				console.error('[api/leads]', upErr);
-				throw error(500, 'Não foi possível salvar. Tente novamente.');
-			}
-		} else {
-			const { error: insErr } = await supabase.from('lotz_quiz_leads').insert(row);
-			if (insErr) {
-				console.error('[api/leads]', insErr);
-				throw error(500, 'Não foi possível salvar. Tente novamente.');
-			}
-		}
+		await upsertByFunnelSession(supabase, funnelSessionId, row);
 	} else {
-		const { error: dbError } = await supabase.from('lotz_quiz_leads').insert(row);
+		const { error: dbError } = await supabase.from(TABLE).insert(row);
 		if (dbError) {
 			console.error('[api/leads]', dbError);
 			throw error(500, 'Não foi possível salvar. Tente novamente.');

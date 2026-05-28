@@ -42,7 +42,6 @@
 	heroProgress={ATIVACAO_HERO_PROGRESS}
 	offerCta={ATIVACAO_OFFER_CTA}
 	offerAccessSection={ATIVACAO_OFFER_ACCESS_SECTION}
-	onPrimaryCta={handleActivation}
 	onDeclineCta={handleActivation}
 />
 

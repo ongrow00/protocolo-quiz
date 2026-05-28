@@ -6,3 +6,6 @@ export const RESULTS_VTURB_DELAY_SEC = 10;
 
 /** Disparado somente quando o VTurb altera o DOM e o CTA fica visível. */
 export const MR3_CTA_REVEAL_EVENT = 'quiz-mr3-cta-reveal';
+
+/** Disparado quando `displayHiddenElements` foi registrado no player (mr-3). */
+export const MR3_CTA_REGISTERED_EVENT = 'quiz-mr3-cta-registered';

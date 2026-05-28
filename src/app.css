@@ -229,8 +229,8 @@ input[type='range']::-moz-range-thumb {
 	opacity: 0;
 }
 
-/* mr-3: CTA oculto até o VTurb revelar via `displayHiddenElements` (tempo do vídeo). */
-.quiz-mr3-cta-delay {
+/* mr-3: CTA oculto até o VTurb revelar via `displayHiddenElements` (classe `esconder` — ver VTurb). */
+#quiz-mr3-cta-wrap.esconder {
 	display: none;
 }
 

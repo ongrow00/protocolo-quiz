@@ -19,6 +19,10 @@
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
 	import { persistActivationMealPlan } from '$lib/services/meal-plan-activation.service';
+	import type { UtmParams } from '$lib/data/types';
+	import { authStore } from '$lib/stores/auth.store';
+	import { loadProfileUtm } from '$lib/services/profile-utm.service';
+	import { appendCheckoutParams } from '$lib/utils/checkout-url';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -123,6 +127,9 @@
 	export type OfferCta = {
 		primaryLabel: string;
 		declineLabel: string;
+		/** Checkout Lastlink do CTA principal (abre em nova aba com UTMs + src). */
+		checkoutUrl?: string;
+		checkoutSrc?: string;
 		declineModal?: OfferDeclineModal;
 	};
 
@@ -269,6 +276,37 @@
 			? RESULTS_OFFER.checkoutUrlOf002
 			: (import.meta.env.PUBLIC_CHECKOUT_URL || RESULTS_OFFER.checkoutUrl)
 	);
+
+	let profileUtm = $state<UtmParams>({});
+
+	$effect(() => {
+		if (!browser) return;
+		const userId = $authStore.user?.id;
+		if (!userId) {
+			profileUtm = {};
+			return;
+		}
+		let cancelled = false;
+		void loadProfileUtm(userId).then((utm) => {
+			if (!cancelled) profileUtm = utm;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	const primaryCheckoutUrl = $derived.by(() => {
+		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
+		const src =
+			offerCta?.checkoutSrc ??
+			(showOf002Offer ? undefined : RESULTS_OFFER.checkoutSrc);
+		return appendCheckoutParams(baseUrl, {
+			utm: profileUtm,
+			extra: src ? { src } : undefined
+		});
+	});
+
+	const primaryCtaIsLink = $derived(!!offerCta?.checkoutUrl || !onPrimaryCta);
 
 	// Itens "Suas especificidades": só mostram se o usuário escolheu no quiz
 	const showAdaptacao = $derived.by(() => {
@@ -464,7 +502,7 @@
 	});
 </script>
 
-<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 bg-challenge-hero text-center">
+<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center">
 	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
 		<div class="ativacao-onboarding-transition">
 			{#key mealPreferencesComplete ? 'follow-up' : 'meals'}
@@ -561,7 +599,7 @@
 			</div>
 		{/if}
 		<div
-			class="w-full bg-challenge-hero {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
+			class="w-full {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
 		>
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
@@ -937,26 +975,15 @@
 		</div>
 
 		<!-- Bloco do botão: div "debaixo" com efeito sobreposto -->
-		{#if onPrimaryCta}
-			<button
-				type="button"
-				class="mx-0.5 mb-0.5 flex w-full items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
-				onclick={() => {
-					postQuizStore.markComecarAgoraClicked();
-					onPrimaryCta();
-				}}
-			>
-				{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
-			</button>
-		{:else}
+		{#if primaryCtaIsLink}
 			<a
-				href={checkoutUrl || '#'}
-				target={checkoutUrl ? '_blank' : undefined}
-				rel={checkoutUrl ? 'noopener noreferrer' : undefined}
-				class="mx-0.5 mb-0.5 flex items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
+				href={primaryCheckoutUrl || '#'}
+				target={primaryCheckoutUrl ? '_blank' : undefined}
+				rel={primaryCheckoutUrl ? 'noopener noreferrer' : undefined}
+				class="mx-0.5 mb-0.5 flex w-full items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
 				onclick={(e) => {
 					postQuizStore.markComecarAgoraClicked();
-					if (!checkoutUrl) e.preventDefault();
+					if (!primaryCheckoutUrl) e.preventDefault();
 				}}
 			>
 				{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
@@ -966,6 +993,17 @@
 					</svg>
 				{/if}
 			</a>
+		{:else}
+			<button
+				type="button"
+				class="mx-0.5 mb-0.5 flex w-full items-center justify-center gap-2 rounded-b-2xl px-5 py-[27.5px] font-black text-base tracking-widest text-bg bg-transparent transition-all duration-200 active:scale-[0.98] hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bg focus-visible:ring-inset"
+				onclick={() => {
+					postQuizStore.markComecarAgoraClicked();
+					onPrimaryCta?.();
+				}}
+			>
+				{offerCta?.primaryLabel ?? 'COMEÇAR AGORA'}
+			</button>
 		{/if}
 	</div>
 

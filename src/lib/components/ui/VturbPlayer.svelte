@@ -18,9 +18,12 @@
 		revealHiddenAfterPlayback?: RevealHiddenAfterPlayback;
 		/** Disparado apenas quando o VTurb revela os seletores no DOM. */
 		onReveal?: () => void;
+		/** Disparado quando `displayHiddenElements` foi registrado com sucesso. */
+		onDelayRegistered?: () => void;
 	}
 
-	let { playerId, scriptSrc, revealHiddenAfterPlayback, onReveal }: Props = $props();
+	let { playerId, scriptSrc, revealHiddenAfterPlayback, onReveal, onDelayRegistered }: Props =
+		$props();
 
 	let hostEl: HTMLDivElement | undefined = $state();
 	let playerEl: HTMLElement | undefined = $state();
@@ -92,6 +95,7 @@
 	function isSelectorRevealed(selector: string): boolean {
 		const target = document.querySelector(selector);
 		if (!target) return false;
+		if (target.classList.contains('esconder')) return false;
 		const st = getComputedStyle(target);
 		if (st.display === 'none' || st.visibility === 'hidden') return false;
 		if (st.opacity === '0') return false;
@@ -155,6 +159,7 @@
 			p.displayHiddenElements(cfg.seconds, cfg.selectors, {
 				persist: cfg.persist ?? true
 			});
+			onDelayRegistered?.();
 			return true;
 		};
 
@@ -181,8 +186,6 @@
 				window.clearInterval(bindIv);
 			}
 		}, 250);
-
-		armRevealWatch();
 
 		return () => {
 			window.clearInterval(bindIv);

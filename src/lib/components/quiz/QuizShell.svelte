@@ -13,6 +13,7 @@
 		quizNavigationEnded
 	} from '$lib/stores/quiz.store';
 	import { trackQuestionAnswer, trackQuizComplete } from '$lib/services/analytics.service';
+	import { flushQuizProgressImmediate } from '$lib/services/quiz-progress-sync.service';
 	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
 	import QuestionCard from './QuestionCard.svelte';
 	import InfoScreen from './InfoScreen.svelte';
@@ -30,7 +31,11 @@
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
-	import { MR3_CTA_REVEAL_EVENT } from '$lib/constants/mr3-vturb';
+	import {
+		MR3_CTA_REGISTERED_EVENT,
+		MR3_CTA_REVEAL_EVENT,
+		MR3_VTURB_DELAY_SEC
+	} from '$lib/constants/mr3-vturb';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -108,7 +113,7 @@
 	/** mr-protein: CTA só após a contagem 0 → meta (4s). */
 	let mrProteinCtaLocked = $state(false);
 
-	// mr-3: “Analisando…” até o VTurb revelar o CTA (só via displayHiddenElements + DOM)
+	// mr-3: “Analisando…” até o VTurb revelar o CTA (`displayHiddenElements` + classe `esconder`)
 	$effect(() => {
 		if (!browser || !showNextButton || question?.id !== 'mr-3') {
 			mr3FooterLoading = false;
@@ -118,12 +123,20 @@
 		mr3FooterLoading = true;
 
 		let mo: MutationObserver | null = null;
+		let registeredFallback: ReturnType<typeof setTimeout> | undefined;
+		let entryFallback: ReturnType<typeof setTimeout> | undefined;
 		let cancelled = false;
 
 		function isVturbRevealed(el: HTMLElement): boolean {
+			if (el.classList.contains('esconder')) return false;
 			const st = getComputedStyle(el);
 			if (st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0') return false;
 			return true;
+		}
+
+		function forceRevealCta(el: HTMLElement) {
+			el.classList.remove('esconder');
+			el.style.removeProperty('display');
 		}
 
 		function onVturbRevealed() {
@@ -133,12 +146,33 @@
 			mo = null;
 		}
 
-		const onVturbRevealEvent = () => {
+		function tryFinishIfRevealed() {
 			const el = document.getElementById('quiz-mr3-cta-wrap');
 			if (el && isVturbRevealed(el)) onVturbRevealed();
+		}
+
+		const onVturbRevealEvent = () => tryFinishIfRevealed();
+
+		const onVturbRegistered = () => {
+			if (cancelled) return;
+			window.clearTimeout(registeredFallback);
+			registeredFallback = window.setTimeout(() => {
+				const el = document.getElementById('quiz-mr3-cta-wrap');
+				if (!el || cancelled) return;
+				if (!isVturbRevealed(el)) forceRevealCta(el);
+				onVturbRevealed();
+			}, MR3_VTURB_DELAY_SEC * 1000);
 		};
 
 		document.addEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
+		document.addEventListener(MR3_CTA_REGISTERED_EVENT, onVturbRegistered);
+
+		entryFallback = window.setTimeout(() => {
+			const el = document.getElementById('quiz-mr3-cta-wrap');
+			if (!el || cancelled || !mr3FooterLoading) return;
+			if (!isVturbRevealed(el)) forceRevealCta(el);
+			onVturbRevealed();
+		}, MR3_VTURB_DELAY_SEC * 1000 + 8000);
 
 		tick().then(() => {
 			if (cancelled) return;
@@ -148,15 +182,16 @@
 				onVturbRevealed();
 				return;
 			}
-			mo = new MutationObserver(() => {
-				if (isVturbRevealed(el)) onVturbRevealed();
-			});
-			mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+			mo = new MutationObserver(() => tryFinishIfRevealed());
+			mo.observe(el, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
 		});
 
 		return () => {
 			cancelled = true;
 			document.removeEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
+			document.removeEventListener(MR3_CTA_REGISTERED_EVENT, onVturbRegistered);
+			window.clearTimeout(registeredFallback);
+			window.clearTimeout(entryFallback);
 			mo?.disconnect();
 		};
 	});
@@ -282,6 +317,7 @@
 			advancing = true;
 			try {
 				quizStore.complete();
+				flushQuizProgressImmediate();
 				trackQuizComplete('');
 				await goto('/carregando');
 			} finally {
@@ -482,7 +518,7 @@
 						: question?.id === 'mr-4'
 							? 'quiz-mr4-cta-wrap'
 							: undefined}
-					class={question?.id === 'mr-3' ? 'quiz-mr3-cta-delay' : ''}
+					class={question?.id === 'mr-3' ? 'esconder' : ''}
 				>
 			<button
 				type="button"

@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
-	import { startPostQuizFunnelSync, stopPostQuizFunnelSync } from '$lib/services/quiz-progress-sync.service';
+	import {
+		flushQuizProgressNow,
+		startPostQuizFunnelSync,
+		stopPostQuizFunnelSync
+	} from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 
 	let { children } = $props();
@@ -16,6 +21,29 @@
 
 	onDestroy(() => {
 		stopPostQuizFunnelSync();
+	});
+
+	const POST_QUIZ_PREFIXES = [
+		'/carregando',
+		'/nome',
+		'/whatsapp',
+		'/metabolismo',
+		'/results',
+		'/plan/bonus'
+	] as const;
+
+	function isPostQuizPath(path: string): boolean {
+		return POST_QUIZ_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
+	}
+
+	beforeNavigate(({ from, to }) => {
+		if (!browser || !from) return;
+		const leavingPostQuiz =
+			isPostQuizPath(from.url.pathname) &&
+			(!to || !isPostQuizPath(to.url.pathname));
+		if (leavingPostQuiz) {
+			return flushQuizProgressNow();
+		}
 	});
 
 	/** Passos lineares do funil (sem /plan/bonus: o bónus só abre no 1.º Voltar em /results ou link direto). */
