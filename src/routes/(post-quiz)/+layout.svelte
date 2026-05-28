@@ -72,14 +72,17 @@
 	);
 
 	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
+	const bonusDiscountAccepted = $derived($postQuizStore.bonusDiscountAccepted);
 
 	/** Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`. */
-	const RESULTS_VIDEO_HREF = '/results#video-protocolo';
+	const resultsVideoHref = $derived(
+		bonusDiscountAccepted ? '/results?offer=OF002#video-protocolo' : '/results#video-protocolo'
+	);
 
 	function handlePostQuizContinuar() {
 		const path = page.url.pathname;
 		if (path === '/metabolismo' || path.startsWith('/metabolismo/')) {
-			void goto(RESULTS_VIDEO_HREF);
+			void goto(resultsVideoHref);
 			return;
 		}
 		const idx = FUNNEL_STEPS.findIndex((p) => path === p || path.startsWith(p + '/'));
@@ -90,7 +93,7 @@
 			dest = '/results';
 		}
 		if (dest === '/results') {
-			void goto(RESULTS_VIDEO_HREF);
+			void goto(resultsVideoHref);
 			return;
 		}
 		void goto(dest);

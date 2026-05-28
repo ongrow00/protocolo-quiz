@@ -266,17 +266,17 @@
 	const displayKcal = $derived(phase1Macros?.kcal ?? DEFAULT_DAILY_MACRO_GOALS.kcal);
 	const displayProteinG = $derived(phase1Macros?.proteinG ?? DEFAULT_DAILY_MACRO_GOALS.proteinG);
 
-	/** Preço extra + tag só com ?offer=OF002 na URL (ex.: link de campanha ou após aceitar bónus). */
-	const showOf002Offer = $derived($page.url.searchParams.get('offer') === 'OF002');
+	/** R$37 + checkout OF002: só após aceitar bónus e voltar com `?offer=OF002` (não basta query na landing). */
+	const showOf002Offer = $derived(
+		$page.url.searchParams.get('offer') === 'OF002' && postQuiz.bonusDiscountAccepted
+	);
 	const offerMainPrice = $derived(showOf002Offer ? 'R$37,00' : 'R$47,00');
 	const offerInstallmentLabel = $derived(
 		showOf002Offer ? RESULTS_OFFER.installmentLabelOf002 : RESULTS_OFFER.installmentLabel
 	);
 
 	const checkoutUrl = $derived(
-		showOf002Offer
-			? RESULTS_OFFER.checkoutUrlOf002
-			: (import.meta.env.PUBLIC_CHECKOUT_URL || RESULTS_OFFER.checkoutUrl)
+		showOf002Offer ? RESULTS_OFFER.checkoutUrlOf002 : RESULTS_OFFER.checkoutUrl
 	);
 
 	const session = $derived($sessionStore);
@@ -303,8 +303,8 @@
 
 	const primaryCheckoutUrl = $derived.by(() => {
 		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
-		/** /results: `src` = `?offer=` da URL (sessão). Outras variantes usam `offerCta.checkoutSrc`. */
-		const src = offerCta?.checkoutSrc ?? (isAtivacaoVariant ? undefined : session.offer?.trim() || undefined);
+		const src =
+			offerCta?.checkoutSrc ?? (isAtivacaoVariant ? undefined : showOf002Offer ? 'OF002' : undefined);
 		const funnelSessionId = quiz.funnelSessionId?.trim();
 		return appendCheckoutParams(baseUrl, {
 			utm: checkoutUtm,
