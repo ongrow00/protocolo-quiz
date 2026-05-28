@@ -3,8 +3,9 @@
 	import { TREINO_PAYWALL } from '$lib/data/treino-paywall';
 	import type { UtmParams } from '$lib/data/types';
 	import { authStore } from '$lib/stores/auth.store';
+	import { sessionStore } from '$lib/stores/session.store';
 	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams } from '$lib/utils/checkout-url';
+	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
 
 	interface Props {
 		open: boolean;
@@ -38,7 +39,7 @@
 	const checkoutUrl = $derived(
 		checkoutBaseUrl
 			? appendCheckoutParams(checkoutBaseUrl, {
-					utm: profileUtm,
+					utm: mergeUtmParams($sessionStore.utm, profileUtm),
 					extra: { src: TREINO_PAYWALL.checkoutSrc }
 				})
 			: ''

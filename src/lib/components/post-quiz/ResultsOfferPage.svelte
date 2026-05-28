@@ -21,8 +21,9 @@
 	import { persistActivationMealPlan } from '$lib/services/meal-plan-activation.service';
 	import type { UtmParams } from '$lib/data/types';
 	import { authStore } from '$lib/stores/auth.store';
+	import { sessionStore } from '$lib/stores/session.store';
 	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams } from '$lib/utils/checkout-url';
+	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -277,7 +278,11 @@
 			: (import.meta.env.PUBLIC_CHECKOUT_URL || RESULTS_OFFER.checkoutUrl)
 	);
 
+	const session = $derived($sessionStore);
+
 	let profileUtm = $state<UtmParams>({});
+
+	const checkoutUtm = $derived(mergeUtmParams(session.utm, profileUtm));
 
 	$effect(() => {
 		if (!browser) return;
@@ -301,7 +306,7 @@
 			offerCta?.checkoutSrc ??
 			(showOf002Offer ? undefined : RESULTS_OFFER.checkoutSrc);
 		return appendCheckoutParams(baseUrl, {
-			utm: profileUtm,
+			utm: checkoutUtm,
 			extra: src ? { src } : undefined
 		});
 	});

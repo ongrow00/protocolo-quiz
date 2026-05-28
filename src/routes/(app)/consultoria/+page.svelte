@@ -5,8 +5,9 @@
 	import { CONSULTORIA_OFFER } from '$lib/data/consultoria-offer';
 	import type { UtmParams } from '$lib/data/types';
 	import { authStore } from '$lib/stores/auth.store';
+	import { sessionStore } from '$lib/stores/session.store';
 	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams } from '$lib/utils/checkout-url';
+	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
 
 	let profileUtm = $state<UtmParams>({});
 
@@ -27,7 +28,7 @@
 
 	const checkoutUrl = $derived(
 		appendCheckoutParams(CONSULTORIA_OFFER.checkoutUrl, {
-			utm: profileUtm,
+			utm: mergeUtmParams($sessionStore.utm, profileUtm),
 			extra: { src: CONSULTORIA_OFFER.checkoutSrc }
 		})
 	);

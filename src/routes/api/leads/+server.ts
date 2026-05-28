@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { createSupabaseAdmin } from '$lib/server/supabase-admin';
@@ -54,16 +55,58 @@ function parseCurrentQuestionId(b: Record<string, unknown>): string | null {
 	return raw.trim().slice(0, 200);
 }
 
+function dbErrorMessage(prefix: string, dbErr: { message?: string; code?: string }): string {
+	console.error('[api/leads]', dbErr);
+	if (dev && dbErr.message) {
+		return `${prefix} (${dbErr.code ?? 'db'}: ${dbErr.message})`;
+	}
+	return prefix;
+}
+
+/**
+ * Upsert por funnel_session_id.
+ * Usa select + update/insert (compatível com qualquer índice) e tenta .upsert se houver constraint UNIQUE.
+ */
 async function upsertByFunnelSession(
 	supabase: ReturnType<typeof createSupabaseAdmin>,
 	funnelSessionId: string,
 	row: Record<string, unknown>
 ) {
-	const { error: upErr } = await supabase.from(TABLE).upsert(row, { onConflict: 'funnel_session_id' });
-	if (upErr) {
-		console.error('[api/leads]', upErr);
-		throw error(500, 'Não foi possível salvar o progresso.');
+	const { data: existing, error: selErr } = await supabase
+		.from(TABLE)
+		.select('id')
+		.eq('funnel_session_id', funnelSessionId)
+		.maybeSingle();
+
+	if (selErr) {
+		throw error(500, dbErrorMessage('Não foi possível salvar o progresso.', selErr));
 	}
+
+	if (existing) {
+		const { error: upErr } = await supabase
+			.from(TABLE)
+			.update(row)
+			.eq('funnel_session_id', funnelSessionId);
+		if (upErr) {
+			throw error(500, dbErrorMessage('Não foi possível salvar o progresso.', upErr));
+		}
+		return;
+	}
+
+	const { error: insErr } = await supabase.from(TABLE).insert(row);
+	if (!insErr) return;
+
+	// Corrida: outro request inseriu entre o select e o insert
+	if (insErr.code === '23505') {
+		const { error: upErr } = await supabase
+			.from(TABLE)
+			.update(row)
+			.eq('funnel_session_id', funnelSessionId);
+		if (!upErr) return;
+		throw error(500, dbErrorMessage('Não foi possível salvar o progresso.', upErr));
+	}
+
+	throw error(500, dbErrorMessage('Não foi possível salvar o progresso.', insErr));
 }
 
 async function handleProgress(
@@ -205,8 +248,7 @@ async function handleSubmit(
 	} else {
 		const { error: dbError } = await supabase.from(TABLE).insert(row);
 		if (dbError) {
-			console.error('[api/leads]', dbError);
-			throw error(500, 'Não foi possível salvar. Tente novamente.');
+			throw error(500, dbErrorMessage('Não foi possível salvar. Tente novamente.', dbError));
 		}
 	}
 
