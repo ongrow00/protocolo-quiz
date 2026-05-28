@@ -69,12 +69,17 @@
 	onMount(async () => {
 		treinoStore.hydrate();
 		await treinoStore.hydrateProgressFromSupabase();
+		const dayParam = Number($page.url.searchParams.get('day'));
+		if (!(dayParam >= 1 && dayParam <= 14)) {
+			selectedDay = $challengeStore.currentDay;
+		}
+	});
 
+	$effect(() => {
 		const dayParam = Number($page.url.searchParams.get('day'));
 		if (dayParam >= 1 && dayParam <= 14) {
 			selectedDay = dayParam;
-		} else {
-			selectedDay = $challengeStore.currentDay;
+			scrollDayIntoView(dayParam);
 		}
 	});
 
@@ -232,8 +237,14 @@
 	}
 
 	function handleExerciseRoundComplete(exerciseId: string) {
-		const ex = dayPlan?.exercises?.find((e) => e.active.id === exerciseId);
-		if (ex) markExerciseRoundComplete(ex, 0, { scrollToNext: false });
+		if (!dayPlan?.exercises || !dayPlan.timing) return;
+		const sk = sessionKeyForDay();
+		if (!sk) return;
+		const ex = dayPlan.exercises.find((e) => e.active.id === exerciseId);
+		if (!ex) return;
+		treinoStore.completeExerciseRound(sk, ex.active.id, dayPlan.timing.rounds);
+		fireCelebrationConfetti();
+		maybeCompleteSession();
 	}
 
 	function openExerciseDetail(ex: WorkoutExercise) {
@@ -623,6 +634,7 @@
 <TreinoSessionPlayer
 	open={playerOpen}
 	day={dayPlan?.isWorkoutDay ? dayPlan : null}
+	sessionKey={sessionKeyForDay()}
 	onClose={() => (playerOpen = false)}
 	onComplete={handleSessionComplete}
 	onExerciseRoundComplete={handleExerciseRoundComplete}

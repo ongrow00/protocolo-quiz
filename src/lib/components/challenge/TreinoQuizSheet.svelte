@@ -134,6 +134,7 @@
 
 	$effect(() => {
 		if (!open) {
+			clearTimeout(autoAdvanceTimer);
 			currentStep = 0;
 			answers = {};
 		}

@@ -22,6 +22,12 @@
 		stacked?: boolean;
 		/** Bloqueia scroll do body (desligado automaticamente em sheets empilhados) */
 		lockBodyScroll?: boolean;
+		/** Permite rolagem vertical do conteúdo (desligado quando o layout preenche o painel) */
+		scrollable?: boolean;
+		/** Conteúdo edge-to-edge na horizontal (sem px-6 no painel) */
+		contentFlush?: boolean;
+		/** Remove a sombra do painel */
+		noShadow?: boolean;
 		children?: Snippet;
 		headerTrailing?: Snippet;
 		footer?: Snippet;
@@ -40,6 +46,9 @@
 		elevated = false,
 		stacked = false,
 		lockBodyScroll = !stacked,
+		scrollable = true,
+		contentFlush = false,
+		noShadow = false,
 		children,
 		headerTrailing,
 		footer
@@ -121,7 +130,11 @@
 			aria-modal="true"
 			tabindex="-1"
 			aria-labelledby={title ? 'bottom-sheet-title' : undefined}
-			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-hidden rounded-t-[28px] px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] {autoHeight
+			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-x-hidden overflow-hidden rounded-t-[28px] pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 {noShadow
+				? ''
+				: 'shadow-[0_-8px_32px_rgba(0,0,0,0.12)]'} {contentFlush
+				? 'px-0'
+				: 'px-6'} {autoHeight
 				? 'h-auto max-h-[min(90dvh,100%)]'
 				: 'min-h-0'} {!toolbar ? 'bg-surface' : ''}"
 			style={autoHeight
@@ -181,13 +194,13 @@
 			{/if}
 
 			<div
-				class="min-h-0 overflow-y-auto overscroll-contain {autoHeight ? '' : 'flex-1'}"
+				class="min-h-0 overscroll-contain {scrollable ? 'overflow-y-auto' : 'overflow-hidden'} {autoHeight ? '' : 'flex-1'}"
 			>
 				{@render children?.()}
 			</div>
 
 			{#if footer}
-				<div class="shrink-0 pt-3">
+				<div class="shrink-0 overflow-x-hidden pt-3">
 					{@render footer()}
 				</div>
 			{/if}

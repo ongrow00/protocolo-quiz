@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import { get } from 'svelte/store';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import TreinoExerciseMedia from '$lib/components/challenge/TreinoExerciseMedia.svelte';
 	import type { WorkoutPlanDay } from '$lib/data/treino-types';
@@ -7,22 +8,32 @@
 	import {
 		advanceAfterTimer,
 		initialSnapshot,
+		resumeAtExercise,
 		skipRest,
 		startSession,
 		tickSecond,
 		togglePause,
 		type PlayerSnapshot
 	} from '$lib/utils/treino-player-state';
+	import { getNextExerciseIndex } from '$lib/utils/treino-circuit-progress';
 
 	interface Props {
 		open: boolean;
 		day: WorkoutPlanDay | null;
+		sessionKey: string;
 		onClose: () => void;
 		onComplete?: (sessionKey: string) => void;
 		onExerciseRoundComplete?: (exerciseId: string) => void;
 	}
 
-	let { open, day, onClose, onComplete, onExerciseRoundComplete }: Props = $props();
+	type NextStepInfo = {
+		title: string;
+		durationLabel: string;
+		imageUrl?: string;
+		name?: string;
+	};
+
+	let { open, day, sessionKey, onClose, onComplete, onExerciseRoundComplete }: Props = $props();
 
 	type SessionSlide =
 		| { kind: 'roundIntro'; round: number }
@@ -33,7 +44,7 @@
 	let snapshot = $state<PlayerSnapshot>(initialSnapshot(3, 5));
 	let intervalId: ReturnType<typeof setInterval> | undefined;
 	let msTickerId: ReturnType<typeof setInterval> | undefined;
-	let lastMarkedWorkKey = $state<string | null>(null);
+	let processingTick = false;
 	let phaseEndAtMs = $state<number | null>(null);
 	let pausedRemainingMs = $state<number | null>(null);
 	let nowMs = $state(Date.now());
@@ -55,7 +66,7 @@
 		clearMsTicker();
 		msTickerId = setInterval(() => {
 			nowMs = Date.now();
-		}, 50);
+		}, 100);
 	}
 
 	const timerRemainingMs = $derived.by(() => {
@@ -84,16 +95,6 @@
 			(snapshot.phase === 'paused' &&
 				(snapshot.pausedFrom === 'restExercise' || snapshot.pausedFrom === 'restRound'))
 	);
-
-	const statusLine = $derived.by(() => {
-		if (snapshot.phase === 'idle') return 'Pronto para começar';
-		if (snapshot.phase === 'complete') return 'Treino concluído';
-		const phase = snapshot.phase === 'paused' ? snapshot.pausedFrom : snapshot.phase;
-		if (phase === 'roundIntro') return `Volta ${snapshot.round} de ${snapshot.totalRounds}`;
-		if (phase === 'restExercise') return 'Descanso entre exercícios';
-		if (phase === 'restRound') return 'Descanso entre circuitos';
-		return `Exercício ${snapshot.exerciseIndex + 1}/${snapshot.totalExercises} · Volta ${snapshot.round}/${snapshot.totalRounds}`;
-	});
 
 	function buildSessionSlides(totalRounds: number, totalExercises: number): SessionSlide[] {
 		const list: SessionSlide[] = [];
@@ -131,12 +132,16 @@
 		});
 	}
 
-	function workPhaseKey(round: number, exerciseIndex: number): string {
-		return `${round}-${exerciseIndex}`;
-	}
-
-	function resetMarkTracking() {
-		lastMarkedWorkKey = null;
+	function computeResumeSnapshot(): PlayerSnapshot | null {
+		if (!day?.exercises || !timing || !sessionKey) return null;
+		const progress = get(treinoStore).progress;
+		const rounds = day.exercises.map((ex) =>
+			treinoStore.getExerciseRoundsDone(progress, sessionKey, ex.active.id)
+		);
+		const nextIdx = getNextExerciseIndex(day.exercises.length, rounds, timing.rounds);
+		if (nextIdx === null) return null;
+		const round = (rounds[nextIdx] ?? 0) + 1;
+		return resumeAtExercise(nextIdx, round, timing.rounds, day.exercises.length, timing.exerciseSeconds);
 	}
 
 	const displaySlide = $derived.by((): SessionSlide | null => {
@@ -147,43 +152,150 @@
 		return null;
 	});
 
-	function nextStepTitleFromSlide(slide: SessionSlide | undefined): string | null {
-		if (!slide) return null;
+	function nextStepFromSlide(slide: SessionSlide | undefined): NextStepInfo | null {
+		if (!slide || !timing) return null;
 		switch (slide.kind) {
 			case 'roundIntro':
-				return `Volta ${slide.round}`;
-			case 'work':
-				return exercises[slide.exerciseIndex]?.active.name ?? 'Exercício';
+				return {
+					title: `Volta ${slide.round}`,
+					durationLabel: '3s'
+				};
+			case 'work': {
+				const ex = exercises[slide.exerciseIndex];
+				return {
+					title: ex?.active.name ?? 'Exercício',
+					durationLabel: `${timing.exerciseSeconds}s`,
+					imageUrl: ex?.active.imageUrl,
+					name: ex?.active.name
+				};
+			}
 			case 'restExercise':
-				return 'Descanso';
+				return {
+					title: 'Descanso',
+					durationLabel: `${timing.restBetweenExercises}s`
+				};
 			case 'restRound':
-				return 'Descanso';
+				return {
+					title: 'Descanso',
+					durationLabel:
+						timing.restBetweenRounds >= 60
+							? `${Math.floor(timing.restBetweenRounds / 60)} min`
+							: `${timing.restBetweenRounds}s`
+				};
 		}
 	}
 
-	const nextStepLabel = $derived.by((): string | null => {
-		if (snapshot.phase === 'complete') return null;
+	const upcomingSteps = $derived.by((): NextStepInfo[] => {
+		if (snapshot.phase === 'complete') return [];
 
+		let startIndex = -1;
 		if (snapshot.phase === 'idle') {
 			const firstWorkIdx = slides.findIndex((s) => s.kind === 'work');
-			if (firstWorkIdx < 0) return null;
-			return nextStepTitleFromSlide(slides[firstWorkIdx + 1]);
+			startIndex = firstWorkIdx < 0 ? -1 : firstWorkIdx + 1;
+		} else if (activeSlideIndex >= 0) {
+			startIndex = activeSlideIndex + 1;
 		}
 
-		if (activeSlideIndex < 0) return null;
-		return nextStepTitleFromSlide(slides[activeSlideIndex + 1]);
+		if (startIndex < 0) return [];
+
+		const list: NextStepInfo[] = [];
+		for (let i = startIndex; i < slides.length; i++) {
+			const step = nextStepFromSlide(slides[i]);
+			if (step) list.push(step);
+		}
+		return list;
 	});
 
-	function slideLabel(slide: SessionSlide): string {
+	const sequenceLine = $derived.by(() => {
+		const totalEx = snapshot.totalExercises;
+		const totalRounds = snapshot.totalRounds;
+
+		if (snapshot.phase === 'idle') {
+			return `Sequência 1/${totalEx} · Circuito 1/${totalRounds}`;
+		}
+		if (snapshot.phase === 'complete') {
+			return `Sequência ${totalEx}/${totalEx} · Circuito ${totalRounds}/${totalRounds}`;
+		}
+
+		const slide = displaySlide;
+		if (!slide) {
+			return `Sequência ${snapshot.exerciseIndex + 1}/${totalEx} · Circuito ${snapshot.round}/${totalRounds}`;
+		}
+
 		switch (slide.kind) {
 			case 'roundIntro':
-				return `Volta ${slide.round}`;
+				return `Sequência 1/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
 			case 'work':
-				return 'Exercício';
+				return `Sequência ${slide.exerciseIndex + 1}/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
 			case 'restExercise':
-				return 'Descanso';
+				return `Sequência ${Math.min(slide.exerciseIndex + 2, totalEx)}/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
 			case 'restRound':
-				return 'Pausa do circuito';
+				return `Sequência 1/${totalEx} · Circuito ${Math.min(slide.round + 1, totalRounds)}/${totalRounds}`;
+		}
+	});
+
+	const currentTitle = $derived.by(() => {
+		if (isRestPhase) return 'Descanso';
+		if (displaySlide?.kind === 'roundIntro') return `Volta ${displaySlide.round}`;
+		if (displaySlide?.kind === 'work') {
+			return exercises[displaySlide.exerciseIndex]?.active.name ?? 'Exercício';
+		}
+		const first = exercises[0];
+		return first?.active.name ?? 'Exercício';
+	});
+
+	const currentExerciseMedia = $derived.by(() => {
+		if (displaySlide?.kind === 'work') {
+			const ex = exercises[displaySlide.exerciseIndex];
+			return ex ? { name: ex.active.name, imageUrl: ex.active.imageUrl } : null;
+		}
+		if (snapshot.phase === 'idle') {
+			const ex = exercises[0];
+			return ex ? { name: ex.active.name, imageUrl: ex.active.imageUrl } : null;
+		}
+		return null;
+	});
+
+	function snapshotFromSlide(slide: SessionSlide): PlayerSnapshot {
+		const base = {
+			totalRounds: snapshot.totalRounds,
+			totalExercises: snapshot.totalExercises
+		};
+		if (!timing) return { ...snapshot, ...base };
+
+		switch (slide.kind) {
+			case 'roundIntro':
+				return {
+					...base,
+					phase: 'roundIntro',
+					round: slide.round,
+					exerciseIndex: 0,
+					secondsLeft: 3
+				};
+			case 'work':
+				return {
+					...base,
+					phase: 'work',
+					round: slide.round,
+					exerciseIndex: slide.exerciseIndex,
+					secondsLeft: timing.exerciseSeconds
+				};
+			case 'restExercise':
+				return {
+					...base,
+					phase: 'restExercise',
+					round: slide.round,
+					exerciseIndex: slide.exerciseIndex,
+					secondsLeft: timing.restBetweenExercises
+				};
+			case 'restRound':
+				return {
+					...base,
+					phase: 'restRound',
+					round: slide.round,
+					exerciseIndex: 0,
+					secondsLeft: timing.restBetweenRounds
+				};
 		}
 	}
 
@@ -225,9 +337,6 @@
 
 	function notifyExerciseWorkDone(prev: PlayerSnapshot) {
 		if (prev.phase !== 'work' || !exercises.length) return;
-		const key = workPhaseKey(prev.round, prev.exerciseIndex);
-		if (lastMarkedWorkKey === key) return;
-		lastMarkedWorkKey = key;
 		const ex = exercises[prev.exerciseIndex];
 		if (!ex) return;
 		onExerciseRoundComplete?.(ex.active.id);
@@ -235,11 +344,13 @@
 
 	function onTimerFire() {
 		if (!timing || snapshot.phase === 'paused') return;
+		if (processingTick) return;
+		processingTick = true;
 
 		const prev = snapshot;
 		let next = tickSecond(snapshot);
 
-		if (next.secondsLeft === 0 && next.phase !== 'complete') {
+		if (prev.secondsLeft > 0 && next.secondsLeft === 0 && next.phase !== 'complete') {
 			notifyExerciseWorkDone(prev);
 			if (autoAdvance) {
 				next = advanceAfterTimer(
@@ -252,16 +363,16 @@
 		}
 
 		snapshot = next;
+		processingTick = false;
 
-		if (snapshot.phase === 'complete' && day?.sessionKey) {
+		if (snapshot.phase === 'complete') {
 			clearTimer();
-			onComplete?.(day.sessionKey);
+			onComplete?.(sessionKey);
 		}
 	}
 
 	function handleStart() {
 		if (!day || !timing) return;
-		resetMarkTracking();
 		snapshot = startSession(timing.rounds, exercises.length);
 		clearTimer();
 		intervalId = setInterval(onTimerFire, 1000);
@@ -271,80 +382,79 @@
 		snapshot = togglePause(snapshot);
 	}
 
-	function handleSkip() {
-		if (!timing) return;
-		snapshot = skipRest(snapshot, timing.exerciseSeconds, timing.restBetweenRounds);
+	function handleBack() {
+		if (snapshot.phase === 'idle') return;
+		if (activeSlideIndex <= 0) {
+			handleClose();
+			return;
+		}
+		const prevSlide = slides[activeSlideIndex - 1];
+		if (!prevSlide) return;
+		snapshot = snapshotFromSlide(prevSlide);
 	}
 
 	function handleNext() {
+		if (snapshot.phase === 'idle') {
+			handleStart();
+			return;
+		}
 		if (!timing) return;
 		const prev = snapshot;
-		if (prev.phase === 'work') notifyExerciseWorkDone(prev);
-		snapshot = advanceAfterTimer(
-			snapshot,
-			timing.exerciseSeconds,
-			timing.restBetweenExercises,
-			timing.restBetweenRounds
-		);
-		if (snapshot.phase === 'complete' && day?.sessionKey) {
+		// Only notify if the timer hasn't already fired for this phase (secondsLeft > 0 means timer hasn't expired yet)
+		if (prev.phase === 'work' && prev.secondsLeft > 0) notifyExerciseWorkDone(prev);
+		if (isRestPhase) {
+			snapshot = skipRest(snapshot, timing.exerciseSeconds, timing.restBetweenRounds);
+		} else {
+			snapshot = advanceAfterTimer(
+				snapshot,
+				timing.exerciseSeconds,
+				timing.restBetweenExercises,
+				timing.restBetweenRounds
+			);
+		}
+		if (snapshot.phase === 'complete') {
 			clearTimer();
-			onComplete?.(day.sessionKey);
+			onComplete?.(sessionKey);
 		}
 	}
 
 	function handleClose() {
 		clearTimer();
-		resetMarkTracking();
 		if (day && timing) {
 			snapshot = initialSnapshot(timing.rounds, exercises.length);
 		}
 		onClose();
 	}
 
+	function toggleAutoAdvance() {
+		treinoStore.setPlayerPrefs({ autoAdvance: !autoAdvance });
+	}
+
 	$effect(() => {
+		// Track only `open` — use untrack for everything else to avoid mid-session resets
 		if (!open) {
-			clearTimer();
-			resetMarkTracking();
-			if (day && timing) snapshot = initialSnapshot(timing.rounds, exercises.length);
+			untrack(() => {
+				clearTimer();
+				if (day && timing) snapshot = initialSnapshot(timing.rounds, exercises.length);
+			});
+			return;
 		}
+		untrack(() => {
+			if (day && timing) {
+				const resume = computeResumeSnapshot();
+				snapshot = resume ?? initialSnapshot(timing.rounds, exercises.length);
+			}
+		});
 	});
 
 	onDestroy(clearTimer);
 </script>
 
-<BottomSheet open={open} onClose={handleClose} heightPercent={90}>
+<BottomSheet open={open} onClose={handleClose} heightPercent={90} scrollable={false} contentFlush noShadow>
 	{#if day?.isWorkoutDay && timing}
-		<div
-			class="flex min-h-0 flex-col {snapshot.phase === 'idle'
-				? 'h-[calc(90dvh-12rem)]'
-				: snapshot.phase === 'complete'
-					? 'min-h-[50vh]'
-					: 'h-[calc(90dvh-8rem)]'}"
-		>
-			{#if snapshot.phase === 'idle'}
-				<div class="shrink-0 border-b border-line/15 pb-4">
-					<p class="text-center text-[11px] font-medium uppercase tracking-wide text-muted">
-						Treino {day.workoutLetter} · Fase {day.phase}
-					</p>
-					<p class="mt-3 text-center font-mono text-4xl font-extrabold tabular-nums tracking-tight text-heading">
-						{formatTimerMs(timing.exerciseSeconds * 1000)}
-					</p>
-					<div class="mt-4 flex justify-center gap-6 text-center text-[11px] text-muted">
-						<span>{timing.restBetweenExercises}s descanso</span>
-						<span>{timing.rounds} circuitos</span>
-					</div>
-				</div>
-
-				<div class="flex flex-1 flex-col justify-center py-4">
-					{#if displaySlide}
-						{@render stepCard(displaySlide, false)}
-						{#if nextStepLabel}
-							{@render nextStepPreview(nextStepLabel)}
-						{/if}
-					{/if}
-				</div>
-			{:else if snapshot.phase === 'complete'}
-				<div class="flex flex-1 flex-col items-center justify-center gap-3 py-12 text-center">
+		<div class="-mb-[calc(1.5rem+env(safe-area-inset-bottom))] flex h-full min-h-0 flex-col overflow-hidden">
+			{#if snapshot.phase === 'complete'}
+				<div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
 					<div class="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg">
 						<svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 							<path d="M5 12l5 5L20 7" />
@@ -361,135 +471,255 @@
 					</button>
 				</div>
 			{:else}
-				<div class="shrink-0 border-b border-line/15 pb-3" aria-live="polite">
-					<p class="text-center text-[11px] font-medium text-muted">{statusLine}</p>
+				<div class="relative z-0 flex min-h-0 flex-1 flex-col overflow-hidden bg-challenge-progress-track">
+					<div
+						class="relative z-[1] flex shrink-0 flex-col rounded-b-[28px] bg-white px-6 pb-3 pt-1 shadow-[0_4px_20px_rgba(0,0,0,0.08)]"
+					>
+						<p class="shrink-0 text-center text-xs font-medium text-muted">
+							Treino {day.workoutLetter} · Fase {day.phase}
+						</p>
 
-					<p class="mt-1 text-center font-mono text-4xl font-extrabold tabular-nums tracking-tight text-heading">
-						{timerDisplay}
-					</p>
-					<p class="text-center text-[11px] text-muted">min : seg : ms</p>
+						<div class="flex shrink-0 justify-center">
+							{#if currentExerciseMedia && !isRestPhase}
+								<TreinoExerciseMedia
+									name={currentExerciseMedia.name}
+									imageUrl={currentExerciseMedia.imageUrl}
+									size="player"
+								/>
+							{:else}
+								<div
+									class="mx-auto flex aspect-square w-[min(11.75rem,22dvh,78vw)] flex-col items-center justify-center rounded-challenge bg-white"
+								>
+									<svg
+										class="h-8 w-8 text-muted"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="1.5"
+										aria-hidden="true"
+									>
+										<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+										<path d="M12 6v6l4 2" />
+									</svg>
+								</div>
+							{/if}
+						</div>
 
-					<div class="mt-3 flex items-center justify-center gap-2">
-						<button
-							type="button"
-							onclick={handlePause}
-							class="h-9 rounded-full border border-line/60 px-4 text-xs font-semibold text-heading transition-colors active:bg-surface-2"
-						>
-							{snapshot.phase === 'paused' ? 'Continuar' : 'Pausar'}
-						</button>
-						{#if isRestPhase}
-							<button
-								type="button"
-								onclick={handleSkip}
-								class="h-9 rounded-full border border-line/60 px-4 text-xs font-semibold text-heading transition-colors active:bg-surface-2"
+						<div class="shrink-0 text-center">
+							<h3 class="truncate px-1 text-base font-bold text-heading">{currentTitle}</h3>
+
+							<p
+								class="mt-1 text-center font-mono text-[clamp(1.5rem,8vw,2.25rem)] font-extrabold tabular-nums leading-none tracking-tight text-heading"
+								aria-live="polite"
 							>
-								Pular
-							</button>
-						{/if}
-						{#if !autoAdvance}
-							<button
-								type="button"
-								onclick={handleNext}
-								class="h-9 rounded-full bg-accent px-4 text-xs font-bold text-bg transition-colors active:opacity-90"
-							>
-								Próximo
-							</button>
-						{/if}
+								{timerDisplay}
+							</p>
+
+							<p class="mt-1 text-xs text-muted">{sequenceLine}</p>
+						</div>
 					</div>
 
-					<label class="mt-2 flex items-center justify-center gap-2 text-[11px] text-muted">
-						<input
-							type="checkbox"
-							class="accent-accent"
-							checked={autoAdvance}
-							onchange={(e) => treinoStore.setPlayerPrefs({ autoAdvance: e.currentTarget.checked })}
-						/>
-						Avanço automático
-					</label>
-				</div>
+					<div class="relative flex min-h-0 flex-1 flex-col">
+						{#if upcomingSteps.length}
+							<div
+								class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-3 pb-[calc(11rem+env(safe-area-inset-bottom))]"
+							>
+								<p class="text-center text-xs text-muted">Seu próximo passo</p>
+								<div class="mt-2 flex flex-col gap-2">
+									{#each upcomingSteps as step, index (index)}
+										<div class="flex min-w-0 items-center gap-2.5 rounded-xl bg-white px-2.5 py-2">
+											{#if step.name}
+												<TreinoExerciseMedia
+													name={step.name}
+													imageUrl={step.imageUrl}
+													size="sm"
+												/>
+											{:else}
+												<div
+													class="flex h-12 w-12 shrink-0 items-center justify-center rounded-challenge bg-line/20"
+												>
+													<svg
+														class="h-5 w-5 text-muted"
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="1.5"
+														aria-hidden="true"
+													>
+														<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+														<path d="M12 6v6l4 2" />
+													</svg>
+												</div>
+											{/if}
+											<div class="min-w-0 flex-1">
+												<p class="truncate text-xs font-bold text-heading">{step.title}</p>
+												<p class="text-[11px] text-muted">{step.durationLabel}</p>
+											</div>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/if}
 
-				<div class="flex min-h-0 flex-1 flex-col justify-center py-2">
-					{#if displaySlide}
-						{@render stepCard(displaySlide, true)}
-					{/if}
-					{#if nextStepLabel}
-						{@render nextStepPreview(nextStepLabel)}
-					{/if}
+						<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 w-full shrink-0">
+							<div
+								class="pointer-events-auto mb-3 flex items-center justify-center gap-3"
+								aria-label="Controles do treino"
+							>
+								<button
+									type="button"
+									onclick={handleBack}
+									disabled={snapshot.phase === 'idle'}
+									class="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border-[5px] border-white bg-accent text-bg shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-transform active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:pointer-events-none disabled:shadow-none"
+									aria-label="Voltar"
+								>
+									<svg
+										class="h-5 w-5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M15 18l-6-6 6-6" />
+									</svg>
+								</button>
+								<button
+									type="button"
+									onclick={snapshot.phase === 'idle' ? handleStart : handlePause}
+									class="relative flex h-[100px] w-[100px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[5px] border-white bg-accent text-bg shadow-[0_4px_20px_rgba(0,0,0,0.14)] transition-transform active:scale-95 {snapshot.phase ===
+									'idle'
+										? 'treino-play-idle'
+										: ''}"
+									aria-label={snapshot.phase === 'idle'
+										? 'Começar'
+										: snapshot.phase === 'paused'
+											? 'Continuar'
+											: 'Pausar'}
+								>
+									{#if snapshot.phase === 'idle' || snapshot.phase === 'paused'}
+										<svg
+											class="relative z-[1] ml-1 h-9 w-9"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<path d="M8 5v14l11-7z" />
+										</svg>
+									{:else}
+										<svg
+											class="relative z-[1] h-8 w-8"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<rect x="6" y="5" width="4" height="14" rx="1" />
+											<rect x="14" y="5" width="4" height="14" rx="1" />
+										</svg>
+									{/if}
+								</button>
+								<button
+									type="button"
+									onclick={handleNext}
+									class="flex h-[50px] w-[50px] shrink-0 items-center justify-center rounded-full border-[5px] border-white bg-accent text-bg shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-transform active:scale-95"
+									aria-label="Avançar"
+								>
+									<svg
+										class="h-5 w-5"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2.5"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										aria-hidden="true"
+									>
+										<path d="M9 18l6-6-6-6" />
+									</svg>
+								</button>
+							</div>
+
+							<div
+								class="bg-white px-6 py-3 pb-[calc(10px+env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+							>
+								<div class="flex items-center justify-center gap-2.5">
+									<button
+										type="button"
+										role="switch"
+										aria-checked={autoAdvance}
+										aria-label="Avanço automático"
+										onclick={toggleAutoAdvance}
+										class="relative shrink-0 h-6 w-10 rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 {autoAdvance
+											? 'bg-accent'
+											: 'bg-line/60'}"
+									>
+										<span
+											class="pointer-events-none absolute top-1 left-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out {autoAdvance
+												? 'translate-x-4'
+												: 'translate-x-0'}"
+											aria-hidden="true"
+										></span>
+									</button>
+									<span
+										class="text-[11px] {autoAdvance ? 'font-medium text-accent' : 'text-muted'}"
+									>
+										Avanço automático
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			{/if}
 		</div>
 	{/if}
-
-	{#snippet footer()}
-		{#if day?.isWorkoutDay && timing && snapshot.phase === 'idle'}
-			<button
-				type="button"
-				onclick={handleStart}
-				class="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-sm font-bold text-bg transition-all active:scale-[0.98]"
-			>
-				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-					<path d="M8 5v14l11-7z" />
-				</svg>
-				Começar agora
-			</button>
-		{/if}
-	{/snippet}
 </BottomSheet>
 
-{#snippet nextStepPreview(label: string)}
-	<div class="mt-4 text-center">
-		<div class="flex items-center gap-3">
-			<span class="h-px flex-1 bg-line/50" aria-hidden="true"></span>
-			<p class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted">Próximo passo</p>
-			<span class="h-px flex-1 bg-line/50" aria-hidden="true"></span>
-		</div>
-		<p class="mt-2 text-sm font-semibold text-heading">{label}</p>
-	</div>
-{/snippet}
+<style>
+	.treino-play-idle {
+		animation: treino-play-pulse 2s ease-in-out infinite;
+	}
 
-{#snippet stepCard(slide: SessionSlide, showRound: boolean)}
-	{@const ex = slide.kind === 'work' ? exercises[slide.exerciseIndex] : null}
-	<article
-		class="flex flex-col gap-3 rounded-2xl border border-accent/40 bg-surface p-4 shadow-sm transition-all duration-300"
-	>
-		<p class="text-[10px] font-semibold uppercase tracking-wide text-accent">
-			{slideLabel(slide)}
-			{#if showRound && (slide.kind === 'work' || slide.kind === 'roundIntro')}
-				· Volta {slide.round}/{snapshot.totalRounds}
-			{/if}
-		</p>
+	.treino-play-idle::after {
+		content: '';
+		position: absolute;
+		inset: -20%;
+		border-radius: inherit;
+		background: linear-gradient(
+			115deg,
+			transparent 38%,
+			rgba(255, 255, 255, 0.55) 50%,
+			transparent 62%
+		);
+		animation: treino-play-shimmer 2.2s ease-in-out infinite;
+		pointer-events: none;
+	}
 
-		{#if ex}
-			<TreinoExerciseMedia name={ex.active.name} imageUrl={ex.active.imageUrl} size="lg" />
-			<h3 class="text-lg font-bold text-heading">{ex.active.name}</h3>
-		{:else if slide.kind === 'roundIntro'}
-			<div class="flex aspect-video w-full items-center justify-center rounded-xl bg-accent-soft/60">
-				<p class="text-sm font-semibold text-accent">Prepare a volta {slide.round}</p>
-			</div>
-		{:else}
-			<div
-				class="flex aspect-video w-full flex-col items-center justify-center gap-1 rounded-xl bg-line/15"
-			>
-				<svg
-					class="h-8 w-8 text-muted"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="1.5"
-					aria-hidden="true"
-				>
-					<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-					<path d="M12 6v6l4 2" />
-				</svg>
-				<p class="text-sm font-medium text-body">
-					{slide.kind === 'restRound' ? 'Descanso entre circuitos' : 'Descanso entre exercícios'}
-				</p>
-				<p class="text-xs text-muted">
-					{slide.kind === 'restRound'
-						? `${Math.floor(timing!.restBetweenRounds / 60)} min`
-						: `${timing!.restBetweenExercises}s`}
-				</p>
-			</div>
-		{/if}
-	</article>
-{/snippet}
+	@keyframes treino-play-pulse {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.08);
+		}
+	}
+
+	@keyframes treino-play-shimmer {
+		0% {
+			transform: translateX(-120%) rotate(12deg);
+		}
+		100% {
+			transform: translateX(120%) rotate(12deg);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.treino-play-idle,
+		.treino-play-idle::after {
+			animation: none;
+		}
+	}
+</style>

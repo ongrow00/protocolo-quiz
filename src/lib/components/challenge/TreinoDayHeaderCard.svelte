@@ -60,7 +60,7 @@
 				<span class={!canPlay ? 'blur-[5px]' : ''}>{day.timing.exerciseSeconds}s</span> por exercício
 			</span>
 			<span aria-hidden="true">·</span>
-			<span><span class={!canPlay ? 'blur-[5px]' : ''}>5</span> exercícios</span>
+			<span><span class={!canPlay ? 'blur-[5px]' : ''}>{day.exercises?.length ?? 0}</span> exercícios</span>
 		</div>
 
 		<div class="mt-4 grid grid-cols-2 gap-2">

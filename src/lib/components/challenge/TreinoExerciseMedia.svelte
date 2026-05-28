@@ -4,7 +4,7 @@
 	interface Props {
 		name: string;
 		imageUrl?: string;
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'sm' | 'md' | 'lg' | 'player';
 	}
 
 	let { name, imageUrl, size = 'md' }: Props = $props();
@@ -14,6 +14,8 @@
 	const sizeClass = $derived(
 		size === 'sm'
 			? 'h-14 w-14'
+			: size === 'player'
+				? 'mx-auto aspect-square w-[min(11.75rem,22dvh,78vw)]'
 			: size === 'lg'
 				? 'aspect-square w-full max-h-[min(52vw,280px)] mx-auto'
 				: 'h-24 w-24'

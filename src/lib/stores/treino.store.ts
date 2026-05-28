@@ -212,8 +212,11 @@ function createTreinoStore() {
 			update((s) => {
 				let progress = { ...s.progress };
 				if (exerciseIds.length > 0 && maxRounds > 0) {
-					const session: Record<string, number> = {};
-					for (const id of exerciseIds) session[id] = maxRounds;
+					const existing = progress.exerciseRoundsBySession[sessionKey] ?? {};
+					const session: Record<string, number> = { ...existing };
+					for (const id of exerciseIds) {
+						session[id] = Math.max(session[id] ?? 0, maxRounds);
+					}
 					progress = {
 						...progress,
 						exerciseRoundsBySession: {

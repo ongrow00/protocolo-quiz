@@ -93,24 +93,46 @@ export function skipRest(
 	workSeconds: number,
 	restRoundSeconds: number
 ): PlayerSnapshot {
-	if (snapshot.phase === 'restExercise') {
+	const effective =
+		snapshot.phase === 'paused' ? (snapshot.pausedFrom ?? snapshot.phase) : snapshot.phase;
+	if (effective === 'restExercise') {
 		return {
 			...snapshot,
 			phase: 'work',
+			pausedFrom: undefined,
 			exerciseIndex: snapshot.exerciseIndex + 1,
 			secondsLeft: workSeconds
 		};
 	}
-	if (snapshot.phase === 'restRound') {
+	if (effective === 'restRound') {
 		return {
 			...snapshot,
 			phase: 'roundIntro',
+			pausedFrom: undefined,
 			round: snapshot.round + 1,
 			exerciseIndex: 0,
 			secondsLeft: 3
 		};
 	}
 	return snapshot;
+}
+
+export function resumeAtExercise(
+	exerciseIndex: number,
+	round: number,
+	totalRounds: number,
+	totalExercises: number,
+	workSeconds: number
+): PlayerSnapshot {
+	return {
+		phase: 'paused',
+		round,
+		exerciseIndex,
+		secondsLeft: workSeconds,
+		totalRounds,
+		totalExercises,
+		pausedFrom: 'work'
+	};
 }
 
 export function tickSecond(snapshot: PlayerSnapshot): PlayerSnapshot {

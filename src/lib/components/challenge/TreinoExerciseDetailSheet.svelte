@@ -27,8 +27,13 @@
 	}: Props = $props();
 
 	let substituteSheetOpen = $state(false);
+	let frozenExercise = $state<WorkoutExercise | null>(null);
 
-	const display = $derived(exercise?.active ?? null);
+	$effect(() => {
+		if (open && exercise) frozenExercise = exercise;
+	});
+
+	const display = $derived(frozenExercise?.active ?? null);
 
 	function handleClose() {
 		substituteSheetOpen = false;
@@ -59,16 +64,16 @@
 </script>
 
 <BottomSheet open={open} onClose={handleClose} heightPercent={90}>
-	{#if exercise && display}
+	{#if frozenExercise && display}
 		<div class="flex flex-col gap-5 pb-2">
 			<div class="relative overflow-hidden rounded-challenge bg-white text-center">
 				<TreinoExerciseMedia name={display.name} imageUrl={display.imageUrl} size="lg" />
 				<div class="px-4 pb-4">
 					<p class="text-[10px] font-bold uppercase tracking-wide text-accent">
-						{exercise.activeVariant === 'principal' ? 'Opção principal' : 'Opção adaptada'}
+						{frozenExercise.activeVariant === 'principal' ? 'Opção principal' : 'Opção adaptada'}
 					</p>
 					<h2 class="mt-1 text-lg font-extrabold leading-tight text-heading">{display.name}</h2>
-					<p class="mt-1 text-xs text-muted">Exercício {exercise.slot} do circuito</p>
+					<p class="mt-1 text-xs text-muted">Exercício {frozenExercise.slot} do circuito</p>
 				</div>
 			</div>
 
@@ -82,7 +87,7 @@
 					<p class="text-[10px] font-medium text-muted">descanso depois</p>
 				</div>
 				<div class="text-center px-1">
-					<p class="text-base font-extrabold text-heading">{exercise.slot}/5</p>
+					<p class="text-base font-extrabold text-heading">{frozenExercise.slot}/5</p>
 					<p class="text-[10px] font-medium text-muted">no circuito</p>
 				</div>
 			</div>
@@ -100,7 +105,7 @@
 	{/if}
 
 	{#snippet footer()}
-		{#if exercise && display}
+		{#if frozenExercise && display}
 			<div class="flex flex-col gap-2 border-t border-line/30 pt-3">
 				<button
 					type="button"
