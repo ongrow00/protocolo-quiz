@@ -84,6 +84,7 @@
 		if (!(dayParam >= 1 && dayParam <= 14)) {
 			selectedDay = $challengeStore.currentDay;
 		}
+		scrollDayIntoView(selectedDay);
 	});
 
 	$effect(() => {

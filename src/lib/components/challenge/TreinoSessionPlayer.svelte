@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy, tick, untrack } from 'svelte';
 	import { get } from 'svelte/store';
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import TreinoExerciseMedia from '$lib/components/challenge/TreinoExerciseMedia.svelte';
@@ -12,7 +12,6 @@
 		resumeAtExercise,
 		skipRest,
 		startSession,
-		tickSecond,
 		togglePause,
 		type PlayerSnapshot
 	} from '$lib/utils/treino-player-state';
@@ -34,6 +33,12 @@
 		name?: string;
 	};
 
+	type SessionStepInfo = NextStepInfo & {
+		done: boolean;
+		current: boolean;
+		stepKey: string;
+	};
+
 	let { open, day, sessionKey, onClose, onComplete, onExerciseRoundComplete }: Props = $props();
 
 	type SessionSlide =
@@ -44,10 +49,11 @@
 		| { kind: 'restRound'; round: number };
 
 	let snapshot = $state<PlayerSnapshot>(initialSnapshot(3, 5));
-	let intervalId: ReturnType<typeof setInterval> | undefined;
 	let msTickerId: ReturnType<typeof setInterval> | undefined;
 	let processingTick = false;
+	let phaseExpiryHandledKey = '';
 	let phaseEndAtMs = $state<number | null>(null);
+	let upcomingScrollEl = $state<HTMLDivElement | null>(null);
 	let pausedRemainingMs = $state<number | null>(null);
 	let nowMs = $state(Date.now());
 
@@ -74,6 +80,36 @@
 	const exercises = $derived(day?.exercises ?? []);
 	const timing = $derived(day?.timing);
 	const autoAdvance = $derived($treinoStore.progress.playerPrefs.autoAdvance);
+
+	/** gap-2 entre itens da lista */
+	const SESSION_LIST_GAP_PX = 8;
+	/** Reserva inferior para os controles flutuantes (≈ pb da lista) */
+	const SESSION_LIST_CONTROLS_RESERVE_PX = 176;
+
+	function stepOffsetTop(container: HTMLDivElement, el: HTMLElement): number {
+		return el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+	}
+
+	/** Concluído → atual (evidência) → próximos; ancora o último feito no topo visível */
+	function alignSessionListScroll(container: HTMLDivElement) {
+		const current = container.querySelector<HTMLElement>('[data-session-step="current"]');
+		if (!current) return;
+
+		const lastDone = container.querySelector<HTMLElement>('[data-session-step="done"]:last-of-type');
+		let target = lastDone
+			? stepOffsetTop(container, lastDone) - SESSION_LIST_GAP_PX
+			: stepOffsetTop(container, current) - SESSION_LIST_GAP_PX;
+
+		const visibleBottom = container.clientHeight - SESSION_LIST_CONTROLS_RESERVE_PX;
+		const currentBottom =
+			stepOffsetTop(container, current) + current.offsetHeight - target;
+		if (currentBottom > visibleBottom) {
+			target += currentBottom - visibleBottom;
+		}
+
+		const maxScroll = container.scrollHeight - container.clientHeight;
+		container.scrollTop = Math.max(0, Math.min(target, maxScroll));
+	}
 
 	const effectivePhase = $derived(
 		snapshot.phase === 'paused' ? (snapshot.pausedFrom ?? snapshot.phase) : snapshot.phase
@@ -166,15 +202,48 @@
 		return resumeAtExercise(nextIdx, round, timing.rounds, day.exercises.length, timing.exerciseSeconds);
 	}
 
-	function startSessionTimer() {
-		clearTimer();
-		intervalId = setInterval(onTimerFire, 1000);
-	}
-
 	function beginFreshSession() {
 		if (!timing) return;
+		phaseExpiryHandledKey = '';
 		snapshot = startSession(timing.rounds, exercises.length);
-		startSessionTimer();
+	}
+
+	function phaseTimerKey(s: PlayerSnapshot): string {
+		return `${s.phase}:${s.round}:${s.exerciseIndex}`;
+	}
+
+	function handlePhaseExpired() {
+		if (!timing || processingTick) return;
+		const phase = snapshot.phase;
+		if (phase === 'idle' || phase === 'paused' || phase === 'complete') return;
+		if (timerRemainingMs > 0) return;
+
+		const key = phaseTimerKey(snapshot);
+		if (phaseExpiryHandledKey === key) return;
+		phaseExpiryHandledKey = key;
+
+		processingTick = true;
+		const prev = snapshot;
+		if (prev.phase === 'work') notifyExerciseWorkDone(prev);
+
+		let next: PlayerSnapshot = { ...prev, secondsLeft: 0 };
+		if (autoAdvance) {
+			next = advanceAfterTimer(
+				next,
+				timing.exerciseSeconds,
+				timing.restBetweenExercises,
+				timing.restBetweenRounds
+			);
+			phaseExpiryHandledKey = '';
+		}
+
+		snapshot = next;
+		processingTick = false;
+
+		if (snapshot.phase === 'complete') {
+			clearTimer();
+			onComplete?.(sessionKey);
+		}
 	}
 
 	const displaySlide = $derived.by((): SessionSlide | null => {
@@ -230,23 +299,43 @@
 		}
 	}
 
-	const upcomingSteps = $derived.by((): NextStepInfo[] => {
+	const sessionSteps = $derived.by((): SessionStepInfo[] => {
 		if (snapshot.phase === 'complete') return [];
 
-		let startIndex = -1;
-		if (snapshot.phase === 'idle' || isOrganizePhase) {
-			const firstWorkIdx = slides.findIndex((s) => s.kind === 'work');
-			startIndex = firstWorkIdx < 0 ? -1 : firstWorkIdx + 1;
+		const firstWorkIdx = slides.findIndex((s) => s.kind === 'work');
+		let currentIdx = -1;
+		let upcomingStart = -1;
+
+		if (snapshot.phase === 'idle') {
+			if (firstWorkIdx >= 0) {
+				currentIdx = firstWorkIdx;
+				upcomingStart = firstWorkIdx + 1;
+			}
 		} else if (activeSlideIndex >= 0) {
-			startIndex = activeSlideIndex + 1;
+			currentIdx = activeSlideIndex;
+			upcomingStart = activeSlideIndex + 1;
 		}
 
-		if (startIndex < 0) return [];
+		const completedEnd =
+			snapshot.phase !== 'idle' && activeSlideIndex > 0 ? activeSlideIndex - 1 : -1;
 
-		const list: NextStepInfo[] = [];
-		for (let i = startIndex; i < slides.length; i++) {
+		const list: SessionStepInfo[] = [];
+
+		for (let i = 0; i <= completedEnd; i++) {
 			const step = nextStepFromSlide(slides[i]);
-			if (step) list.push(step);
+			if (step) list.push({ ...step, done: true, current: false, stepKey: `done-${i}` });
+		}
+
+		if (currentIdx >= 0) {
+			const step = nextStepFromSlide(slides[currentIdx]);
+			if (step) list.push({ ...step, done: false, current: true, stepKey: `current-${currentIdx}` });
+		}
+
+		if (upcomingStart < 0) return list;
+
+		for (let i = upcomingStart; i < slides.length; i++) {
+			const step = nextStepFromSlide(slides[i]);
+			if (step) list.push({ ...step, done: false, current: false, stepKey: `next-${i}` });
 		}
 		return list;
 	});
@@ -357,20 +446,18 @@
 	}
 
 	function clearTimer() {
-		if (intervalId) clearInterval(intervalId);
-		intervalId = undefined;
 		clearMsTicker();
 	}
 
 	$effect(() => {
 		snapshot.phase;
-		snapshot.secondsLeft;
 		snapshot.round;
 		snapshot.exerciseIndex;
 
 		if (snapshot.phase === 'idle' || snapshot.phase === 'complete') {
 			phaseEndAtMs = null;
 			pausedRemainingMs = null;
+			phaseExpiryHandledKey = '';
 			clearMsTicker();
 			return;
 		}
@@ -383,9 +470,18 @@
 			return;
 		}
 
-		phaseEndAtMs = Date.now() + snapshot.secondsLeft * 1000;
+		const durationMs =
+			pausedRemainingMs !== null ? pausedRemainingMs : snapshot.secondsLeft * 1000;
+		phaseEndAtMs = Date.now() + durationMs;
 		pausedRemainingMs = null;
+		phaseExpiryHandledKey = '';
 		startMsTicker();
+	});
+
+	$effect(() => {
+		if (!open || !timing) return;
+		timerRemainingMs;
+		untrack(() => handlePhaseExpired());
 	});
 
 	$effect(() => {
@@ -397,35 +493,6 @@
 		const ex = exercises[prev.exerciseIndex];
 		if (!ex) return;
 		onExerciseRoundComplete?.(ex.active.id);
-	}
-
-	function onTimerFire() {
-		if (!timing || snapshot.phase === 'paused') return;
-		if (processingTick) return;
-		processingTick = true;
-
-		const prev = snapshot;
-		let next = tickSecond(snapshot);
-
-		if (prev.secondsLeft > 0 && next.secondsLeft === 0 && next.phase !== 'complete') {
-			if (prev.phase === 'work') notifyExerciseWorkDone(prev);
-			if (autoAdvance) {
-				next = advanceAfterTimer(
-					next,
-					timing.exerciseSeconds,
-					timing.restBetweenExercises,
-					timing.restBetweenRounds
-				);
-			}
-		}
-
-		snapshot = next;
-		processingTick = false;
-
-		if (snapshot.phase === 'complete') {
-			clearTimer();
-			onComplete?.(sessionKey);
-		}
 	}
 
 	function handleStart() {
@@ -455,6 +522,7 @@
 		}
 		if (!timing) return;
 		const prev = snapshot;
+		phaseExpiryHandledKey = phaseTimerKey(prev);
 		// Only notify if the timer hasn't already fired for this phase (secondsLeft > 0 means timer hasn't expired yet)
 		if (prev.phase === 'work' && prev.secondsLeft > 0) notifyExerciseWorkDone(prev);
 		if (isRestPhase) {
@@ -467,6 +535,7 @@
 				timing.restBetweenRounds
 			);
 		}
+		phaseExpiryHandledKey = '';
 		if (snapshot.phase === 'complete') {
 			clearTimer();
 			onComplete?.(sessionKey);
@@ -498,6 +567,19 @@
 			if (!day || !timing) return;
 			const resume = computeResumeSnapshot();
 			snapshot = resume ?? initialSnapshot(timing.rounds, exercises.length);
+		});
+	});
+
+	$effect(() => {
+		open;
+		activeSlideIndex;
+		snapshot.phase;
+		sessionSteps.length;
+		untrack(async () => {
+			if (!open) return;
+			await tick();
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			if (upcomingScrollEl) alignSessionListScroll(upcomingScrollEl);
 		});
 	});
 
@@ -577,40 +659,76 @@
 					</div>
 
 					<div class="relative flex min-h-0 flex-1 flex-col">
-						{#if upcomingSteps.length}
+						{#if sessionSteps.length}
 							<div
-								class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-3 pb-[calc(11rem+env(safe-area-inset-bottom))]"
+								bind:this={upcomingScrollEl}
+								class="min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-pb-[calc(11rem+env(safe-area-inset-bottom))] px-6 pt-3 pb-[calc(11rem+env(safe-area-inset-bottom))]"
 							>
-								<p class="text-center text-xs text-muted">Seu próximo passo</p>
+								<p class="text-center text-xs text-muted">Sequência do treino</p>
 								<div class="mt-2 flex flex-col gap-2">
-									{#each upcomingSteps as step, index (index)}
-										<div class="flex min-w-0 items-center gap-2.5 rounded-xl bg-white px-2.5 py-2">
-											{#if step.name}
-												<TreinoExerciseMedia
-													name={step.name}
-													imageUrl={step.imageUrl}
-													size="sm"
-												/>
-											{:else}
-												<div
-													class="flex h-12 w-12 shrink-0 items-center justify-center rounded-challenge bg-line/20"
-												>
-													<svg
-														class="h-5 w-5 text-muted"
-														viewBox="0 0 24 24"
-														fill="none"
-														stroke="currentColor"
-														stroke-width="1.5"
+									{#each sessionSteps as step (step.stepKey)}
+										<div
+											data-session-step={step.current
+												? 'current'
+												: step.done
+													? 'done'
+													: 'upcoming'}
+											class="min-w-0 rounded-xl {step.done
+												? 'bg-white opacity-30'
+												: step.current
+													? 'session-step-laser border-2 border-accent'
+													: 'bg-white'}"
+										>
+											<div
+												class="relative z-[1] flex min-w-0 items-center gap-2.5 px-2.5 py-2"
+											>
+												{#if step.name}
+													<TreinoExerciseMedia
+														name={step.name}
+														imageUrl={step.imageUrl}
+														size="sm"
+													/>
+												{:else}
+													<div
+														class="flex h-12 w-12 shrink-0 items-center justify-center rounded-challenge bg-line/20"
+													>
+														<svg
+															class="h-5 w-5 text-muted"
+															viewBox="0 0 24 24"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="1.5"
+															aria-hidden="true"
+														>
+															<path
+																d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"
+															/>
+															<path d="M12 6v6l4 2" />
+														</svg>
+													</div>
+												{/if}
+												<div class="min-w-0 flex-1">
+													<p class="truncate text-xs font-bold text-heading">{step.title}</p>
+													<p class="text-[11px] text-muted">{step.durationLabel}</p>
+												</div>
+												{#if step.done}
+													<span
+														class="flex h-8 w-8 shrink-0 items-center justify-center text-muted"
 														aria-hidden="true"
 													>
-														<path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-														<path d="M12 6v6l4 2" />
-													</svg>
-												</div>
-											{/if}
-											<div class="min-w-0 flex-1">
-												<p class="truncate text-xs font-bold text-heading">{step.title}</p>
-												<p class="text-[11px] text-muted">{step.durationLabel}</p>
+														<svg
+															class="h-5 w-5"
+															viewBox="0 0 16 16"
+															fill="none"
+															stroke="currentColor"
+															stroke-width="2.5"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+														>
+															<path d="M3 8.5 L6.5 12 L13 5" />
+														</svg>
+													</span>
+												{/if}
 											</div>
 										</div>
 									{/each}
@@ -773,9 +891,54 @@
 		}
 	}
 
+	.session-step-laser {
+		position: relative;
+		overflow: hidden;
+		z-index: 0;
+		background: transparent;
+		box-sizing: border-box;
+	}
+
+	.session-step-laser::before {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		width: 200%;
+		height: 200%;
+		transform-origin: center;
+		background: conic-gradient(
+			from 0deg,
+			transparent 0%,
+			transparent 75%,
+			rgba(22, 46, 33, 0.6) 83%,
+			rgba(22, 46, 33, 0.3) 89%,
+			transparent 95%
+		);
+		animation: session-step-laser-spin 7s linear infinite;
+		z-index: 0;
+		translate: -50% -50%;
+	}
+
+	.session-step-laser::after {
+		content: '';
+		position: absolute;
+		inset: 2px;
+		border-radius: inherit;
+		background: white;
+		z-index: 0;
+	}
+
+	@keyframes session-step-laser-spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
 		.treino-play-idle,
-		.treino-play-idle::after {
+		.treino-play-idle::after,
+		.session-step-laser::before {
 			animation: none;
 		}
 	}
