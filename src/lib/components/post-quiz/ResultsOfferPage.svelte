@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { goto } from '$app/navigation';
@@ -370,19 +371,39 @@
 
 	let countdownSeconds = $state(10 * 60); // 10:00 — só decrementa após o gatilho do vídeo (resultsContentRevealed)
 	function getPostQuizScrollRoot(): HTMLElement | null {
-		return document.querySelector<HTMLElement>('main.overflow-y-auto');
+		return (
+			document.querySelector<HTMLElement>('div.app-inner-scroll main.overflow-y-auto') ??
+			document.querySelector<HTMLElement>('main.overflow-y-auto')
+		);
 	}
 
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		const root = getPostQuizScrollRoot();
-		const onScroll = () => {
-			scrollY = root ? root.scrollTop : window.scrollY;
+	onMount(() => {
+		let cancelled = false;
+		let target: HTMLElement | Window = window;
+		let onScroll = () => {};
+
+		(async () => {
+			if (typeof window === 'undefined') return;
+			// Garante que o <main> do post-quiz existe (slot + transições).
+			await tick();
+			await tick();
+			if (cancelled) return;
+
+			const root = getPostQuizScrollRoot();
+			target = root ?? window;
+
+			onScroll = () => {
+				scrollY = root ? root.scrollTop : window.scrollY;
+			};
+
+			target.addEventListener('scroll', onScroll, { passive: true });
+			onScroll();
+		})();
+
+		return () => {
+			cancelled = true;
+			target.removeEventListener('scroll', onScroll);
 		};
-		const target: HTMLElement | Window = root ?? window;
-		target.addEventListener('scroll', onScroll, { passive: true });
-		onScroll();
-		return () => target.removeEventListener('scroll', onScroll);
 	});
 	$effect(() => {
 		if (typeof window === 'undefined' || !$postQuizStore.resultsContentRevealed) return;
@@ -508,8 +529,11 @@
 			revealResultsAfterVideo();
 			return;
 		}
-		const mo = new MutationObserver(() => {
-			if (isVturbDelaySlotVisible(el)) {
+		const mo = new MutationObserver((mutations) => {
+			// VTurb revela via inline style (display:block) — o !important do .esconder vence
+			// visualmente, mas a mudança no atributo style é o sinal de que o tempo passou.
+			const vturbTriggered = mutations.some((m) => m.attributeName === 'style');
+			if (vturbTriggered || isVturbDelaySlotVisible(el)) {
 				revealResultsAfterVideo();
 				mo.disconnect();
 			}

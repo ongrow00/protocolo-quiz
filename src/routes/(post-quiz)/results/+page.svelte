@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { quizStore } from '$lib/stores/quiz.store';
+	import { trackQuizComplete } from '$lib/services/analytics.service';
 	import ResultsOfferPage from '$lib/components/post-quiz/ResultsOfferPage.svelte';
 
 	const RESULTS_VIDEO_HASH = '#video-protocolo';
@@ -33,6 +34,12 @@
 		if (state.completedAt == null) {
 			goto('/plan', { replaceState: true });
 		}
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		// Evento "chegou na oferta" (dedupe no analytics.service.ts)
+		trackQuizComplete();
 	});
 
 	afterNavigate(({ to }) => {

@@ -12,6 +12,7 @@
 		stopPostQuizFunnelSync
 	} from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
+	import { trackGenerateLead } from '$lib/services/analytics.service';
 
 	let { children } = $props();
 
@@ -95,6 +96,10 @@
 		if (dest === '/results') {
 			void goto(resultsVideoHref);
 			return;
+		}
+		// Lead: WhatsApp capturado/confirmado no avanço do step /whatsapp (evita disparar a cada digitação).
+		if (path === '/whatsapp' || path.startsWith('/whatsapp/')) {
+			if (canAdvance) trackGenerateLead('whatsapp');
 		}
 		void goto(dest);
 	}
@@ -246,9 +251,11 @@
 			Não feche ou atualize essa página, isso pode gerar duplicação de cobrança.
 		</p>
 	{:else if !isAtivacaoContaPage}
-		<header class="sticky top-0 z-10 shrink-0 bg-bg px-4 pt-4 pb-3">
-			{@render postQuizHeaderInner()}
-		</header>
+		{#if !isResultsPage}
+			<header class="sticky top-0 z-10 shrink-0 bg-bg px-4 pt-4 pb-3">
+				{@render postQuizHeaderInner()}
+			</header>
+		{/if}
 	{/if}
 
 	<main
@@ -256,16 +263,30 @@
 			? 'pt-10'
 			: ''}"
 	>
+		{#if !showUpsellChargeAlert && !isAtivacaoContaPage && isResultsPage}
+			<header class="shrink-0 bg-bg px-4 pt-4 pb-3">
+				{@render postQuizHeaderInner()}
+			</header>
+		{/if}
 		<div class="content-transition-root">
 			{#key pathname}
-				<div
-					in:fly={{ x: 30, duration: 260, delay: 40 }}
-					out:fly={{ x: -30, duration: 180 }}
-					class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {contentSlotBottomPadding}"
-					style="pointer-events: auto;"
-				>
-					{@render children()}
-				</div>
+				{#if isResultsPage}
+					<div
+						class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {contentSlotBottomPadding}"
+						style="pointer-events: auto;"
+					>
+						{@render children()}
+					</div>
+				{:else}
+					<div
+						in:fly={{ x: 30, duration: 260, delay: 40 }}
+						out:fly={{ x: -30, duration: 180 }}
+						class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {contentSlotBottomPadding}"
+						style="pointer-events: auto;"
+					>
+						{@render children()}
+					</div>
+				{/if}
 			{/key}
 		</div>
 	</main>

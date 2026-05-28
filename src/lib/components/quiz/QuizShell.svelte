@@ -12,7 +12,7 @@
 		nextQuestion,
 		quizNavigationEnded
 	} from '$lib/stores/quiz.store';
-	import { trackQuestionAnswer, trackQuizComplete } from '$lib/services/analytics.service';
+import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/analytics.service';
 	import { flushQuizProgressImmediate } from '$lib/services/quiz-progress-sync.service';
 	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
 	import QuestionCard from './QuestionCard.svelte';
@@ -268,7 +268,6 @@
 	function handleSelect(questionId: string, value: string | string[]) {
 		if (navigating.from != null || advancing) return;
 		quizStore.answer(questionId, value);
-		trackQuestionAnswer(questionId, value);
 
 		const def = quizConfig.questions.find((q) => q.id === questionId);
 		const autoAdvance =
@@ -282,8 +281,16 @@
 			if (idx >= 0) {
 				const nextQ = visible[idx + 1] ?? null;
 				const isLastStep = idx === visible.length - 1;
+				trackQuizStepComplete({
+					step_id: questionId,
+					step_index: idx + 1,
+					steps_total: visible.length,
+					next_step_id: nextQ?.id ?? null,
+					is_last_step: isLastStep
+				});
 				tick().then(() => handleNext(nextQ?.id ?? null, isLastStep));
 			} else {
+				trackQuizStepComplete({ step_id: questionId });
 				tick().then(() => handleNext());
 			}
 		}
@@ -318,7 +325,7 @@
 			try {
 				quizStore.complete();
 				flushQuizProgressImmediate();
-				trackQuizComplete('');
+				trackQuizFinishQuestions();
 				await goto('/carregando');
 			} finally {
 				advancing = false;
