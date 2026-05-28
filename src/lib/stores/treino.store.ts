@@ -3,10 +3,21 @@ import { writable } from 'svelte/store';
 import { TREINO_STORAGE_KEY } from '$lib/constants/treino-storage-keys';
 import {
 	DEFAULT_WORKOUT_PROGRESS,
+	type DayTreinoDecision,
 	type WorkoutPlayerPrefs,
 	type WorkoutProgress
 } from '$lib/data/treino-types';
+import { getNextSessionIndex, getNextWorkoutLetter, dayDecisionKey } from '$lib/utils/treino-day-resolve';
 import { supabase } from '$lib/supabase';
+
+function normalizeProgress(raw: Partial<WorkoutProgress> | undefined): WorkoutProgress {
+	return {
+		...DEFAULT_WORKOUT_PROGRESS,
+		...raw,
+		exerciseRoundsBySession: raw?.exerciseRoundsBySession ?? {},
+		dayDecisions: raw?.dayDecisions ?? {}
+	};
+}
 
 export type TreinoState = {
 	quizCompleted: boolean;
@@ -23,11 +34,7 @@ function loadState(): TreinoState {
 		const parsed = JSON.parse(raw) as TreinoState;
 		return {
 			quizCompleted: parsed.quizCompleted ?? false,
-			progress: {
-				...DEFAULT_WORKOUT_PROGRESS,
-				...parsed.progress,
-				exerciseRoundsBySession: parsed.progress?.exerciseRoundsBySession ?? {}
-			}
+			progress: normalizeProgress(parsed.progress)
 		};
 	} catch {
 		return { quizCompleted: false, progress: { ...DEFAULT_WORKOUT_PROGRESS } };
@@ -113,12 +120,7 @@ function createTreinoStore() {
 
 				if (error || !data?.workout_status) return;
 
-				const progress: WorkoutProgress = {
-					...DEFAULT_WORKOUT_PROGRESS,
-					...(data.workout_status as WorkoutProgress),
-					exerciseRoundsBySession:
-						(data.workout_status as WorkoutProgress).exerciseRoundsBySession ?? {}
-				};
+				const progress = normalizeProgress(data.workout_status as WorkoutProgress);
 				update((s) => {
 					const next = { ...s, progress };
 					saveState(next);
@@ -301,6 +303,91 @@ function createTreinoStore() {
 				const next = { ...s, progress: { ...DEFAULT_WORKOUT_PROGRESS } };
 				saveState(next);
 				syncProgressToSupabase(next.progress);
+				return next;
+			});
+		},
+
+		chooseRestDay(protocolDay: number) {
+			if (protocolDay <= 1) return;
+			update((s) => {
+				const key = dayDecisionKey(protocolDay);
+				const dayDecisions = { ...(s.progress.dayDecisions ?? {}) };
+				const existing = dayDecisions[key];
+				if (existing?.status === 'workout') {
+					const sessionKey = existing.sessionKey;
+					const exerciseRoundsBySession = { ...s.progress.exerciseRoundsBySession };
+					delete exerciseRoundsBySession[sessionKey];
+					const progress: WorkoutProgress = {
+						...s.progress,
+						exerciseRoundsBySession,
+						completedSessions: s.progress.completedSessions.filter((k) => k !== sessionKey),
+						dayDecisions: { ...dayDecisions, [key]: { status: 'rest' } }
+					};
+					const next = { ...s, progress };
+					saveState(next);
+					syncProgressToSupabase(progress);
+					return next;
+				}
+				dayDecisions[key] = { status: 'rest' };
+				const progress: WorkoutProgress = { ...s.progress, dayDecisions };
+				const next = { ...s, progress };
+				saveState(next);
+				syncProgressToSupabase(progress);
+				return next;
+			});
+		},
+
+		chooseWorkoutDay(protocolDay: number) {
+			if (protocolDay <= 1) return;
+			update((s) => {
+				const key = dayDecisionKey(protocolDay);
+				const dayDecisions = { ...(s.progress.dayDecisions ?? {}) };
+				if (dayDecisions[key]?.status === 'workout') return s;
+
+				const sessionIndex = getNextSessionIndex(s.progress);
+				const workoutLetter = getNextWorkoutLetter(s.progress);
+				const sessionKey = `session-${sessionIndex}`;
+				const decision: DayTreinoDecision = {
+					status: 'workout',
+					workoutLetter,
+					sessionIndex,
+					sessionKey
+				};
+				dayDecisions[key] = decision;
+				const progress: WorkoutProgress = { ...s.progress, dayDecisions };
+				const next = { ...s, progress };
+				saveState(next);
+				syncProgressToSupabase(progress);
+				return next;
+			});
+		},
+
+		undoDayDecision(protocolDay: number) {
+			if (protocolDay <= 1) return;
+			update((s) => {
+				const key = dayDecisionKey(protocolDay);
+				const decision = s.progress.dayDecisions?.[key];
+				if (!decision) return s;
+
+				const dayDecisions = { ...(s.progress.dayDecisions ?? {}) };
+				delete dayDecisions[key];
+
+				let progress: WorkoutProgress = { ...s.progress, dayDecisions };
+				if (decision.status === 'workout') {
+					const exerciseRoundsBySession = { ...progress.exerciseRoundsBySession };
+					delete exerciseRoundsBySession[decision.sessionKey];
+					progress = {
+						...progress,
+						exerciseRoundsBySession,
+						completedSessions: progress.completedSessions.filter(
+							(k) => k !== decision.sessionKey
+						)
+					};
+				}
+
+				const next = { ...s, progress };
+				saveState(next);
+				syncProgressToSupabase(progress);
 				return next;
 			});
 		}

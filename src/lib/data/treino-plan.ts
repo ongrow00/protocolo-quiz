@@ -24,17 +24,22 @@ export function hasWorkoutPlan(): boolean {
 	return plan !== null && plan.days.length > 0;
 }
 
-/** Reconstrói exercícios se o JSON do banco veio incompleto. */
+/** Reconstrói plano legado ou exercícios incompletos. */
 export function normalizeWorkoutPlan(
 	plan: WorkoutPlan,
 	answers?: TreinoQuizAnswers | null
 ): WorkoutPlan {
+	const quizAnswers = answers ?? plan.quizAnswers;
+	if (!plan.workoutTemplates && quizAnswers && Object.keys(quizAnswers).length > 0) {
+		return generateWorkoutPlan(quizAnswers);
+	}
+
 	const broken = plan.days.some(
 		(d) => d.isWorkoutDay && (!d.exercises || d.exercises.length === 0)
 	);
 	if (!broken) return plan;
-	if (!answers || Object.keys(answers).length === 0) return plan;
-	return generateWorkoutPlan(answers);
+	if (!quizAnswers || Object.keys(quizAnswers).length === 0) return plan;
+	return generateWorkoutPlan(quizAnswers);
 }
 
 export function setWorkoutPlanDirect(plan: WorkoutPlan, answers?: TreinoQuizAnswers | null): void {
@@ -65,10 +70,9 @@ export function swapWorkoutExerciseVariant(
 	let sample: WorkoutExercise | null = null;
 	let previousActiveId = '';
 
-	for (const day of updated.days) {
-		if (!day.isWorkoutDay || day.workoutLetter !== workoutLetter || !day.exercises) continue;
-		const ex = day.exercises.find((e) => e.slot === slot);
-		if (!ex) continue;
+	function swapInExercises(exercises: WorkoutExercise[]): boolean {
+		const ex = exercises.find((e) => e.slot === slot);
+		if (!ex) return false;
 
 		if (!sample) previousActiveId = ex.active.id;
 
@@ -77,6 +81,17 @@ export function swapWorkoutExerciseVariant(
 		ex.alternative = prevActive;
 		ex.activeVariant = ex.activeVariant === 'principal' ? 'opcao2' : 'principal';
 		if (!sample) sample = ex;
+		return true;
+	}
+
+	if (updated.workoutTemplates?.[workoutLetter]) {
+		swapInExercises(updated.workoutTemplates[workoutLetter].exercises);
+	}
+
+	for (const day of updated.days) {
+		if (!day.exercises?.length) continue;
+		if (day.workoutLetter !== workoutLetter) continue;
+		swapInExercises(day.exercises);
 	}
 
 	if (!sample) return null;

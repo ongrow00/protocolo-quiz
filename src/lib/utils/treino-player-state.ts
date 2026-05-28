@@ -1,4 +1,6 @@
-export type PlayerPhase = 'idle' | 'roundIntro' | 'work' | 'restExercise' | 'restRound' | 'complete' | 'paused';
+export const ORGANIZE_SECONDS = 10;
+
+export type PlayerPhase = 'idle' | 'roundIntro' | 'exerciseIntro' | 'work' | 'restExercise' | 'restRound' | 'complete' | 'paused';
 
 export type PlayerSnapshot = {
 	phase: PlayerPhase;
@@ -23,10 +25,10 @@ export function initialSnapshot(totalRounds: number, totalExercises: number): Pl
 
 export function startSession(totalRounds: number, totalExercises: number): PlayerSnapshot {
 	return {
-		phase: 'roundIntro',
+		phase: 'exerciseIntro',
 		round: 1,
 		exerciseIndex: 0,
-		secondsLeft: 3,
+		secondsLeft: ORGANIZE_SECONDS,
 		totalRounds,
 		totalExercises
 	};
@@ -51,6 +53,10 @@ export function advanceAfterTimer(
 	restRoundSeconds: number
 ): PlayerSnapshot {
 	const { phase, round, exerciseIndex, totalRounds, totalExercises } = snapshot;
+
+	if (phase === 'exerciseIntro') {
+		return { ...snapshot, phase: 'work', secondsLeft: workSeconds };
+	}
 
 	if (phase === 'roundIntro') {
 		return { ...snapshot, phase: 'work', exerciseIndex: 0, secondsLeft: workSeconds };
@@ -78,10 +84,10 @@ export function advanceAfterTimer(
 	if (phase === 'restRound') {
 		return {
 			...snapshot,
-			phase: 'roundIntro',
+			phase: 'work',
 			round: round + 1,
 			exerciseIndex: 0,
-			secondsLeft: 3
+			secondsLeft: workSeconds
 		};
 	}
 
@@ -107,11 +113,11 @@ export function skipRest(
 	if (effective === 'restRound') {
 		return {
 			...snapshot,
-			phase: 'roundIntro',
+			phase: 'work',
 			pausedFrom: undefined,
 			round: snapshot.round + 1,
 			exerciseIndex: 0,
-			secondsLeft: 3
+			secondsLeft: workSeconds
 		};
 	}
 	return snapshot;

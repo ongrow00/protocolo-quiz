@@ -7,6 +7,7 @@
 	import TreinoPaywallSheet from '$lib/components/challenge/TreinoPaywallSheet.svelte';
 	import TreinoInfoSheet from '$lib/components/challenge/TreinoInfoSheet.svelte';
 	import TreinoRestDayCard from '$lib/components/challenge/TreinoRestDayCard.svelte';
+	import TreinoDayChoiceCard from '$lib/components/challenge/TreinoDayChoiceCard.svelte';
 	import TreinoDayHeaderCard from '$lib/components/challenge/TreinoDayHeaderCard.svelte';
 	import TreinoPreparationSheet from '$lib/components/challenge/TreinoPreparationSheet.svelte';
 	import TreinoExerciseList from '$lib/components/challenge/TreinoExerciseList.svelte';
@@ -38,6 +39,10 @@
 		getNextExerciseIndex,
 		isSessionCircuitComplete
 	} from '$lib/utils/treino-circuit-progress';
+	import {
+		isProtocolDayCompleted,
+		resolveDayView
+	} from '$lib/utils/treino-day-resolve';
 
 	let quizOpen = $state(false);
 	let paywallOpen = $state(false);
@@ -63,7 +68,13 @@
 
 	const workoutPlan = $derived($workoutPlanStore);
 	const protocolCreated = $derived(!!workoutPlan);
-	const dayPlan = $derived(workoutPlan?.days.find((d) => d.protocolDay === selectedDay));
+	const baseDay = $derived(workoutPlan?.days.find((d) => d.protocolDay === selectedDay));
+	const dayView = $derived(
+		workoutPlan && baseDay
+			? resolveDayView(workoutPlan, $treinoStore.progress, selectedDay)
+			: null
+	);
+	const dayPlan = $derived(dayView?.kind === 'workout' ? dayView.day : null);
 	const canPlay = $derived($canAccessTreino);
 
 	onMount(async () => {
@@ -324,15 +335,24 @@
 		return selectedDay >= from && selectedDay <= to;
 	}
 
-	function isWorkoutDayMarker(day: number): boolean {
-		return workoutPlan?.workoutDays.includes(day) ?? false;
+	function isDaySessionCompleted(day: number): boolean {
+		if (!workoutPlan) return false;
+		return isProtocolDayCompleted(workoutPlan, $treinoStore.progress, day);
 	}
 
-	function isDaySessionCompleted(day: number): boolean {
-		const planDay = workoutPlan?.days.find((d) => d.protocolDay === day);
-		if (!planDay?.isWorkoutDay) return false;
-		const sessionKey = planDay.sessionKey ?? `day-${day}`;
-		return $treinoStore.progress.completedSessions.includes(sessionKey);
+	function handleChooseWorkout() {
+		if (selectedDay <= 1) return;
+		treinoStore.chooseWorkoutDay(selectedDay);
+	}
+
+	function handleChooseRest() {
+		if (selectedDay <= 1) return;
+		treinoStore.chooseRestDay(selectedDay);
+	}
+
+	function handleUndoDayDecision() {
+		if (selectedDay <= 1) return;
+		treinoStore.undoDayDecision(selectedDay);
 	}
 
 	function hasSessionProgress(sessionKey: string): boolean {
@@ -463,7 +483,6 @@
 							<div class="flex gap-1.5">
 								{#each phaseDays(phase.from, phase.to) as day (day)}
 									{@const isSelected = day === selectedDay}
-									{@const isWorkout = isWorkoutDayMarker(day)}
 									{@const isCompleted = isDaySessionCompleted(day)}
 									<button
 										type="button"
@@ -493,7 +512,6 @@
 											<span
 												class="h-4 w-4 rounded-full bg-line/80"
 												aria-hidden="true"
-												title={isWorkout ? 'Dia de treino' : 'Descanso'}
 											></span>
 										{/if}
 									</button>
@@ -535,12 +553,16 @@
 				<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
 				<p class="text-sm text-body">Carregando seu protocolo de treino…</p>
 			</div>
-		{:else if protocolCreated && dayPlan}
-			{#if dayPlan.isRestDay}
+		{:else if protocolCreated && baseDay && dayView}
+			{#if dayView.kind === 'choice'}
 				<div class="flex min-h-[min(45dvh,20rem)] flex-col items-center justify-center">
-					<TreinoRestDayCard day={dayPlan} />
+					<TreinoDayChoiceCard onTrain={handleChooseWorkout} onRest={handleChooseRest} />
 				</div>
-			{:else}
+			{:else if dayView.kind === 'rest'}
+				<div class="flex min-h-[min(45dvh,20rem)] flex-col items-center justify-center">
+					<TreinoRestDayCard day={dayView.day} onUndo={handleUndoDayDecision} />
+				</div>
+			{:else if dayPlan}
 				<TreinoDayHeaderCard
 					day={dayPlan}
 					canPlay={canPlay}
@@ -633,7 +655,7 @@
 />
 <TreinoSessionPlayer
 	open={playerOpen}
-	day={dayPlan?.isWorkoutDay ? dayPlan : null}
+	day={dayPlan}
 	sessionKey={sessionKeyForDay()}
 	onClose={() => (playerOpen = false)}
 	onComplete={handleSessionComplete}

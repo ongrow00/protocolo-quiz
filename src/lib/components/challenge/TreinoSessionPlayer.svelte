@@ -6,6 +6,7 @@
 	import type { WorkoutPlanDay } from '$lib/data/treino-types';
 	import { treinoStore } from '$lib/stores/treino.store';
 	import {
+		ORGANIZE_SECONDS,
 		advanceAfterTimer,
 		initialSnapshot,
 		resumeAtExercise,
@@ -37,6 +38,7 @@
 
 	type SessionSlide =
 		| { kind: 'roundIntro'; round: number }
+		| { kind: 'exerciseIntro'; round: number; exerciseIndex: number }
 		| { kind: 'work'; round: number; exerciseIndex: number }
 		| { kind: 'restExercise'; round: number; exerciseIndex: number }
 		| { kind: 'restRound'; round: number };
@@ -69,6 +71,16 @@
 		}, 100);
 	}
 
+	const exercises = $derived(day?.exercises ?? []);
+	const timing = $derived(day?.timing);
+	const autoAdvance = $derived($treinoStore.progress.playerPrefs.autoAdvance);
+
+	const effectivePhase = $derived(
+		snapshot.phase === 'paused' ? (snapshot.pausedFrom ?? snapshot.phase) : snapshot.phase
+	);
+
+	const isOrganizePhase = $derived(effectivePhase === 'exerciseIntro');
+
 	const timerRemainingMs = $derived.by(() => {
 		if (snapshot.phase === 'idle' && timing) return timing.exerciseSeconds * 1000;
 		if (snapshot.phase === 'paused' && pausedRemainingMs !== null) return pausedRemainingMs;
@@ -77,10 +89,6 @@
 	});
 
 	const timerDisplay = $derived(formatTimerMs(timerRemainingMs));
-
-	const exercises = $derived(day?.exercises ?? []);
-	const timing = $derived(day?.timing);
-	const autoAdvance = $derived($treinoStore.progress.playerPrefs.autoAdvance);
 
 	const slides = $derived.by(() => {
 		if (!timing) return [] as SessionSlide[];
@@ -99,7 +107,6 @@
 	function buildSessionSlides(totalRounds: number, totalExercises: number): SessionSlide[] {
 		const list: SessionSlide[] = [];
 		for (let round = 1; round <= totalRounds; round++) {
-			list.push({ kind: 'roundIntro', round });
 			for (let i = 0; i < totalExercises; i++) {
 				list.push({ kind: 'work', round, exerciseIndex: i });
 				if (i < totalExercises - 1) {
@@ -119,6 +126,10 @@
 
 		return list.findIndex((slide) => {
 			if (phase === 'roundIntro') return slide.kind === 'roundIntro' && slide.round === s.round;
+			if (phase === 'exerciseIntro')
+				return (
+					slide.kind === 'work' && slide.round === s.round && slide.exerciseIndex === s.exerciseIndex
+				);
 			if (phase === 'work')
 				return slide.kind === 'work' && slide.round === s.round && slide.exerciseIndex === s.exerciseIndex;
 			if (phase === 'restExercise')
@@ -132,8 +143,19 @@
 		});
 	}
 
+	function hasSessionProgress(): boolean {
+		if (!day?.exercises || !sessionKey) return false;
+		const progress = get(treinoStore).progress;
+		if (progress.completedSessions.includes(sessionKey)) return true;
+		const sessionRounds = progress.exerciseRoundsBySession[sessionKey];
+		if (!sessionRounds) return false;
+		return Object.values(sessionRounds).some((n) => n > 0);
+	}
+
 	function computeResumeSnapshot(): PlayerSnapshot | null {
 		if (!day?.exercises || !timing || !sessionKey) return null;
+		if (!hasSessionProgress()) return null;
+
 		const progress = get(treinoStore).progress;
 		const rounds = day.exercises.map((ex) =>
 			treinoStore.getExerciseRoundsDone(progress, sessionKey, ex.active.id)
@@ -144,9 +166,30 @@
 		return resumeAtExercise(nextIdx, round, timing.rounds, day.exercises.length, timing.exerciseSeconds);
 	}
 
+	function startSessionTimer() {
+		clearTimer();
+		intervalId = setInterval(onTimerFire, 1000);
+	}
+
+	function beginFreshSession() {
+		if (!timing) return;
+		snapshot = startSession(timing.rounds, exercises.length);
+		startSessionTimer();
+	}
+
 	const displaySlide = $derived.by((): SessionSlide | null => {
 		if (snapshot.phase === 'idle') {
 			return slides.find((s) => s.kind === 'work') ?? slides[0] ?? null;
+		}
+		if (isOrganizePhase) {
+			return (
+				slides.find(
+					(s) =>
+						s.kind === 'work' &&
+						s.round === snapshot.round &&
+						s.exerciseIndex === snapshot.exerciseIndex
+				) ?? null
+			);
 		}
 		if (activeSlideIndex >= 0) return slides[activeSlideIndex] ?? null;
 		return null;
@@ -158,8 +201,10 @@
 			case 'roundIntro':
 				return {
 					title: `Volta ${slide.round}`,
-					durationLabel: '3s'
+					durationLabel: `${ORGANIZE_SECONDS}s`
 				};
+			case 'exerciseIntro':
+				return null;
 			case 'work': {
 				const ex = exercises[slide.exerciseIndex];
 				return {
@@ -189,7 +234,7 @@
 		if (snapshot.phase === 'complete') return [];
 
 		let startIndex = -1;
-		if (snapshot.phase === 'idle') {
+		if (snapshot.phase === 'idle' || isOrganizePhase) {
 			const firstWorkIdx = slides.findIndex((s) => s.kind === 'work');
 			startIndex = firstWorkIdx < 0 ? -1 : firstWorkIdx + 1;
 		} else if (activeSlideIndex >= 0) {
@@ -225,6 +270,8 @@
 		switch (slide.kind) {
 			case 'roundIntro':
 				return `Sequência 1/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
+			case 'exerciseIntro':
+				return `Sequência ${slide.exerciseIndex + 1}/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
 			case 'work':
 				return `Sequência ${slide.exerciseIndex + 1}/${totalEx} · Circuito ${slide.round}/${totalRounds}`;
 			case 'restExercise':
@@ -237,16 +284,18 @@
 	const currentTitle = $derived.by(() => {
 		if (isRestPhase) return 'Descanso';
 		if (displaySlide?.kind === 'roundIntro') return `Volta ${displaySlide.round}`;
-		if (displaySlide?.kind === 'work') {
-			return exercises[displaySlide.exerciseIndex]?.active.name ?? 'Exercício';
+		if (isOrganizePhase || displaySlide?.kind === 'work') {
+			const idx = isOrganizePhase ? snapshot.exerciseIndex : displaySlide!.exerciseIndex;
+			return exercises[idx]?.active.name ?? 'Exercício';
 		}
 		const first = exercises[0];
 		return first?.active.name ?? 'Exercício';
 	});
 
 	const currentExerciseMedia = $derived.by(() => {
-		if (displaySlide?.kind === 'work') {
-			const ex = exercises[displaySlide.exerciseIndex];
+		if (isOrganizePhase || displaySlide?.kind === 'work') {
+			const idx = isOrganizePhase ? snapshot.exerciseIndex : displaySlide!.exerciseIndex;
+			const ex = exercises[idx];
 			return ex ? { name: ex.active.name, imageUrl: ex.active.imageUrl } : null;
 		}
 		if (snapshot.phase === 'idle') {
@@ -270,7 +319,15 @@
 					phase: 'roundIntro',
 					round: slide.round,
 					exerciseIndex: 0,
-					secondsLeft: 3
+					secondsLeft: ORGANIZE_SECONDS
+				};
+			case 'exerciseIntro':
+				return {
+					...base,
+					phase: 'work',
+					round: slide.round,
+					exerciseIndex: slide.exerciseIndex,
+					secondsLeft: timing.exerciseSeconds
 				};
 			case 'work':
 				return {
@@ -351,7 +408,7 @@
 		let next = tickSecond(snapshot);
 
 		if (prev.secondsLeft > 0 && next.secondsLeft === 0 && next.phase !== 'complete') {
-			notifyExerciseWorkDone(prev);
+			if (prev.phase === 'work') notifyExerciseWorkDone(prev);
 			if (autoAdvance) {
 				next = advanceAfterTimer(
 					next,
@@ -373,9 +430,7 @@
 
 	function handleStart() {
 		if (!day || !timing) return;
-		snapshot = startSession(timing.rounds, exercises.length);
-		clearTimer();
-		intervalId = setInterval(onTimerFire, 1000);
+		beginFreshSession();
 	}
 
 	function handlePause() {
@@ -395,7 +450,7 @@
 
 	function handleNext() {
 		if (snapshot.phase === 'idle') {
-			handleStart();
+			beginFreshSession();
 			return;
 		}
 		if (!timing) return;
@@ -440,10 +495,9 @@
 			return;
 		}
 		untrack(() => {
-			if (day && timing) {
-				const resume = computeResumeSnapshot();
-				snapshot = resume ?? initialSnapshot(timing.rounds, exercises.length);
-			}
+			if (!day || !timing) return;
+			const resume = computeResumeSnapshot();
+			snapshot = resume ?? initialSnapshot(timing.rounds, exercises.length);
 		});
 	});
 
@@ -451,7 +505,7 @@
 </script>
 
 <BottomSheet open={open} onClose={handleClose} heightPercent={90} scrollable={false} contentFlush noShadow>
-	{#if day?.isWorkoutDay && timing}
+	{#if day && timing && exercises.length > 0}
 		<div class="-mb-[calc(1.5rem+env(safe-area-inset-bottom))] flex h-full min-h-0 flex-col overflow-hidden">
 			{#if snapshot.phase === 'complete'}
 				<div class="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-8 text-center">
@@ -507,6 +561,9 @@
 
 						<div class="shrink-0 text-center">
 							<h3 class="truncate px-1 text-base font-bold text-heading">{currentTitle}</h3>
+							{#if isOrganizePhase}
+								<p class="mt-0.5 text-xs font-medium text-accent">Organize-se ({ORGANIZE_SECONDS}s)</p>
+							{/if}
 
 							<p
 								class="mt-1 text-center font-mono text-[clamp(1.5rem,8vw,2.25rem)] font-extrabold tabular-nums leading-none tracking-tight text-heading"
@@ -590,9 +647,9 @@
 									type="button"
 									onclick={snapshot.phase === 'idle' ? handleStart : handlePause}
 									class="relative flex h-[100px] w-[100px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[5px] border-white bg-accent text-bg shadow-[0_4px_20px_rgba(0,0,0,0.14)] transition-transform active:scale-95 {snapshot.phase ===
-									'idle'
-										? 'treino-play-idle'
-										: ''}"
+										'idle'
+											? 'treino-play-idle'
+											: ''}"
 									aria-label={snapshot.phase === 'idle'
 										? 'Começar'
 										: snapshot.phase === 'paused'

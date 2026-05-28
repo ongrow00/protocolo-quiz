@@ -58,12 +58,22 @@ export type WorkoutExercise = {
 
 export type WorkoutTiming = TreinoPhaseConfig;
 
+export type WorkoutTemplate = {
+	letter: TreinoLetter;
+	stationTitle: string;
+	whereToStay: string;
+	materials: string[];
+	exercises: WorkoutExercise[];
+};
+
 export type WorkoutPlanDay = {
 	protocolDay: number;
 	phase: 1 | 2 | 3 | 4;
 	phaseName: string;
 	isWorkoutDay: boolean;
 	isRestDay: boolean;
+	/** D2–D14 aguardando escolha do usuário (treinar ou descanso). */
+	isPending?: boolean;
 	sessionIndex?: number;
 	sessionKey?: string;
 	workoutLetter?: TreinoLetter;
@@ -76,7 +86,7 @@ export type WorkoutPlanDay = {
 };
 
 export type WorkoutPlan = {
-	version: 1;
+	version: 1 | 2;
 	generatedAt: string;
 	quizAnswers: TreinoQuizAnswers;
 	frequencyId: FrequencyId;
@@ -84,7 +94,18 @@ export type WorkoutPlan = {
 	totalSessions: number;
 	workoutDays: number[];
 	days: WorkoutPlanDay[];
+	/** Fichas A/B/C reutilizáveis quando o usuário escolhe treinar. */
+	workoutTemplates?: Record<TreinoLetter, WorkoutTemplate>;
 };
+
+export type DayTreinoDecision =
+	| { status: 'rest' }
+	| {
+			status: 'workout';
+			workoutLetter: TreinoLetter;
+			sessionIndex: number;
+			sessionKey: string;
+	  };
 
 export type WorkoutPlayerPrefs = {
 	autoAdvance: boolean;
@@ -99,10 +120,13 @@ export type WorkoutProgress = {
 	/** Progresso por exercício dentro de cada sessão (voltas do circuito). */
 	exerciseRoundsBySession: SessionExerciseRounds;
 	playerPrefs: WorkoutPlayerPrefs;
+	/** protocolDay (string) → decisão do usuário (D2–D14). D1 é sempre Treino A. */
+	dayDecisions?: Record<string, DayTreinoDecision>;
 };
 
 export const DEFAULT_WORKOUT_PROGRESS: WorkoutProgress = {
 	completedSessions: [],
 	exerciseRoundsBySession: {},
-	playerPrefs: { autoAdvance: true, soundEnabled: true }
+	playerPrefs: { autoAdvance: true, soundEnabled: true },
+	dayDecisions: {}
 };

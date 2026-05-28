@@ -6,18 +6,20 @@ import {
 	resolveAvailableEquipment
 } from '$lib/data/treino-catalog';
 import { getTreinoPhaseConfig } from '$lib/data/treino-phases';
-import { buildScheduleSlots, buildWorkoutDays, parseFrequencyId } from '$lib/data/treino-schedule';
+import { SESSIONS_IN_14, parseFrequencyId } from '$lib/data/treino-schedule';
 import { pickVariant } from '$lib/data/treino-substitution-rules';
 import type {
 	CatalogExerciseSlot,
 	CatalogExerciseVariant,
 	ExerciseDisplay,
+	TreinoLetter,
 	TreinoLocal,
 	TreinoQuizAnswers,
 	VariantKind,
 	WorkoutExercise,
 	WorkoutPlan,
-	WorkoutPlanDay
+	WorkoutPlanDay,
+	WorkoutTemplate
 } from '$lib/data/treino-types';
 import { getTreinoExerciseImageUrl } from '$lib/data/treino-exercise-images';
 import { estimateSessionMinutes } from '$lib/utils/treino-duration';
@@ -25,6 +27,8 @@ import { estimateSessionMinutes } from '$lib/utils/treino-duration';
 export type ProfileHints = {
 	activityLevel?: string;
 };
+
+const WORKOUT_LETTERS: TreinoLetter[] = ['A', 'B', 'C'];
 
 function exerciseId(local: TreinoLocal, letter: string, slot: number, kind: VariantKind): string {
 	return `${local}-${letter}-s${slot}-${kind}`;
@@ -70,6 +74,33 @@ function buildWorkoutExercises(
 	});
 }
 
+function buildWorkoutTemplate(
+	local: TreinoLocal,
+	letter: TreinoLetter,
+	available: Set<string>,
+	dores: string[],
+	restricoes: string[],
+	preferEasier: boolean
+): WorkoutTemplate {
+	const catalog = getCatalogWorkout(local, letter);
+	const exercises = buildWorkoutExercises(
+		local,
+		letter,
+		catalog.slots,
+		available,
+		dores,
+		restricoes,
+		preferEasier
+	);
+	return {
+		letter,
+		stationTitle: catalog.stationTitle,
+		whereToStay: catalog.whereToStay,
+		materials: collectMaterials(catalog.baseMaterials, exercises),
+		exercises
+	};
+}
+
 export function generateWorkoutPlan(
 	answers: TreinoQuizAnswers,
 	hints?: ProfileHints
@@ -80,70 +111,65 @@ export function generateWorkoutPlan(
 	const dores = getDores(answers);
 	const restricoes = getRestricoes(answers);
 	const preferEasier = hints?.activityLevel === 'al-sedentaria' || hints?.activityLevel === 'al-leve';
-	const schedule = buildScheduleSlots(frequencyId);
-	const workoutDays = buildWorkoutDays(frequencyId);
 
+	const workoutTemplates = Object.fromEntries(
+		WORKOUT_LETTERS.map((letter) => [
+			letter,
+			buildWorkoutTemplate(local, letter, available, dores, restricoes, preferEasier)
+		])
+	) as Record<TreinoLetter, WorkoutTemplate>;
+
+	const templateA = workoutTemplates.A;
 	const days: WorkoutPlanDay[] = [];
 
 	for (let protocolDay = 1; protocolDay <= CHALLENGE_TOTAL_DAYS; protocolDay++) {
-		const slot = schedule[protocolDay - 1];
 		const phaseConfig = getTreinoPhaseConfig(protocolDay);
 
-		if (!slot.isWorkoutDay || !slot.workoutLetter) {
+		if (protocolDay === 1) {
 			days.push({
 				protocolDay,
 				phase: phaseConfig.phase,
 				phaseName: phaseConfig.phaseName,
-				isWorkoutDay: false,
-				isRestDay: true,
-				stationTitle: '',
-				whereToStay: '',
-				materials: [],
-				estimatedMinutes: 0,
-				timing: phaseConfig
+				isWorkoutDay: true,
+				isRestDay: false,
+				isPending: false,
+				sessionIndex: 1,
+				sessionKey: 'session-1',
+				workoutLetter: 'A',
+				stationTitle: templateA.stationTitle,
+				whereToStay: templateA.whereToStay,
+				materials: templateA.materials,
+				estimatedMinutes: estimateSessionMinutes(phaseConfig),
+				timing: phaseConfig,
+				exercises: templateA.exercises
 			});
 			continue;
 		}
-
-		const catalog = getCatalogWorkout(local, slot.workoutLetter);
-		const exercises = buildWorkoutExercises(
-			local,
-			slot.workoutLetter,
-			catalog.slots,
-			available,
-			dores,
-			restricoes,
-			preferEasier
-		);
-		const materials = collectMaterials(catalog.baseMaterials, exercises);
-		const estimatedMinutes = estimateSessionMinutes(phaseConfig);
 
 		days.push({
 			protocolDay,
 			phase: phaseConfig.phase,
 			phaseName: phaseConfig.phaseName,
-			isWorkoutDay: true,
+			isWorkoutDay: false,
 			isRestDay: false,
-			sessionIndex: slot.sessionIndex,
-			sessionKey: slot.sessionKey,
-			workoutLetter: slot.workoutLetter,
-			stationTitle: catalog.stationTitle,
-			whereToStay: catalog.whereToStay,
-			materials,
-			estimatedMinutes,
-			timing: phaseConfig,
-			exercises
+			isPending: true,
+			stationTitle: '',
+			whereToStay: '',
+			materials: [],
+			estimatedMinutes: 0,
+			timing: phaseConfig
 		});
 	}
 
 	return {
-		version: 1,
+		version: 2,
 		generatedAt: new Date().toISOString(),
 		quizAnswers: answers,
 		frequencyId,
 		local,
-		totalSessions: workoutDays.length,
-		workoutDays,
+		totalSessions: SESSIONS_IN_14[frequencyId],
+		workoutDays: [1],
+		workoutTemplates,
 		days
 	};
 }

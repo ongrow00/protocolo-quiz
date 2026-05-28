@@ -5,8 +5,10 @@
 	import DailyIntakeCard from '$lib/components/challenge/DailyIntakeCard.svelte';
 	import { CHALLENGE_TOTAL_DAYS } from '$lib/constants/challenge-storage-keys';
 	import { challengeStore } from '$lib/stores/challenge.store';
+	import { treinoStore } from '$lib/stores/treino.store';
 	import { isDayNavigable } from '$lib/utils/challenge-progress';
 	import { workoutPlanStore } from '$lib/data/treino-plan';
+	import { resolveDayView } from '$lib/utils/treino-day-resolve';
 
 	const dayNum = $derived(parseInt($page.params.day ?? '', 10));
 
@@ -24,7 +26,11 @@
 	const canViewMeals = $derived(
 		Number.isFinite(dayNum) && dayNum >= 1 && dayNum <= CHALLENGE_TOTAL_DAYS && isDayNavigable($challengeStore, dayNum)
 	);
-	const workoutDay = $derived($workoutPlanStore?.days.find((d) => d.protocolDay === dayNum));
+	const dayView = $derived(
+		$workoutPlanStore
+			? resolveDayView($workoutPlanStore, $treinoStore.progress, dayNum)
+			: null
+	);
 </script>
 
 <ChallengePageShell>
@@ -42,13 +48,21 @@
 
 		<div>
 			<p class="mb-3 text-sm font-bold text-heading">Dia {dayNum}</p>
-			{#if workoutDay?.isWorkoutDay}
+			{#if dayView?.kind === 'workout'}
 				<a
 					href="/treino?day={dayNum}"
 					class="mb-4 flex items-center justify-between gap-3 rounded-challenge border border-accent/30 bg-accent-soft px-4 py-3 text-sm font-medium text-heading transition-all active:scale-[0.98]"
 				>
-					<span>💪 Treino {workoutDay.workoutLetter} hoje — abrir protocolo</span>
+					<span>💪 Treino {dayView.day.workoutLetter} — abrir protocolo</span>
 					<svg class="h-4 w-4 shrink-0 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+				</a>
+			{:else if dayView?.kind === 'choice'}
+				<a
+					href="/treino?day={dayNum}"
+					class="mb-4 flex items-center justify-between gap-3 rounded-challenge border border-challenge-border bg-surface px-4 py-3 text-sm font-medium text-heading transition-all active:scale-[0.98]"
+				>
+					<span>💪 Escolher treino ou descanso</span>
+					<svg class="h-4 w-4 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
 				</a>
 			{/if}
 			{#if canViewMeals}
