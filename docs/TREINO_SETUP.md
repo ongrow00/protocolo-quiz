@@ -31,16 +31,20 @@ UPDATE profiles SET has_treino = true WHERE email = 'seu-email@teste.com';
 
 Ou via webhook Lastlink quando o produto treino for vendido.
 
-## 4. Vídeos / imagens (depois)
+## 4. Imagens dos exercícios
 
-No catálogo (`src/lib/data/treino-catalog.ts`), adicionar por exercício:
+Mapa nome → URL: `src/lib/data/treino-exercise-images.ts`  
+Arquivos: `static/images/treino/exercises/{slug}.png` (fundo branco, 1:1).
 
-```ts
-imageUrl: '/images/treino/leg-press.jpg'
-// ou videoUrl para link futuro
+Copiar PNGs exportados (nomes com prefixo do exercício):
+
+```bash
+node scripts/copy-treino-exercise-images.mjs /caminho/para/pasta/com/pngs
 ```
 
-O componente `TreinoExerciseMedia` já mostra placeholder quando não há URL.
+O gerador (`treino-plan-generator.ts`) preenche `imageUrl`; `TreinoExerciseMedia` resolve por nome se o plano salvo no Supabase não tiver URL.
+
+Placeholder quando o PNG ainda não existir em `static/`.
 
 ## 5. Testar fluxo
 

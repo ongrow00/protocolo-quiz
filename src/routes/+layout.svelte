@@ -3,8 +3,8 @@
 	import { page } from '$app/state';
 	import '../app.css';
 	import { sessionStore } from '$lib/stores/session.store';
+	import { env } from '$env/dynamic/public';
 	import { PUBLIC_GA4_ID } from '$env/static/public';
-	import { PUBLIC_META_PIXEL_ID } from '$env/static/public';
 	import { trackMetaViewContent } from '$lib/services/analytics.service';
 
 	let { children } = $props();
@@ -39,7 +39,7 @@
 		</script>
 	{/if}
 
-	{#if PUBLIC_META_PIXEL_ID}
+	{#if env.PUBLIC_META_PIXEL_ID}
 		<!-- Meta Pixel Code -->
 		<script>
 			!function(f,b,e,v,n,t,s)
@@ -50,11 +50,11 @@
 			t.src=v;s=b.getElementsByTagName(e)[0];
 			s.parentNode.insertBefore(t,s)}(window, document,'script',
 			'https://connect.facebook.net/en_US/fbevents.js');
-			fbq('init', '{PUBLIC_META_PIXEL_ID}');
+			fbq('init', '{env.PUBLIC_META_PIXEL_ID}');
 			fbq('track', 'PageView');
 		</script>
 		<noscript><img height="1" width="1" style="display:none"
-			src="https://www.facebook.com/tr?id={PUBLIC_META_PIXEL_ID}&ev=PageView&noscript=1"
+			src="https://www.facebook.com/tr?id={env.PUBLIC_META_PIXEL_ID}&ev=PageView&noscript=1"
 		/></noscript>
 		<!-- End Meta Pixel Code -->
 	{/if}

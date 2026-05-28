@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getTreinoExerciseImageUrl } from '$lib/data/treino-exercise-images';
+
 	interface Props {
 		name: string;
 		imageUrl?: string;
@@ -7,18 +9,30 @@
 
 	let { name, imageUrl, size = 'md' }: Props = $props();
 
+	const resolvedUrl = $derived(imageUrl ?? getTreinoExerciseImageUrl(name));
+
 	const sizeClass = $derived(
-		size === 'sm' ? 'h-14 w-14' : size === 'lg' ? 'aspect-video w-full' : 'h-24 w-24'
+		size === 'sm'
+			? 'h-14 w-14'
+			: size === 'lg'
+				? 'aspect-square w-full max-h-[min(52vw,280px)] mx-auto'
+				: 'h-24 w-24'
 	);
 </script>
 
 <div
-	class="flex shrink-0 items-center justify-center overflow-hidden rounded-challenge bg-accent-soft {sizeClass}"
+	class="flex shrink-0 items-center justify-center overflow-hidden rounded-challenge bg-white {sizeClass}"
 	role="img"
 	aria-label="Demonstração de {name}"
 >
-	{#if imageUrl}
-		<img src={imageUrl} alt={name} class="h-full w-full object-cover" />
+	{#if resolvedUrl}
+		<img
+			src={resolvedUrl}
+			alt={name}
+			class="h-full w-full object-contain"
+			loading="lazy"
+			decoding="async"
+		/>
 	{:else}
 		<svg
 			class="{size === 'lg' ? 'h-12 w-12' : 'h-8 w-8'} text-accent/25"

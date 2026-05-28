@@ -19,6 +19,7 @@ import type {
 	WorkoutPlan,
 	WorkoutPlanDay
 } from '$lib/data/treino-types';
+import { getTreinoExerciseImageUrl } from '$lib/data/treino-exercise-images';
 import { estimateSessionMinutes } from '$lib/utils/treino-duration';
 
 export type ProfileHints = {
@@ -37,7 +38,8 @@ function toDisplay(
 ): ExerciseDisplay {
 	return {
 		id: exerciseId(local, letter, slot.slot, variant.kind),
-		name: variant.name
+		name: variant.name,
+		imageUrl: getTreinoExerciseImageUrl(variant.name)
 	};
 }
 

@@ -1,6 +1,6 @@
 import { browser } from '$app/environment';
+import { env } from '$env/dynamic/public';
 import { PUBLIC_GA4_ID } from '$env/static/public';
-import { PUBLIC_META_PIXEL_ID } from '$env/static/public';
 import { getAnonymousId } from '$lib/stores/identity.store';
 import { get } from 'svelte/store';
 import { quizStore } from '$lib/stores/quiz.store';
@@ -39,7 +39,7 @@ function canSend(): boolean {
 }
 
 function canSendMeta(): boolean {
-	return browser && !!PUBLIC_META_PIXEL_ID && typeof window.fbq === 'function';
+	return browser && !!env.PUBLIC_META_PIXEL_ID && typeof window.fbq === 'function';
 }
 
 function baseParams(): CommonParams {

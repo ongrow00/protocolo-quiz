@@ -31,7 +31,7 @@
 >
 	{#if exercise && alternative}
 		<div class="flex flex-col gap-5 pb-2">
-			<div class="relative overflow-hidden rounded-challenge bg-accent-soft text-center">
+			<div class="relative overflow-hidden rounded-challenge bg-white text-center">
 				<TreinoExerciseMedia name={alternative.name} imageUrl={alternative.imageUrl} size="lg" />
 				<div class="px-4 pb-4">
 					<p class="text-[10px] font-bold uppercase tracking-wide text-accent">{variantLabel}</p>
