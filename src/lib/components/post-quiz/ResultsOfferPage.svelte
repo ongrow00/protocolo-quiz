@@ -303,9 +303,8 @@
 
 	const primaryCheckoutUrl = $derived.by(() => {
 		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
-		const src =
-			offerCta?.checkoutSrc ??
-			(showOf002Offer ? undefined : RESULTS_OFFER.checkoutSrc);
+		/** /results: `src` = `?offer=` da URL (sessão). Outras variantes usam `offerCta.checkoutSrc`. */
+		const src = offerCta?.checkoutSrc ?? (isAtivacaoVariant ? undefined : session.offer?.trim() || undefined);
 		const funnelSessionId = quiz.funnelSessionId?.trim();
 		return appendCheckoutParams(baseUrl, {
 			utm: checkoutUtm,

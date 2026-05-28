@@ -72,7 +72,6 @@
 	);
 
 	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
-	const resultsContentRevealed = $derived($postQuizStore.resultsContentRevealed);
 
 	/** Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`. */
 	const RESULTS_VIDEO_HREF = '/results#video-protocolo';
@@ -157,11 +156,12 @@
 	const hasValidWhatsapp = $derived(whatsappDigits.length >= 10);
 	const canAdvance = $derived(!isWhatsappPage || hasValidWhatsapp);
 
+	/** Em /results o Voltar fica visível desde o início (1.º clique → /plan/bonus com desconto extra). */
 	const showPostQuizBackButton = $derived(
 		!isCarregandoPage &&
 			!isBonusPage &&
 			!isAtivacaoContaPage &&
-			(!hideNavOnThisPage || (isResultsPage && resultsContentRevealed))
+			(!hideNavOnThisPage || isResultsPage)
 	);
 
 	/** Destino do “Aceitar desconto”: preço OF002 só com este query na URL. */
