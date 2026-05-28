@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
+	import { attachVturbPlaybackGate } from '$lib/utils/vturb-playback-gate';
 
 	const SMARTPLAYER_WC_SRC =
 		'https://scripts.converteai.net/lib/js/smartplayer-wc/v4/smartplayer.js';
@@ -11,19 +12,33 @@
 		persist?: boolean;
 	};
 
+	/** Revela via `smartplayer.instances` + `timeupdate` (recomendado em SPA). */
+	export type PlaybackGate = {
+		seconds: number;
+		onReached: () => void;
+	};
+
 	interface Props {
 		playerId: string;
 		scriptSrc: string;
-		/** Elementos ocultos até N segundos de reprodução — API nativa do VTurb (`displayHiddenElements`). */
+		/** Legado: `displayHiddenElements` + observer (ex.: mr-3). Preferir `playbackGate` em páginas SPA. */
 		revealHiddenAfterPlayback?: RevealHiddenAfterPlayback;
-		/** Disparado apenas quando o VTurb revela os seletores no DOM. */
+		/** Sincroniza com `video.currentTime` após o play — sem cache/localStorage. */
+		playbackGate?: PlaybackGate;
+		/** Disparado quando o VTurb revela os seletores no DOM (modo legado). */
 		onReveal?: () => void;
-		/** Disparado quando `displayHiddenElements` foi registrado com sucesso. */
+		/** Disparado quando `displayHiddenElements` foi registrado (modo legado). */
 		onDelayRegistered?: () => void;
 	}
 
-	let { playerId, scriptSrc, revealHiddenAfterPlayback, onReveal, onDelayRegistered }: Props =
-		$props();
+	let {
+		playerId,
+		scriptSrc,
+		revealHiddenAfterPlayback,
+		playbackGate,
+		onReveal,
+		onDelayRegistered
+	}: Props = $props();
 
 	let hostEl: HTMLDivElement | undefined = $state();
 	let playerEl: HTMLElement | undefined = $state();
@@ -131,9 +146,26 @@
 	}
 
 	$effect(() => {
+		const gate = playbackGate;
+		const mounted = playerMounted;
+		if (!gate || !mounted) return;
+
+		const stopGate = attachVturbPlaybackGate({
+			playerId,
+			seconds: gate.seconds,
+			onReached: gate.onReached,
+			onAttached: () => {
+				playerReady = true;
+			}
+		});
+
+		return stopGate;
+	});
+
+	$effect(() => {
 		const el = playerEl;
 		const cfg = revealHiddenAfterPlayback;
-		if (!el || !playerMounted || !cfg?.selectors?.length) return;
+		if (!el || !playerMounted || !cfg?.selectors?.length || playbackGate) return;
 
 		const p = el as SmartPlayerEl;
 		let stopWatch: (() => void) | undefined;
@@ -148,9 +180,6 @@
 		const allSelectorsInDom = (): boolean =>
 			cfg.selectors.every((sel) => document.querySelector(sel));
 
-		/**
-		 * Registra UMA vez no VTurb. Re-chamar `displayHiddenElements` reinicia o timer de reprodução.
-		 */
 		const registerVturbReveal = (): boolean => {
 			if (revealRegistered) return true;
 			if (typeof p.displayHiddenElements !== 'function') return false;
@@ -175,7 +204,6 @@
 
 		p.addEventListener('player:ready', onPlayerReady);
 
-		/** Até `displayHiddenElements` existir (1.ª carga) — sem re-registrar depois. */
 		const bindIv = window.setInterval(() => {
 			bindAttempts++;
 			if (registerVturbReveal()) {
@@ -194,6 +222,18 @@
 		};
 	});
 
+	$effect(() => {
+		const el = playerEl;
+		if (!el || !playerMounted) return;
+
+		const onPlayerReady: EventListener = () => {
+			playerReady = true;
+		};
+
+		el.addEventListener('player:ready', onPlayerReady);
+		return () => el.removeEventListener('player:ready', onPlayerReady);
+	});
+
 	onMount(() => {
 		let cancelled = false;
 		const overlayFallback = setTimeout(() => {
@@ -204,8 +244,6 @@
 			await new Promise<void>((r) => setTimeout(r, 320));
 			await tick();
 			if (cancelled || !hostEl) return;
-
-			document.querySelector<HTMLScriptElement>(`script[src="${scriptSrc}"]`)?.remove();
 
 			if (!customElements?.get('vturb-smartplayer')) {
 				await loadScriptTag(SMARTPLAYER_WC_SRC);

@@ -4,6 +4,8 @@
 	import '../app.css';
 	import { sessionStore } from '$lib/stores/session.store';
 	import { PUBLIC_GA4_ID } from '$env/static/public';
+	import { PUBLIC_META_PIXEL_ID } from '$env/static/public';
+	import { trackMetaViewContent } from '$lib/services/analytics.service';
 
 	let { children } = $props();
 
@@ -11,6 +13,12 @@
 	$effect(() => {
 		if (!browser) return;
 		sessionStore.hydrateFromUrl(page.url.searchParams);
+	});
+
+	$effect(() => {
+		if (!browser) return;
+		// "Start" do app: 1x por sessão
+		trackMetaViewContent();
 	});
 </script>
 
@@ -29,6 +37,26 @@
 			gtag('js', new Date());
 			gtag('config', '{PUBLIC_GA4_ID}', { send_page_view: false });
 		</script>
+	{/if}
+
+	{#if PUBLIC_META_PIXEL_ID}
+		<!-- Meta Pixel Code -->
+		<script>
+			!function(f,b,e,v,n,t,s)
+			{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+			n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+			if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+			n.queue=[];t=b.createElement(e);t.async=!0;
+			t.src=v;s=b.getElementsByTagName(e)[0];
+			s.parentNode.insertBefore(t,s)}(window, document,'script',
+			'https://connect.facebook.net/en_US/fbevents.js');
+			fbq('init', '{PUBLIC_META_PIXEL_ID}');
+			fbq('track', 'PageView');
+		</script>
+		<noscript><img height="1" width="1" style="display:none"
+			src="https://www.facebook.com/tr?id={PUBLIC_META_PIXEL_ID}&ev=PageView&noscript=1"
+		/></noscript>
+		<!-- End Meta Pixel Code -->
 	{/if}
 </svelte:head>
 

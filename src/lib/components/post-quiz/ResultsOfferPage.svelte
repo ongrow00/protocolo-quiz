@@ -9,7 +9,7 @@
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
-	import { RESULTS_VTURB_DELAY_SEC, RESULTS_VTURB_PERSIST } from '$lib/constants/mr3-vturb';
+	import { RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
 	import { RESULTS_OFFER } from '$lib/data/results-offer';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
@@ -434,7 +434,6 @@
 	const cascadeGap = 72;
 	const cascadeY = 14;
 
-	let resultsVturbDelayEl = $state<HTMLDivElement | undefined>();
 	let declineModalOpen = $state(false);
 	/** Ativação: headline e vídeo só após animação do stepper. */
 	let ativacaoHeroUnlocked = $state(variant !== 'ativacao');
@@ -512,48 +511,8 @@
 	}
 
 	function revealResultsAfterVideo() {
-		resultsVturbDelayEl?.classList.remove('esconder');
 		postQuizStore.markResultsContentRevealed();
 	}
-
-	function isVturbDelaySlotVisible(el: HTMLElement) {
-		if (el.classList.contains('esconder')) return false;
-		const st = getComputedStyle(el);
-		return st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
-	}
-
-	$effect(() => {
-		if (!browser || !resultsVturbDelayEl) return;
-		const el = resultsVturbDelayEl;
-		if (isVturbDelaySlotVisible(el)) {
-			revealResultsAfterVideo();
-			return;
-		}
-		const mo = new MutationObserver((mutations) => {
-			// VTurb revela via inline style (display:block) — o !important do .esconder vence
-			// visualmente, mas a mudança no atributo style é o sinal de que o tempo passou.
-			const vturbTriggered = mutations.some((m) => m.attributeName === 'style');
-			if (vturbTriggered || isVturbDelaySlotVisible(el)) {
-				revealResultsAfterVideo();
-				mo.disconnect();
-			}
-		});
-		mo.observe(el, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
-		return () => mo.disconnect();
-	});
-
-	/** Ativação (/ativacao): VTurb só revela após tempo de reprodução; após login o vídeo costuma não tocar. */
-	$effect(() => {
-		if (!browser || !isAtivacaoVariant) return;
-		if (!ativacaoPreOfferComplete || !ativacaoHeroUnlocked) return;
-		if ($postQuizStore.resultsContentRevealed) return;
-
-		const t = window.setTimeout(() => {
-			revealResultsAfterVideo();
-		}, RESULTS_VTURB_DELAY_SEC * 1000);
-
-		return () => window.clearTimeout(t);
-	});
 </script>
 
 <div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center">
@@ -658,12 +617,10 @@
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
 				scriptSrc={vturbProtocoloAccess.scriptSrc}
-				revealHiddenAfterPlayback={{
+				playbackGate={{
 					seconds: RESULTS_VTURB_DELAY_SEC,
-					selectors: ['.esconder'],
-					persist: isAtivacaoVariant ? false : RESULTS_VTURB_PERSIST
+					onReached: revealResultsAfterVideo
 				}}
-				onReveal={revealResultsAfterVideo}
 			/>
 		</div>
 		</div>
@@ -697,10 +654,10 @@
 		</button>
 	{/if}
 
+	{#if $postQuizStore.resultsContentRevealed}
 	<div
-		class="results-vturb-delay esconder"
-		class:results-vturb-delay--revealed={$postQuizStore.resultsContentRevealed}
-		bind:this={resultsVturbDelayEl}
+		id="results-after-video"
+		class="results-vturb-delay results-vturb-delay--revealed"
 	>
 	{#if !isAtivacaoVariant}
 	<button
@@ -1203,6 +1160,7 @@
 	</div>
 
 	</div>
+	{/if}
 	{/if}
 </div>
 

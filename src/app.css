@@ -242,7 +242,7 @@ input[type='range']::-moz-range-thumb {
 	display: none;
 }
 
-/* /results: layout do bloco após o vídeo (ocultação via `.esconder` + VturbPlayer). */
+/* /results: layout do bloco após o vídeo (`playbackGate` + store). */
 .results-vturb-delay {
 	display: flex;
 	flex-direction: column;

@@ -8,11 +8,8 @@ export const MR3_VTURB_DELAY_SEC = 10;
 /** mr-3 (quiz): sem cache — o lead assiste o pitch em cada visita à pergunta. */
 export const MR3_VTURB_PERSIST = false;
 
-/** /results e /ativacao: conteúdo após o vídeo do protocolo. */
+/** /results e /ativacao: conteúdo após o vídeo do protocolo (`playbackGate` / timeupdate). */
 export const RESULTS_VTURB_DELAY_SEC = 10;
-
-/** /results: cache VTurb (lead que já viu o pitch não espera de novo). */
-export const RESULTS_VTURB_PERSIST = true;
 
 /** Disparado somente quando o VTurb altera o DOM e o CTA fica visível. */
 export const MR3_CTA_REVEAL_EVENT = 'quiz-mr3-cta-reveal';

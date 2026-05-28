@@ -12,7 +12,7 @@
 		stopPostQuizFunnelSync
 	} from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
-	import { trackGenerateLead } from '$lib/services/analytics.service';
+	import { trackGenerateLead, trackMetaLead } from '$lib/services/analytics.service';
 
 	let { children } = $props();
 
@@ -99,7 +99,10 @@
 		}
 		// Lead: WhatsApp capturado/confirmado no avanço do step /whatsapp (evita disparar a cada digitação).
 		if (path === '/whatsapp' || path.startsWith('/whatsapp/')) {
-			if (canAdvance) trackGenerateLead('whatsapp');
+			if (canAdvance) {
+				trackGenerateLead('whatsapp');
+				trackMetaLead();
+			}
 		}
 		void goto(dest);
 	}

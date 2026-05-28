@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { PUBLIC_GA4_ID } from '$env/static/public';
+import { PUBLIC_META_PIXEL_ID } from '$env/static/public';
 import { getAnonymousId } from '$lib/stores/identity.store';
 import { get } from 'svelte/store';
 import { quizStore } from '$lib/stores/quiz.store';
@@ -8,6 +9,7 @@ declare global {
 	interface Window {
 		dataLayer?: unknown[];
 		gtag?: (...args: unknown[]) => void;
+		fbq?: (...args: unknown[]) => void;
 	}
 }
 
@@ -27,11 +29,17 @@ type QuizStepCompleteParams = CommonParams & {
 const DEDUPE_KEYS = {
 	quiz_view: 'ga4:quiz_view',
 	quiz_complete_prefix: 'ga4:quiz_complete:',
-	generate_lead_prefix: 'ga4:generate_lead:'
+	generate_lead_prefix: 'ga4:generate_lead:',
+	meta_view_content: 'meta:view_content',
+	meta_lead_prefix: 'meta:lead:'
 } as const;
 
 function canSend(): boolean {
 	return browser && !!PUBLIC_GA4_ID && typeof window.gtag === 'function';
+}
+
+function canSendMeta(): boolean {
+	return browser && !!PUBLIC_META_PIXEL_ID && typeof window.fbq === 'function';
 }
 
 function baseParams(): CommonParams {
@@ -54,6 +62,15 @@ function dedupeOnce(key: string): boolean {
 function sendEvent(name: string, params: Record<string, unknown> = {}): void {
 	if (!canSend()) return;
 	window.gtag!('event', name, params);
+}
+
+function sendMetaEvent(eventName: string, params?: Record<string, unknown>): void {
+	if (!canSendMeta()) return;
+	if (params && Object.keys(params).length > 0) {
+		window.fbq!('track', eventName, params);
+	} else {
+		window.fbq!('track', eventName);
+	}
 }
 
 export function trackQuizView(): void {
@@ -112,6 +129,23 @@ export function trackGenerateLead(method: 'whatsapp' = 'whatsapp'): void {
 		method,
 		lead_type: 'quiz'
 	});
+}
+
+/** Meta: "start" do usuário no app. */
+export function trackMetaViewContent(): void {
+	if (dedupeOnce(DEDUPE_KEYS.meta_view_content)) return;
+	sendMetaEvent('ViewContent', {
+		content_name: 'Protocolo Desbloqueio',
+		content_type: 'app'
+	});
+}
+
+/** Meta: WhatsApp capturado/confirmado (sem PII). */
+export function trackMetaLead(): void {
+	const { funnel_session_id, anonymous_id } = baseParams();
+	const dedupeKey = `${DEDUPE_KEYS.meta_lead_prefix}${funnel_session_id ?? anonymous_id}`;
+	if (dedupeOnce(dedupeKey)) return;
+	sendMetaEvent('Lead', { lead_type: 'whatsapp' });
 }
 
 /** Back-compat (se existir algum uso legado). */
