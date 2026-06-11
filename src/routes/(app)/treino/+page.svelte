@@ -459,11 +459,9 @@
 						class="flex items-center gap-1 rounded-full px-1.5 py-0.5 transition-colors active:bg-line/30"
 						aria-label="Ver tutorial do treino"
 					>
-						<span class="text-[10px] font-semibold text-muted">Ver Tutorial</span>
-						<svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-							<circle cx="12" cy="12" r="10" />
-							<path d="M12 16v-4" />
-							<path d="M12 8h.01" />
+						<span class="text-[10px] font-semibold text-accent">Ver Tutorial</span>
+						<svg class="h-3.5 w-3.5 shrink-0 text-accent" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+							<path d="M8 5v14l11-7z" />
 						</svg>
 					</button>
 				</div>

@@ -26,6 +26,8 @@
 		scrollable?: boolean;
 		/** Conteúdo edge-to-edge na horizontal (sem px-6 no painel) */
 		contentFlush?: boolean;
+		/** Remove padding inferior do painel (ex.: player de vídeo edge-to-edge) */
+		flushBottom?: boolean;
 		/** Remove a sombra do painel */
 		noShadow?: boolean;
 		children?: Snippet;
@@ -48,6 +50,7 @@
 		lockBodyScroll = !stacked,
 		scrollable = true,
 		contentFlush = false,
+		flushBottom = false,
 		noShadow = false,
 		children,
 		headerTrailing,
@@ -130,7 +133,9 @@
 			aria-modal="true"
 			tabindex="-1"
 			aria-labelledby={title ? 'bottom-sheet-title' : undefined}
-			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-x-hidden overflow-hidden rounded-t-[28px] pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-3 {noShadow
+			class="bottom-sheet-panel flex w-full max-w-none flex-col overflow-x-hidden overflow-hidden rounded-t-[28px] {flushBottom
+				? 'pb-0'
+				: 'pb-[calc(1.5rem+env(safe-area-inset-bottom))]'} pt-3 {noShadow
 				? ''
 				: 'shadow-[0_-8px_32px_rgba(0,0,0,0.12)]'} {contentFlush
 				? 'px-0'
@@ -171,7 +176,11 @@
 					</button>
 				</div>
 			{:else if subtitle || title || titleDetail || headerTrailing}
-				<div class="mb-[25px] flex shrink-0 items-start justify-between gap-3">
+				<div
+					class="mb-[25px] flex shrink-0 items-start justify-between gap-3 {contentFlush
+						? 'pl-[25px]'
+						: ''}"
+				>
 					<div class="min-w-0 flex flex-col gap-0.5">
 						{#if subtitle}
 							<p class="text-[10px] font-medium uppercase tracking-wide text-muted">{subtitle}</p>
@@ -194,7 +203,9 @@
 			{/if}
 
 			<div
-				class="min-h-0 overscroll-contain {scrollable ? 'overflow-y-auto' : 'overflow-hidden'} {autoHeight ? '' : 'flex-1'}"
+				class="min-h-0 overscroll-contain {autoHeight ? '' : 'flex-1'} {scrollable
+					? 'overflow-y-auto'
+					: 'flex flex-col overflow-hidden'}"
 			>
 				{@render children?.()}
 			</div>

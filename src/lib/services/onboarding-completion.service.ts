@@ -6,7 +6,7 @@ export type OnboardingCompletionResult =
 
 export async function loadOnboardingStatus(
 	userId: string
-): Promise<{ complete: boolean; error: string | null }> {
+): Promise<{ complete: boolean; completedAt: string | null; error: string | null }> {
 	const { data, error } = await supabase
 		.from('profiles')
 		.select('onboarding_completed_at, has_consultoria')
@@ -14,13 +14,38 @@ export async function loadOnboardingStatus(
 		.maybeSingle();
 
 	if (error) {
-		return { complete: false, error: error.message };
+		return { complete: false, completedAt: null, error: error.message };
 	}
 
 	const complete =
 		data?.onboarding_completed_at != null || data?.has_consultoria === true;
 
-	return { complete, error: null };
+	return {
+		complete,
+		completedAt: data?.onboarding_completed_at ?? null,
+		error: null
+	};
+}
+
+const CONSULTORIA_OFFER_DEADLINE_MS = 3 * 24 * 60 * 60 * 1000;
+
+export function getConsultoriaOfferDeadlineMs(completedAt: string): number {
+	return new Date(completedAt).getTime() + CONSULTORIA_OFFER_DEADLINE_MS;
+}
+
+export function formatDeadlineCountdown(msRemaining: number): string {
+	const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+	const days = Math.floor(totalSeconds / 86_400);
+	const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+	const minutes = Math.floor((totalSeconds % 3_600) / 60);
+	const seconds = totalSeconds % 60;
+
+	const d = days.toString().padStart(2, '0');
+	const h = hours.toString().padStart(2, '0');
+	const m = minutes.toString().padStart(2, '0');
+	const s = seconds.toString().padStart(2, '0');
+
+	return `${d}d : ${h}h : ${m}m : ${s}s`;
 }
 
 export async function markOnboardingCompletedInDb(): Promise<OnboardingCompletionResult> {

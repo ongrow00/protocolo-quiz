@@ -21,9 +21,14 @@ export interface PostQuizState {
 	clickedComecarAgora: boolean;
 	/**
 	 * /results: oferta revelada pelo gate de reprodução (video.currentTime >= delay).
-	 * Não persiste em localStorage — só memória na visita atual.
+	 * Em memória na visita; `resultsOfferRevealed` persiste o pitch no localStorage.
 	 */
 	resultsContentRevealed: boolean;
+	/**
+	 * /results: pitch do vídeo já atingido — persiste em localStorage para liberar
+	 * conteúdo e sticky footer ao recarregar ou voltar à página.
+	 */
+	resultsOfferRevealed: boolean;
 	/**
 	 * /ativacao: oferta revelada pelo gate do vídeo. Persiste em localStorage para
 	 * não exigir rever o vídeo ao recarregar ou voltar à tela.
@@ -51,6 +56,7 @@ const INITIAL: PostQuizState = {
 	onboardingComplete: false,
 	clickedComecarAgora: false,
 	resultsContentRevealed: false,
+	resultsOfferRevealed: false,
 	ativacaoOfferRevealed: false,
 	bonusInteracted: false,
 	bonusDiscountAccepted: false
@@ -75,6 +81,7 @@ function loadState(): PostQuizState {
 				? (parsed.followUpAnswers as Record<string, MealFollowUpAnswer>)
 				: null;
 		const ativacaoOfferRevealed = parsed.ativacaoOfferRevealed === true;
+		const resultsOfferRevealed = parsed.resultsOfferRevealed === true;
 		return {
 			name: typeof parsed.name === 'string' ? parsed.name : '',
 			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
@@ -82,7 +89,8 @@ function loadState(): PostQuizState {
 			followUpAnswers: followUp,
 			onboardingComplete: parsed.onboardingComplete === true,
 			clickedComecarAgora: parsed.clickedComecarAgora === true,
-			resultsContentRevealed: ativacaoOfferRevealed,
+			resultsContentRevealed: resultsOfferRevealed || ativacaoOfferRevealed,
+			resultsOfferRevealed,
 			ativacaoOfferRevealed,
 			bonusInteracted: parsed.bonusInteracted === true,
 			bonusDiscountAccepted: parsed.bonusDiscountAccepted === true
@@ -104,6 +112,7 @@ function saveState(state: PostQuizState): void {
 				followUpAnswers: state.followUpAnswers,
 				onboardingComplete: state.onboardingComplete,
 				clickedComecarAgora: state.clickedComecarAgora,
+				resultsOfferRevealed: state.resultsOfferRevealed,
 				ativacaoOfferRevealed: state.ativacaoOfferRevealed,
 				bonusInteracted: state.bonusInteracted,
 				bonusDiscountAccepted: state.bonusDiscountAccepted
@@ -155,7 +164,20 @@ function createPostQuizStore() {
 		},
 
 		markResultsContentRevealed() {
-			update((s) => (s.resultsContentRevealed ? s : { ...s, resultsContentRevealed: true }));
+			update((s) =>
+				s.resultsContentRevealed
+					? s
+					: persist({ ...s, resultsContentRevealed: true, resultsOfferRevealed: true })
+			);
+		},
+
+		/** Restaura conteúdo revelado na sessão quando o pitch já foi salvo localmente. */
+		restoreResultsContentIfOfferRevealed() {
+			update((s) =>
+				s.resultsOfferRevealed && !s.resultsContentRevealed
+					? { ...s, resultsContentRevealed: true }
+					: s
+			);
 		},
 
 		markAtivacaoOfferRevealed() {
@@ -175,7 +197,8 @@ function createPostQuizStore() {
 				...persist({
 					...s,
 					bonusInteracted: true,
-					bonusDiscountAccepted: true
+					bonusDiscountAccepted: true,
+					resultsOfferRevealed: true
 				}),
 				resultsContentRevealed: true
 			}));

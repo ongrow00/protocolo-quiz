@@ -423,6 +423,26 @@
 		);
 	}
 
+	function updateBlocoPrecoInView(): void {
+		if (isAtivacaoVariant || !$postQuizStore.resultsContentRevealed) {
+			blocoPrecoInView = false;
+			return;
+		}
+
+		const el = document.getElementById('bloco-preco');
+		if (!el) {
+			blocoPrecoInView = false;
+			return;
+		}
+
+		const root = getPostQuizScrollRoot();
+		const rootRect = root?.getBoundingClientRect();
+		const elRect = el.getBoundingClientRect();
+		const viewTop = rootRect?.top ?? 0;
+		const viewBottom = rootRect?.bottom ?? window.innerHeight;
+		blocoPrecoInView = elRect.top < viewBottom - 120 && elRect.bottom > viewTop + 80;
+	}
+
 	onMount(() => {
 		let cancelled = false;
 		let target: HTMLElement | Window = window;
@@ -440,6 +460,7 @@
 
 			onScroll = () => {
 				scrollY = root ? root.scrollTop : window.scrollY;
+				updateBlocoPrecoInView();
 			};
 
 			target.addEventListener('scroll', onScroll, { passive: true });
@@ -583,33 +604,17 @@
 	);
 
 	$effect(() => {
+		if (!browser || isAtivacaoVariant) return;
+		postQuizStore.restoreResultsContentIfOfferRevealed();
+	});
+
+	$effect(() => {
 		if (!browser || isAtivacaoVariant || !$postQuizStore.resultsContentRevealed) {
 			blocoPrecoInView = false;
 			return;
 		}
 
-		let observer: IntersectionObserver | null = null;
-		let cancelled = false;
-
-		void tick().then(() => {
-			if (cancelled) return;
-			const el = document.getElementById('bloco-preco');
-			if (!el) return;
-
-			observer = new IntersectionObserver(
-				([entry]) => {
-					blocoPrecoInView = entry?.isIntersecting ?? false;
-				},
-				{ root: getPostQuizScrollRoot(), threshold: 0.08, rootMargin: '0px 0px -80px 0px' }
-			);
-			observer.observe(el);
-		});
-
-		return () => {
-			cancelled = true;
-			observer?.disconnect();
-			blocoPrecoInView = false;
-		};
+		void tick().then(() => updateBlocoPrecoInView());
 	});
 </script>
 

@@ -31,7 +31,7 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
-	import { MR3_CTA_REVEAL_EVENT } from '$lib/constants/mr3-vturb';
+	import { MR3_CTA_REVEAL_EVENT, isMr3PitchRevealed, setMr3PitchRevealed } from '$lib/constants/mr3-vturb';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -119,10 +119,17 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 			return;
 		}
 
+		if (isMr3PitchRevealed()) {
+			mr3FooterLoading = false;
+			mr3CtaRevealed = true;
+			return;
+		}
+
 		mr3FooterLoading = true;
 		mr3CtaRevealed = false;
 
 		const onVturbRevealEvent = () => {
+			setMr3PitchRevealed();
 			mr3FooterLoading = false;
 			mr3CtaRevealed = true;
 		};

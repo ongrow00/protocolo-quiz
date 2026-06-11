@@ -10,6 +10,16 @@ export interface VturbSmartPlayerInstance {
 	off?: (event: string, handler: () => void) => void;
 }
 
+/** Elemento `<vturb-smartplayer>`: API nativa de reveal sincronizado com o vídeo. */
+export type VturbSmartPlayerElement = HTMLElement & {
+	/** Revela seletores no tempo `seconds` do vídeo (sincronizado, com cache se `persist`). */
+	displayHiddenElements?: (
+		seconds: number,
+		selectors: string[],
+		opts?: { persist?: boolean }
+	) => void;
+};
+
 export interface VturbSmartPlayerGlobal {
 	instances: VturbSmartPlayerInstance[];
 }

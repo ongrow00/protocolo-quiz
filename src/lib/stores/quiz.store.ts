@@ -6,6 +6,7 @@ import { computeVisibleQuestions } from '$lib/utils/branching';
 import { calculateScores } from '$lib/utils/scoring';
 import { AUDIENCE_GENDER } from '$lib/constants/audience';
 import { QUIZ_STORAGE_KEY } from '$lib/constants/storage-keys';
+import { clearMr3PitchRevealed } from '$lib/constants/mr3-vturb';
 import { easeOutProgress01 } from '$lib/utils/progress-easing';
 
 const STORAGE_KEY = QUIZ_STORAGE_KEY;
@@ -107,6 +108,7 @@ function createQuizStore() {
 		},
 
 		reset() {
+			clearMr3PitchRevealed();
 			const fresh = { ...INITIAL_STATE };
 			saveState(fresh);
 			set(fresh);

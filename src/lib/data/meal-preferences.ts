@@ -181,7 +181,7 @@ export const MEAL_BLOCKS: MealBlock[] = [
 		title: 'Lanche da Noite',
 		carbs: LANCHE_NOITE_CARBS,
 		proteins: LANCHE_NOITE_PROTEINS,
-		hint: 'Formato LANCHE — usado nas opções 3 e 4 do jantar. Porções variam conforme a fase.'
+		hint: 'Formato lanche do jantar (opções 3 e 4). Porções variam conforme a fase.'
 	}
 ];
 

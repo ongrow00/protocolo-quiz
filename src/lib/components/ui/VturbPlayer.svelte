@@ -3,7 +3,7 @@
 	import {
 		attachVturbPlaybackGate,
 		findVideoInHost,
-		resolveVturbInstance
+		isVturbPlayerInitialized
 	} from '$lib/utils/vturb-playback-gate';
 
 	const SMARTPLAYER_WC_SRC =
@@ -64,19 +64,39 @@
 
 	function loadScriptTag(src: string): Promise<void> {
 		return new Promise((resolve, reject) => {
+			let settled = false;
+			const finish = () => {
+				if (settled) return;
+				settled = true;
+				resolve();
+			};
+
 			const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
 			if (existing) {
-				existing.addEventListener('load', () => resolve(), { once: true });
+				const smartplayerReady =
+					src === SMARTPLAYER_WC_SRC &&
+					typeof customElements !== 'undefined' &&
+					!!customElements.get('vturb-smartplayer');
+				if (smartplayerReady) {
+					finish();
+					return;
+				}
+				existing.addEventListener('load', finish, { once: true });
 				existing.addEventListener('error', () => reject(new Error(`Script failed: ${src}`)), {
 					once: true
 				});
+				queueMicrotask(() => {
+					if (settled) return;
+					if (src === SMARTPLAYER_WC_SRC && customElements?.get('vturb-smartplayer')) finish();
+				});
+				setTimeout(finish, 500);
 				return;
 			}
 
 			const s = document.createElement('script');
 			s.async = true;
 			s.src = src;
-			s.addEventListener('load', () => resolve(), { once: true });
+			s.addEventListener('load', finish, { once: true });
 			s.addEventListener('error', () => reject(new Error(`Script failed: ${src}`)), { once: true });
 			document.head.appendChild(s);
 		});
@@ -102,13 +122,17 @@
 	}
 
 	function markReadyIfVideoPresent(): boolean {
-		const host = document.getElementById(playerId);
-		if (!host) return false;
-		if (resolveVturbInstance(playerId)?.video || findVideoInHost(host)) {
+		if (isVturbPlayerInitialized(playerId)) {
 			playerReady = true;
 			return true;
 		}
 		return false;
+	}
+
+	function ensurePlayerInViewport(el: HTMLElement): void {
+		const rect = el.getBoundingClientRect();
+		const inView = rect.top < window.innerHeight && rect.bottom > 0;
+		if (!inView) el.scrollIntoView({ block: 'nearest', behavior: 'instant' });
 	}
 
 	// Gate de reprodução: única fonte de verdade para revelar conteúdo no tempo do vídeo.
@@ -168,12 +192,45 @@
 
 	onMount(() => {
 		let cancelled = false;
+
+		async function waitForPlayerReady(timeoutMs: number): Promise<boolean> {
+			const el = playerEl;
+			if (!el) return false;
+
+			return new Promise((resolve) => {
+				let done = false;
+				const finish = (ok: boolean) => {
+					if (done || cancelled) return;
+					done = true;
+					window.clearInterval(pollId);
+					window.clearTimeout(timeoutId);
+					el.removeEventListener('player:ready', onReady);
+					if (ok) playerReady = true;
+					resolve(ok);
+				};
+
+				const onReady: EventListener = () => finish(true);
+
+				el.addEventListener('player:ready', onReady);
+
+				const pollId = window.setInterval(() => {
+					if (markReadyIfVideoPresent()) finish(true);
+				}, 150);
+
+				const timeoutId = window.setTimeout(() => {
+					finish(markReadyIfVideoPresent());
+				}, timeoutMs);
+			});
+		}
+
 		const overlayFallback = setTimeout(() => {
 			if (!cancelled) playerReady = true;
-		}, 15000);
+		}, 22_000);
 
 		(async () => {
 			try {
+				// Pequena pausa pós-transição SPA antes de montar o player.
+				await new Promise<void>((r) => setTimeout(r, 320));
 				await tick();
 				if (cancelled || !hostEl) return;
 
@@ -187,30 +244,19 @@
 				const el = playerEl;
 				if (!el) return;
 
-				const readyPromise = new Promise<void>((resolve) => {
-					const timeoutId = window.setTimeout(resolve, 12_000);
-					const onReady: EventListener = () => {
-						window.clearTimeout(timeoutId);
-						el.removeEventListener('player:ready', onReady);
-						resolve();
-					};
-					el.addEventListener('player:ready', onReady);
-				});
+				ensurePlayerInViewport(el);
 
 				await tick();
+				await new Promise<void>((r) =>
+					requestAnimationFrame(() => requestAnimationFrame(() => r()))
+				);
+				if (cancelled) return;
+
 				await bootstrapPlayerScript();
 				if (cancelled) return;
 
-				// Poll até o vídeo existir no DOM/shadow (VTurb injeta após o script).
-				for (let i = 0; i < 80 && !cancelled; i++) {
-					if (markReadyIfVideoPresent()) break;
-					await new Promise<void>((r) => setTimeout(r, 150));
-				}
-
-				if (!cancelled && !playerReady) {
-					await readyPromise;
-					if (!cancelled) markReadyIfVideoPresent() || (playerReady = true);
-				}
+				// VTurb usa intersection observer — não destruir/recriar; aguardar bind + vídeo.
+				await waitForPlayerReady(18_000);
 			} catch (err) {
 				console.error('[VturbPlayer] init failed:', err);
 				if (!cancelled) playerReady = true;
@@ -220,6 +266,7 @@
 		return () => {
 			cancelled = true;
 			clearTimeout(overlayFallback);
+			removePlayerScripts(scriptSrc);
 			hostEl?.replaceChildren();
 			playerEl = undefined;
 			playerMounted = false;

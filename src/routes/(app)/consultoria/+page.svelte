@@ -3,6 +3,11 @@
 	import ConsultoriaVideoPlayer from '$lib/components/challenge/ConsultoriaVideoPlayer.svelte';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import { CONSULTORIA_OFFER } from '$lib/data/consultoria-offer';
+	import {
+		formatDeadlineCountdown,
+		getConsultoriaOfferDeadlineMs,
+		loadOnboardingStatus
+	} from '$lib/services/onboarding-completion.service';
 	import { loadAppCheckoutState } from '$lib/services/profile-utm.service';
 	import { authStore } from '$lib/stores/auth.store';
 	import { sessionStore } from '$lib/stores/session.store';
@@ -13,21 +18,46 @@
 	} from '$lib/utils/checkout-url';
 
 	let checkoutState = $state<AppCheckoutState>(EMPTY_APP_CHECKOUT_STATE);
+	let offerDeadlineMs = $state<number | null>(null);
+	let nowMs = $state(Date.now());
 
 	$effect(() => {
 		const user = $authStore.user;
 		if (!user?.id) {
 			checkoutState = EMPTY_APP_CHECKOUT_STATE;
+			offerDeadlineMs = null;
 			return;
 		}
 		let cancelled = false;
 		void loadAppCheckoutState(user.id, user.email).then((state) => {
 			if (!cancelled) checkoutState = state;
 		});
+		void loadOnboardingStatus(user.id).then(({ completedAt }) => {
+			if (cancelled) return;
+			offerDeadlineMs = completedAt ? getConsultoriaOfferDeadlineMs(completedAt) : null;
+		});
 		return () => {
 			cancelled = true;
 		};
 	});
+
+	$effect(() => {
+		if (offerDeadlineMs == null) return;
+		const timer = setInterval(() => {
+			nowMs = Date.now();
+		}, 1000);
+		return () => clearInterval(timer);
+	});
+
+	const offerRemainingMs = $derived(
+		offerDeadlineMs != null ? Math.max(0, offerDeadlineMs - nowMs) : 0
+	);
+
+	const showOfferCountdown = $derived(offerDeadlineMs != null && offerRemainingMs > 0);
+
+	const countdownDisplay = $derived(
+		showOfferCountdown ? formatDeadlineCountdown(offerRemainingMs) : null
+	);
 
 	const checkoutUrl = $derived(
 		buildAppCheckoutUrl(CONSULTORIA_OFFER.checkoutUrl, {
@@ -59,6 +89,15 @@
 				<p class="text-[13px] leading-relaxed text-[#4a4a4a]">
 					Tenha uma equipe de nutricionistas, psicólogos e um assistente dedicado acompanhando você pelos próximos 12 meses, com suporte contínuo e atenção personalizada.
 				</p>
+
+				{#if showOfferCountdown}
+					<div class="mt-4 border-t border-black/[0.06] pt-4">
+						<p class="text-[13px] leading-relaxed text-[#4a4a4a]">
+							Essa oferta se encerra em
+							<span class="font-bold tabular-nums text-red-500">{countdownDisplay}</span>
+						</p>
+					</div>
+				{/if}
 			</div>
 
 			<div class="flex items-center justify-between border-t border-black/[0.06] px-5 py-3.5">
