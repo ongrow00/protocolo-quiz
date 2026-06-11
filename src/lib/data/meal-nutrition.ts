@@ -256,6 +256,64 @@ export const BREAKFAST_PROTEIN_PORTIONS: Record<string, FixedPortionEntry> = {
 };
 
 // ---------------------------------------------------------------------------
+// Formato LANCHE — Fases 2–3 (Jejum / Jejum + Low Carb)
+// Mesmas chaves do café; porções maiores conforme planilha.
+// ---------------------------------------------------------------------------
+
+export const LANCHE_JEJUM_PROTEIN_PORTIONS: Record<string, FixedPortionEntry> = {
+	'ovo-mussarela': {
+		label: '2 ovos + 2 fatias de mussarela',
+		shortLabel: 'Ovos + Mussarela',
+		macros: { kcal: 277, protein: 21.8, carbs: 1.0, fat: 20.0 }
+	},
+	'frango-mussarela': {
+		label: '60g de frango + 2 fatias de mussarela',
+		shortLabel: 'Frango + Mussarela',
+		macros: { kcal: 228, protein: 28.0, carbs: 0.2, fat: 12.0 }
+	},
+	'patinho-mussarela': {
+		label: '60g de patinho + 2 fatias de mussarela',
+		shortLabel: 'Patinho + Mussarela',
+		macros: { kcal: 264, protein: 30.4, carbs: 0.2, fat: 14.8 }
+	},
+	'atum-requeijao': {
+		label: '150g de atum + 30g de requeijão light',
+		shortLabel: 'Atum + Requeijão',
+		macros: { kcal: 350, protein: 45.6, carbs: 1.8, fat: 17.8 }
+	},
+	'queijo': {
+		label: '2 fatias de queijo + 2 ovos',
+		shortLabel: 'Queijo + Ovos',
+		macros: { kcal: 275, protein: 21.8, carbs: 0.9, fat: 19.9 }
+	},
+	'frango-requeijao': {
+		label: '90g de frango + 50g de requeijão light',
+		shortLabel: 'Frango + Requeijão',
+		macros: { kcal: 228, protein: 34.4, carbs: 1.6, fat: 8.2 }
+	},
+	'2ovos': {
+		label: '4 ovos',
+		shortLabel: 'Ovos',
+		macros: { kcal: 286, protein: 26.0, carbs: 1.4, fat: 19.0 }
+	},
+	'queijo-whey': {
+		label: '2 fatias de queijo + 1 dose de whey',
+		shortLabel: 'Queijo + Whey',
+		macros: { kcal: 252, protein: 32.8, carbs: 3.2, fat: 11.4 }
+	}
+};
+
+export function lancheFormatCarbPortions(_phase: PhaseId): Record<string, FixedPortionEntry> {
+	return BREAKFAST_CARB_PORTIONS;
+}
+
+export function lancheFormatProteinPortions(phase: PhaseId): Record<string, FixedPortionEntry> {
+	if (phase === 1) return BREAKFAST_PROTEIN_PORTIONS;
+	if (phase === 2 || phase === 3) return LANCHE_JEJUM_PROTEIN_PORTIONS;
+	return {};
+}
+
+// ---------------------------------------------------------------------------
 // Frutas — porções fixas da planilha (Fases 1–3)
 // ---------------------------------------------------------------------------
 
@@ -313,7 +371,7 @@ export const FRUIT_PORTIONS: Record<string, FixedPortionEntry> = {
 };
 
 // ---------------------------------------------------------------------------
-// Lanche Fase 4 — opções combo da aba Jejum + Low Carb Extremo
+// Lanche da tarde Fase 4 — combos (bloco lanche)
 // ---------------------------------------------------------------------------
 
 export type LancheComboOption = {
@@ -321,6 +379,25 @@ export type LancheComboOption = {
 	macros: Macros;
 	ingredients: string[];
 };
+
+/** Formato LANCHE do jantar — aba Jejum + Low Carb Extremo (planilha). */
+export const PHASE4_LANCHE_FORMATO_OPTIONS: LancheComboOption[] = [
+	{
+		name: 'Omelete — 3 ovos + 2 fatias de mussarela',
+		ingredients: ['3 ovos', '2 fatias de mussarela'],
+		macros: { kcal: 346, protein: 27.5, carbs: 1.2, fat: 25.0 }
+	},
+	{
+		name: '2 ovos + 80g frango + 2 fatias de queijo',
+		ingredients: ['2 ovos', '80g peito de frango', '2 fatias de queijo'],
+		macros: { kcal: 427, protein: 42.0, carbs: 1.0, fat: 27.5 }
+	},
+	{
+		name: 'Omelete — 3 ovos + 25g chocolate 70%',
+		ingredients: ['3 ovos', '25g chocolate 70% cacau'],
+		macros: { kcal: 349, protein: 20.0, carbs: 12.0, fat: 26.5 }
+	}
+];
 
 export const PHASE4_LANCHE_OPTIONS: LancheComboOption[] = [
 	{

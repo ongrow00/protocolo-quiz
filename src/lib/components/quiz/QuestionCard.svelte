@@ -70,11 +70,14 @@
 <div class="flex flex-col gap-6">
 	<div class="space-y-2">
 		{#if displaySubtext && question.id === 'goal_type'}
-			<div class="flex flex-col items-center gap-1.5">
+			<div class="flex justify-center">
 				<HandTapIcon size={35} />
-				<p class="text-sm text-body leading-relaxed text-center">{displaySubtext}</p>
 			</div>
 			<h2 class="text-2xl font-medium text-heading leading-[24px] text-center">{displayTitle}</h2>
+			<p class="text-sm text-body leading-relaxed text-center px-[50px]">
+				Para iniciar, <strong class="font-semibold">selecione um objetivo</strong> para gerarmos um
+				<strong class="font-semibold">plano feito para você</strong>.
+			</p>
 		{:else}
 			<h2 class="text-2xl font-extrabold text-heading leading-[24px]">{displayTitle}</h2>
 			{#if displaySubtext}

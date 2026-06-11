@@ -9,7 +9,7 @@
 		replaceMealOption,
 		CHALLENGE_PLAN,
 		MEAL_BLOCK_ORDER,
-		type MealBlockId,
+		type ChallengeMealBlockId,
 		type MealOption
 	} from '$lib/data/challenge-plan';
 	import { challengeStore } from '$lib/stores/challenge.store';
@@ -75,7 +75,7 @@
 
 	const visibleBlocks = $derived(activeBlocksForDay(dayNum));
 
-	function getBlockForOption(optionId: string): MealBlockId {
+	function getBlockForOption(optionId: string): ChallengeMealBlockId {
 		for (const block of MEAL_BLOCK_ORDER) {
 			if (plan?.blocks[block]?.some((m) => m.id === optionId)) return block;
 		}
@@ -87,7 +87,7 @@
 		return $challengeStore.meals[key] ?? 'pending';
 	}
 
-	function isBlockResolved(block: MealBlockId): boolean {
+	function isBlockResolved(block: ChallengeMealBlockId): boolean {
 		const prefix = `${dayNum}-${block}-`;
 		return Object.entries($challengeStore.meals).some(
 			([k, v]) => k.startsWith(prefix) && (v === 'completed' || v === 'skipped')
@@ -197,14 +197,14 @@
 		selectedMeal ? isBlockResolved(getBlockForOption(selectedMeal.id)) : false
 	);
 
-	let expandedBlocks = $state<Set<MealBlockId>>(new Set(visibleBlocks));
+	let expandedBlocks = $state<Set<ChallengeMealBlockId>>(new Set(visibleBlocks));
 
 	$effect(() => {
 		dayNum;
 		expandedBlocks = new Set(activeBlocksForDay(dayNum));
 	});
 
-	function toggleBlock(blockId: MealBlockId) {
+	function toggleBlock(blockId: ChallengeMealBlockId) {
 		const next = new Set(expandedBlocks);
 		if (next.has(blockId)) {
 			next.delete(blockId);

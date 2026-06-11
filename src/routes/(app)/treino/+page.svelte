@@ -456,10 +456,11 @@
 					<button
 						type="button"
 						onclick={() => (infoSheetOpen = true)}
-						class="flex h-6 w-6 items-center justify-center rounded-full transition-colors active:bg-line/30"
-						aria-label="Como funciona o treino"
+						class="flex items-center gap-1 rounded-full px-1.5 py-0.5 transition-colors active:bg-line/30"
+						aria-label="Ver tutorial do treino"
 					>
-						<svg class="h-4 w-4 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<span class="text-[10px] font-semibold text-muted">Ver Tutorial</span>
+						<svg class="h-3.5 w-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 							<circle cx="12" cy="12" r="10" />
 							<path d="M12 16v-4" />
 							<path d="M12 8h.01" />

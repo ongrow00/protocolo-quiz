@@ -1,11 +1,18 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { onDestroy, onMount } from 'svelte';
+	import { fly, fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import animationData from '$lib/assets/plan-bonus-gift.json';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 
+	const HEADLINE_DELAY_MS = 3000;
+	const COUPON_STAGGER_MS = 180;
+
 	let giftEl: HTMLDivElement | null = $state(null);
 	let anim: { destroy: () => void } | null = null;
+	let showHeadline = $state(false);
+	let showCoupon = $state(false);
 
 	function firstThreeNameLetters(name: string): string {
 		const letters = name
@@ -30,19 +37,32 @@
 	});
 
 	onMount(() => {
-		if (!browser || !giftEl) return;
-		const data = JSON.parse(JSON.stringify(animationData)) as object;
-		void (async () => {
-			const mod = await import('lottie-web');
-			const lottie = mod.default ?? mod;
-			anim = lottie.loadAnimation({
-				container: giftEl,
-				renderer: 'svg',
-				loop: true,
-				autoplay: true,
-				animationData: data
-			});
-		})().catch(() => {});
+		const headlineTimer = setTimeout(() => {
+			showHeadline = true;
+		}, HEADLINE_DELAY_MS);
+		const couponTimer = setTimeout(() => {
+			showCoupon = true;
+		}, HEADLINE_DELAY_MS + COUPON_STAGGER_MS);
+
+		if (browser && giftEl) {
+			const data = JSON.parse(JSON.stringify(animationData)) as object;
+			void (async () => {
+				const mod = await import('lottie-web');
+				const lottie = mod.default ?? mod;
+				anim = lottie.loadAnimation({
+					container: giftEl,
+					renderer: 'svg',
+					loop: true,
+					autoplay: true,
+					animationData: data
+				});
+			})().catch(() => {});
+		}
+
+		return () => {
+			clearTimeout(headlineTimer);
+			clearTimeout(couponTimer);
+		};
 	});
 
 	onDestroy(() => {
@@ -57,13 +77,24 @@
 	<div
 		class="mx-auto size-44 shrink-0 sm:size-52"
 		bind:this={giftEl}
+		in:fade={{ duration: 400, easing: cubicOut }}
 		aria-hidden="true"
 	></div>
-	<h2 class="max-w-md px-1 text-2xl font-medium text-heading leading-[24px] text-balance [&_strong]:font-extrabold">
-		Você recebeu mais <strong>20% de desconto</strong> para acessar o seu protocolo agora.
-	</h2>
 
-	<div class="w-full max-w-sm mx-auto flex flex-col gap-2 text-left">
+	{#if showHeadline}
+		<h2
+			class="max-w-md px-1 text-2xl font-medium text-heading leading-[24px] text-balance [&_strong]:font-extrabold"
+			in:fly={{ y: 14, duration: 500, easing: cubicOut }}
+		>
+			Você recebeu mais <strong>20% de desconto</strong> para acessar o seu protocolo agora.
+		</h2>
+	{/if}
+
+	{#if showCoupon}
+	<div
+		class="w-full max-w-sm mx-auto flex flex-col gap-2 text-left"
+		in:fly={{ y: 14, duration: 500, easing: cubicOut }}
+	>
 		<label class="text-xs font-semibold uppercase tracking-wide text-muted" for="bonus-coupon-display">
 			Cupom de desconto
 		</label>
@@ -95,4 +126,5 @@
 			</span>
 		</div>
 	</div>
+	{/if}
 </div>

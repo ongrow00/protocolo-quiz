@@ -1,18 +1,15 @@
 /**
- * Segundos de reprodução (VTurb `displayHiddenElements`) antes de revelar elementos.
- * Deve coincidir com o pitch no vídeo (min×60 + seg) e com o delay no painel VTurb.
- * @see https://help.vturb.com/pt-br/article/codigo-de-delay-para-sincronizar-elementos-da-pagina-com-o-seu-video-1loyzpq/
+ * mr-3 (quiz): segundos de reprodução do vídeo antes de revelar o CTA.
+ * O reveal é guiado por `video.currentTime` (gate de reprodução), não pelo relógio da página.
+ * Mantenha alinhado ao momento do pitch no vídeo.
  */
 export const MR3_VTURB_DELAY_SEC = 10;
 
-/** mr-3 (quiz): sem cache — o lead assiste o pitch em cada visita à pergunta. */
-export const MR3_VTURB_PERSIST = false;
-
-/** /results e /ativacao: conteúdo após o vídeo do protocolo (`playbackGate` / timeupdate). */
+/**
+ * /results e /ativacao: segundos de reprodução do vídeo antes de revelar a oferta.
+ * Guiado por `video.currentTime` (gate de reprodução).
+ */
 export const RESULTS_VTURB_DELAY_SEC = 10;
 
-/** Disparado somente quando o VTurb altera o DOM e o CTA fica visível. */
+/** Disparado quando o gate de reprodução do mr-3 atinge o tempo alvo (sync com o vídeo). */
 export const MR3_CTA_REVEAL_EVENT = 'quiz-mr3-cta-reveal';
-
-/** Disparado quando `displayHiddenElements` foi registrado no player (mr-3). */
-export const MR3_CTA_REGISTERED_EVENT = 'quiz-mr3-cta-registered';

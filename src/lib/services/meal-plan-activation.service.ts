@@ -1,6 +1,8 @@
 import { setChallengePlanDirect, type DayPlan } from '$lib/data/challenge-plan';
 import { generateChallengePlan } from '$lib/data/meal-plan-generator';
 import type { MealSelections } from '$lib/data/meal-preferences';
+import { normalizeMealSelections } from '$lib/data/meal-preferences';
+import { DEFAULT_SELECTIONS } from '$lib/data/meal-plan-generator';
 import { getAnonymousId } from '$lib/stores/identity.store';
 import { supabase } from '$lib/supabase';
 
@@ -49,7 +51,8 @@ export async function persistActivationMealPlan(
 	}
 
 	try {
-		const plan = generateChallengePlan(selections);
+		const normalized = normalizeMealSelections(selections, DEFAULT_SELECTIONS);
+		const plan = generateChallengePlan(normalized);
 		setChallengePlanDirect(plan);
 		const anonymousId = getAnonymousId();
 
@@ -58,7 +61,7 @@ export async function persistActivationMealPlan(
 			.insert({
 				user_id: user.id,
 				anonymous_id: anonymousId,
-				selections,
+				selections: normalized,
 				generated_plan: plan,
 				is_active: true
 			})

@@ -1,4 +1,7 @@
-export type MealBlockId = 'cafe' | 'almoco' | 'lanche' | 'janta';
+export type MealBlockId = 'cafe' | 'almoco' | 'lanche' | 'janta' | 'lancheNoite';
+
+/** Blocos exibidos no challenge (refeições do dia). */
+export type ChallengeMealBlockId = 'cafe' | 'almoco' | 'lanche' | 'janta';
 
 export type MealFoodItem = {
 	id: string;
@@ -13,6 +16,8 @@ export type MealBlock = {
 	proteins: MealFoodItem[];
 	carbLabel?: string;
 	proteinLabel?: string;
+	/** Texto auxiliar exibido no picker de preferências. */
+	hint?: string;
 };
 
 export type MealSelections = Record<MealBlockId, { carbs: string[]; proteins: string[] }>;
@@ -100,7 +105,7 @@ const SNACK_PROTEINS: MealFoodItem[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Jantar (mesmas opções do almoço — formato prato)
+// Jantar — formato prato (opções 1–2 do jantar)
 // ---------------------------------------------------------------------------
 
 const DINNER_CARBS: MealFoodItem[] = [
@@ -124,6 +129,20 @@ const DINNER_PROTEINS: MealFoodItem[] = [
 	{ id: 'janta-prot-moela', label: 'Moela', emoji: '🍖' },
 	{ id: 'janta-prot-figado', label: 'Fígado', emoji: '🍖' }
 ];
+
+// ---------------------------------------------------------------------------
+// Lanche da Noite — Formato LANCHE (opções 3–4 do jantar)
+// ---------------------------------------------------------------------------
+
+const LANCHE_NOITE_CARBS: MealFoodItem[] = BREAKFAST_CARBS.map((item) => ({
+	...item,
+	id: item.id.replace('cafe-carb-', 'lancheNoite-carb-')
+}));
+
+const LANCHE_NOITE_PROTEINS: MealFoodItem[] = BREAKFAST_PROTEINS.map((item) => ({
+	...item,
+	id: item.id.replace('cafe-prot-', 'lancheNoite-prot-')
+}));
 
 // ---------------------------------------------------------------------------
 // Blocos exportados
@@ -154,6 +173,40 @@ export const MEAL_BLOCKS: MealBlock[] = [
 		id: 'janta',
 		title: 'Janta',
 		carbs: DINNER_CARBS,
-		proteins: DINNER_PROTEINS
+		proteins: DINNER_PROTEINS,
+		hint: 'Prato do jantar (opções 1 e 2). As opções de lanche da noite são configuradas abaixo.'
+	},
+	{
+		id: 'lancheNoite',
+		title: 'Lanche da Noite',
+		carbs: LANCHE_NOITE_CARBS,
+		proteins: LANCHE_NOITE_PROTEINS,
+		hint: 'Formato LANCHE — usado nas opções 3 e 4 do jantar. Porções variam conforme a fase.'
 	}
 ];
+
+/** Blocos usados no fluxo de preferências (onboarding). */
+export const PREFERENCE_MEAL_BLOCKS: MealBlock[] = MEAL_BLOCKS;
+
+/**
+ * Normaliza seleções antigas sem `lancheNoite` (fallback: preferências do café).
+ */
+export function normalizeMealSelections(
+	raw: Partial<MealSelections> | null | undefined,
+	fallback: MealSelections
+): MealSelections {
+	if (!raw) return fallback;
+
+	const lancheNoite =
+		raw.lancheNoite?.carbs?.length && raw.lancheNoite?.proteins?.length
+			? raw.lancheNoite
+			: raw.cafe ?? fallback.lancheNoite;
+
+	return {
+		cafe: raw.cafe ?? fallback.cafe,
+		almoco: raw.almoco ?? fallback.almoco,
+		lanche: raw.lanche ?? fallback.lanche,
+		janta: raw.janta ?? fallback.janta,
+		lancheNoite
+	};
+}

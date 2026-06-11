@@ -1,5 +1,5 @@
-import type { MealBlockId } from '$lib/data/meal-preferences';
-import { MEAL_BLOCKS } from '$lib/data/meal-preferences';
+import type { ChallengeMealBlockId, MealBlockId } from '$lib/data/meal-preferences';
+import { MEAL_BLOCKS, normalizeMealSelections } from '$lib/data/meal-preferences';
 import type { MealSelections } from '$lib/data/meal-preferences';
 import { CHALLENGE_TOTAL_DAYS } from '$lib/constants/challenge-storage-keys';
 import {
@@ -7,21 +7,45 @@ import {
 	buildSubstituteMealOption,
 	DEFAULT_SELECTIONS,
 	type MealOption,
+	type MealOptionKind,
 	type MealBadge,
 	type MealMacros,
 	type DayPlan,
 	getPhase,
-	phaseHasBreakfast
+	phaseHasBreakfast,
+	getMealOptionKind,
+	JANTA_MAIN_OPTIONS
 } from '$lib/data/meal-plan-generator';
 
-export type { MealBlockId, MealOption, MealBadge, MealMacros, DayPlan, MealSelections };
-export { getPhase, phaseHasBreakfast, buildSubstituteMealOption };
+export type {
+	MealBlockId,
+	ChallengeMealBlockId,
+	MealSelections,
+	MealOption,
+	MealBadge,
+	MealMacros,
+	DayPlan,
+	MealOptionKind
+};
+export {
+	getPhase,
+	phaseHasBreakfast,
+	buildSubstituteMealOption,
+	getMealOptionKind,
+	JANTA_MAIN_OPTIONS,
+	normalizeMealSelections
+};
 
-export const MEAL_BLOCK_ORDER: MealBlockId[] = ['cafe', 'almoco', 'lanche', 'janta'];
+export const MEAL_BLOCK_ORDER: ChallengeMealBlockId[] = ['cafe', 'almoco', 'lanche', 'janta'];
 
-export const MEAL_BLOCK_TITLES: Record<MealBlockId, string> = Object.fromEntries(
-	MEAL_BLOCKS.map((b) => [b.id, b.title])
-) as Record<MealBlockId, string>;
+const CHALLENGE_BLOCK_TITLES = Object.fromEntries(
+	MEAL_BLOCKS.filter((b) => MEAL_BLOCK_ORDER.includes(b.id as ChallengeMealBlockId)).map((b) => [
+		b.id,
+		b.title
+	])
+) as Record<ChallengeMealBlockId, string>;
+
+export const MEAL_BLOCK_TITLES: Record<ChallengeMealBlockId, string> = CHALLENGE_BLOCK_TITLES;
 
 const BADGE_LABELS: Record<MealBadge, string> = {
 	light: 'Light',
@@ -41,19 +65,11 @@ export function mealOptionLabel(optionIndex: number): string {
 	return `Opção ${optionIndex}`;
 }
 
-// ---------------------------------------------------------------------------
-// Plano reativo — atualizado via setChallengeSelections()
-// ---------------------------------------------------------------------------
-
-/**
- * Plano de 14 dias gerado a partir das preferências do usuário.
- * Inicializado com seleções padrão; atualizar via setChallengeSelections().
- * ES module live bindings garantem que importadores veem a referência atualizada.
- */
 export let CHALLENGE_PLAN: DayPlan[] = generateChallengePlan(DEFAULT_SELECTIONS);
 
 export function setChallengeSelections(selections: MealSelections): void {
-	CHALLENGE_PLAN = generateChallengePlan(selections);
+	const normalized = normalizeMealSelections(selections, DEFAULT_SELECTIONS);
+	CHALLENGE_PLAN = generateChallengePlan(normalized);
 }
 
 export function setChallengePlanDirect(plan: DayPlan[]): void {
@@ -64,26 +80,19 @@ export function getDayPlan(day: number): DayPlan | undefined {
 	return CHALLENGE_PLAN.find((d) => d.day === day);
 }
 
-export function mealKey(day: number, block: MealBlockId, optionId: string): string {
+export function mealKey(day: number, block: ChallengeMealBlockId, optionId: string): string {
 	return `${day}-${block}-${optionId}`;
 }
 
-/**
- * Retorna os blocos ativos para um dia (ex: fases 2–4 não têm café).
- */
-export function activeBlocksForDay(day: number): MealBlockId[] {
+export function activeBlocksForDay(day: number): ChallengeMealBlockId[] {
 	const phase = getPhase(day);
 	if (phaseHasBreakfast(phase)) return MEAL_BLOCK_ORDER;
 	return MEAL_BLOCK_ORDER.filter((b) => b !== 'cafe');
 }
 
-/**
- * Substitui uma opção de refeição no plano em memória.
- * Retorna a nova MealOption, ou null se a substituição falhar.
- */
 export function replaceMealOption(
 	day: number,
-	blockId: MealBlockId,
+	blockId: ChallengeMealBlockId,
 	oldOptionId: string,
 	carbItemId: string,
 	proteinItemId: string
@@ -96,7 +105,15 @@ export function replaceMealOption(
 	if (idx === -1) return null;
 
 	const optionIndex = options[idx].optionIndex;
-	const newMeal = buildSubstituteMealOption(blockId, carbItemId, proteinItemId, day, optionIndex);
+	const kind = getMealOptionKind(options[idx]);
+	const newMeal = buildSubstituteMealOption(
+		blockId,
+		carbItemId,
+		proteinItemId,
+		day,
+		optionIndex,
+		kind
+	);
 	newMeal.id = oldOptionId;
 	options[idx] = newMeal;
 

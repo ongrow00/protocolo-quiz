@@ -1,6 +1,8 @@
 import { browser } from '$app/environment';
 import { writable } from 'svelte/store';
 import type { MealSelections } from '$lib/data/meal-preferences';
+import { normalizeMealSelections } from '$lib/data/meal-preferences';
+import { DEFAULT_SELECTIONS } from '$lib/data/meal-plan-generator';
 import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 import { setChallengeSelections } from '$lib/data/challenge-plan';
 
@@ -18,10 +20,15 @@ export interface PostQuizState {
 	/** Clicou no CTA "COMEÇAR AGORA" no bloco de preço (results). */
 	clickedComecarAgora: boolean;
 	/**
-	 * /results: oferta revelada após `playbackGate` (video.currentTime >= delay).
+	 * /results: oferta revelada pelo gate de reprodução (video.currentTime >= delay).
 	 * Não persiste em localStorage — só memória na visita atual.
 	 */
 	resultsContentRevealed: boolean;
+	/**
+	 * /ativacao: oferta revelada pelo gate do vídeo. Persiste em localStorage para
+	 * não exigir rever o vídeo ao recarregar ou voltar à tela.
+	 */
+	ativacaoOfferRevealed: boolean;
 	/**
 	 * /plan/bonus: utilizador já respondeu (aceitar ou recusar). Persiste em sessionStorage.
 	 * Usado para: após interação, Voltar em /results vai a /metabolismo (não repete o bónus).
@@ -44,6 +51,7 @@ const INITIAL: PostQuizState = {
 	onboardingComplete: false,
 	clickedComecarAgora: false,
 	resultsContentRevealed: false,
+	ativacaoOfferRevealed: false,
 	bonusInteracted: false,
 	bonusDiscountAccepted: false
 };
@@ -54,15 +62,19 @@ function loadState(): PostQuizState {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return INITIAL;
 		const parsed = JSON.parse(raw) as Partial<PostQuizState>;
-		const selections =
+		const rawSelections =
 			parsed.mealSelections && typeof parsed.mealSelections === 'object'
-				? (parsed.mealSelections as MealSelections)
+				? (parsed.mealSelections as Partial<MealSelections>)
 				: null;
+		const selections = rawSelections
+			? normalizeMealSelections(rawSelections, DEFAULT_SELECTIONS)
+			: null;
 		if (selections) setChallengeSelections(selections);
 		const followUp =
 			parsed.followUpAnswers && typeof parsed.followUpAnswers === 'object'
 				? (parsed.followUpAnswers as Record<string, MealFollowUpAnswer>)
 				: null;
+		const ativacaoOfferRevealed = parsed.ativacaoOfferRevealed === true;
 		return {
 			name: typeof parsed.name === 'string' ? parsed.name : '',
 			whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
@@ -70,7 +82,8 @@ function loadState(): PostQuizState {
 			followUpAnswers: followUp,
 			onboardingComplete: parsed.onboardingComplete === true,
 			clickedComecarAgora: parsed.clickedComecarAgora === true,
-			resultsContentRevealed: false,
+			resultsContentRevealed: ativacaoOfferRevealed,
+			ativacaoOfferRevealed,
 			bonusInteracted: parsed.bonusInteracted === true,
 			bonusDiscountAccepted: parsed.bonusDiscountAccepted === true
 		};
@@ -91,6 +104,7 @@ function saveState(state: PostQuizState): void {
 				followUpAnswers: state.followUpAnswers,
 				onboardingComplete: state.onboardingComplete,
 				clickedComecarAgora: state.clickedComecarAgora,
+				ativacaoOfferRevealed: state.ativacaoOfferRevealed,
 				bonusInteracted: state.bonusInteracted,
 				bonusDiscountAccepted: state.bonusDiscountAccepted
 			})
@@ -132,12 +146,24 @@ function createPostQuizStore() {
 			update((s) => (s.onboardingComplete ? s : persist({ ...s, onboardingComplete: true })));
 		},
 
+		syncOnboardingComplete(complete: boolean) {
+			update((s) => (s.onboardingComplete === complete ? s : persist({ ...s, onboardingComplete: complete })));
+		},
+
 		markComecarAgoraClicked() {
 			update((s) => (s.clickedComecarAgora ? s : persist({ ...s, clickedComecarAgora: true })));
 		},
 
 		markResultsContentRevealed() {
 			update((s) => (s.resultsContentRevealed ? s : { ...s, resultsContentRevealed: true }));
+		},
+
+		markAtivacaoOfferRevealed() {
+			update((s) =>
+				s.ativacaoOfferRevealed
+					? s
+					: persist({ ...s, ativacaoOfferRevealed: true, resultsContentRevealed: true })
+			);
 		},
 
 		resetResultsContentRevealed() {

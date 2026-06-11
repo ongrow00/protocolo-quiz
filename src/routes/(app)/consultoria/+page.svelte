@@ -3,23 +3,26 @@
 	import ConsultoriaVideoPlayer from '$lib/components/challenge/ConsultoriaVideoPlayer.svelte';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import { CONSULTORIA_OFFER } from '$lib/data/consultoria-offer';
-	import type { UtmParams } from '$lib/data/types';
+	import { loadAppCheckoutState } from '$lib/services/profile-utm.service';
 	import { authStore } from '$lib/stores/auth.store';
 	import { sessionStore } from '$lib/stores/session.store';
-	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
+	import {
+		buildAppCheckoutUrl,
+		EMPTY_APP_CHECKOUT_STATE,
+		type AppCheckoutState
+	} from '$lib/utils/checkout-url';
 
-	let profileUtm = $state<UtmParams>({});
+	let checkoutState = $state<AppCheckoutState>(EMPTY_APP_CHECKOUT_STATE);
 
 	$effect(() => {
-		const userId = $authStore.user?.id;
-		if (!userId) {
-			profileUtm = {};
+		const user = $authStore.user;
+		if (!user?.id) {
+			checkoutState = EMPTY_APP_CHECKOUT_STATE;
 			return;
 		}
 		let cancelled = false;
-		void loadProfileUtm(userId).then((utm) => {
-			if (!cancelled) profileUtm = utm;
+		void loadAppCheckoutState(user.id, user.email).then((state) => {
+			if (!cancelled) checkoutState = state;
 		});
 		return () => {
 			cancelled = true;
@@ -27,8 +30,9 @@
 	});
 
 	const checkoutUrl = $derived(
-		appendCheckoutParams(CONSULTORIA_OFFER.checkoutUrl, {
-			utm: mergeUtmParams($sessionStore.utm, profileUtm),
+		buildAppCheckoutUrl(CONSULTORIA_OFFER.checkoutUrl, {
+			sessionUtm: $sessionStore.utm,
+			checkout: checkoutState,
 			extra: { src: CONSULTORIA_OFFER.checkoutSrc }
 		})
 	);
@@ -47,13 +51,13 @@
 				</h2>
 				<div class="flex flex-col gap-0.5 text-sm leading-snug text-[#4a4a4a]">
 					<p><span class="text-[#999] line-through">R$3.564</span></p>
-					<p>Por <strong class="text-[#1a1a1a]">12x de R$31,12</strong> <span class="text-[#6b6b6b]">ou R$297 à vista.</span></p>
+					<p>Por <strong class="text-[#1a1a1a]">12x de R$26,62</strong> <span class="text-[#6b6b6b]">ou R$250,00 à vista.</span></p>
 				</div>
 			</div>
 
 			<div class="border-t border-black/[0.06] px-5 py-4">
 				<p class="text-[13px] leading-relaxed text-[#4a4a4a]">
-					Sed egestas libero urna, eget consequat elit fermentum eu. Cras non varius nibh. Nam non aliquam libero. Proin consectetur malesuada lacus et auctor.
+					Tenha uma equipe de nutricionistas, psicólogos e um assistente dedicado acompanhando você pelos próximos 12 meses, com suporte contínuo e atenção personalizada.
 				</p>
 			</div>
 
@@ -74,7 +78,7 @@
 			rel="noopener noreferrer"
 			class="cta-shine relative flex h-[60px] w-full items-center justify-between gap-3 overflow-hidden rounded-challenge border-2 border-white bg-accent px-5 text-base font-bold text-bg transition-all duration-200 hover:bg-accent-dark active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
 		>
-			<span class="relative z-[1]">Teste por 14 Dias</span>
+			<span class="relative z-[1]">Teste por 21 Dias</span>
 			<svg
 				class="relative z-[1] h-5 w-5 shrink-0"
 				viewBox="0 0 24 24"

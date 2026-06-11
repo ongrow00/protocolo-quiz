@@ -8,11 +8,11 @@ export type MealFollowUpQuestion = {
 export const MEAL_FOLLOW_UP_QUESTIONS: MealFollowUpQuestion[] = [
 	{
 		id: 'maintain-alone-14d',
-		text: 'Você sente que seria capaz de manter o resultado alcançado após os quatorze dias?'
+		text: 'Você sente que seria capaz de manter o resultado alcançado após os 14 dias?'
 	},
 	{
 		id: 'yo-yo-before',
-		text: 'Você já emagreceu antes… e depois ganhou peso novamente?'
+		text: 'Você já emagreceu antes, mas depois ganhou peso novamente?'
 	},
 	{
 		id: 'know-maintain-weight',

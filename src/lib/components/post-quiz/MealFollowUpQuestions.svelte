@@ -16,8 +16,8 @@
 	let { onComplete }: Props = $props();
 
 	const YES_NO_OPTIONS: QuizOption[] = [
-		{ id: 'sim', text: 'Sim', scores: {} },
-		{ id: 'nao', text: 'Não', scores: {} }
+		{ id: 'nao', text: 'Não', scores: {} },
+		{ id: 'sim', text: 'Sim', scores: {} }
 	];
 
 	const stepFlyIn = { x: 30, duration: 260, delay: 40 };

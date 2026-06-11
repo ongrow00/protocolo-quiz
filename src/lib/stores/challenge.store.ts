@@ -4,7 +4,7 @@ import {
 	CHALLENGE_STORAGE_KEY,
 	CHALLENGE_TOTAL_DAYS
 } from '$lib/constants/challenge-storage-keys';
-import type { MealBlockId } from '$lib/data/challenge-plan';
+import type { ChallengeMealBlockId } from '$lib/data/meal-preferences';
 import { isDayFullyResolved } from '$lib/utils/challenge-progress';
 import { supabase } from '$lib/supabase';
 
@@ -100,7 +100,7 @@ function syncToSupabase(state: ChallengeState): void {
 	}, 500);
 }
 
-function mealStorageKey(day: number, block: MealBlockId, optionId: string): string {
+function mealStorageKey(day: number, block: ChallengeMealBlockId, optionId: string): string {
 	return `${day}-${block}-${optionId}`;
 }
 
@@ -159,7 +159,7 @@ function createChallengeStore() {
 			});
 		},
 
-		markMeal(day: number, block: MealBlockId, optionId: string) {
+		markMeal(day: number, block: ChallengeMealBlockId, optionId: string) {
 			update((s) => {
 				const key = mealStorageKey(day, block, optionId);
 				const meals = { ...s.meals, [key]: 'completed' as MealCheckStatus };
@@ -169,7 +169,7 @@ function createChallengeStore() {
 			});
 		},
 
-		skipMeal(day: number, block: MealBlockId, optionId: string) {
+		skipMeal(day: number, block: ChallengeMealBlockId, optionId: string) {
 			update((s) => {
 				const key = mealStorageKey(day, block, optionId);
 				const meals = { ...s.meals, [key]: 'skipped' as MealCheckStatus };
@@ -179,7 +179,7 @@ function createChallengeStore() {
 			});
 		},
 
-		unmarkMeal(day: number, block: MealBlockId, optionId: string) {
+		unmarkMeal(day: number, block: ChallengeMealBlockId, optionId: string) {
 			update((s) => {
 				const key = mealStorageKey(day, block, optionId);
 				if (!(key in s.meals)) return s;

@@ -1,35 +1,20 @@
 <script lang="ts">
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
-	import {
-		MR3_CTA_REGISTERED_EVENT,
-		MR3_CTA_REVEAL_EVENT,
-		MR3_VTURB_DELAY_SEC,
-		MR3_VTURB_PERSIST
-	} from '$lib/constants/mr3-vturb';
+	import { MR3_CTA_REVEAL_EVENT, MR3_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
 
 	const PLAYER_SCRIPT_SRC =
-		'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/6a0c79c1ec6c56d65aedf197/v4/player.js';
-	const PLAYER_ID = 'vid-6a0c79c1ec6c56d65aedf197';
+		'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a2ad66d8001297f97e63237/v4/player.js';
+	const PLAYER_ID = 'vid-6a2ad66d8001297f97e63237';
 
-	function handleReveal() {
-		document.dispatchEvent(new CustomEvent(MR3_CTA_REVEAL_EVENT));
-	}
-
-	function handleDelayRegistered() {
-		document.dispatchEvent(new CustomEvent(MR3_CTA_REGISTERED_EVENT));
-	}
+	/** Estável: evita re-attach do gate a cada render. Revela no tempo real do vídeo. */
+	const MR3_PLAYBACK_GATE = {
+		seconds: MR3_VTURB_DELAY_SEC,
+		onReached: () => {
+			document.dispatchEvent(new CustomEvent(MR3_CTA_REVEAL_EVENT));
+		}
+	};
 </script>
 
 <div class="relative w-full mt-6 min-w-0">
-	<VturbPlayer
-		playerId={PLAYER_ID}
-		scriptSrc={PLAYER_SCRIPT_SRC}
-		revealHiddenAfterPlayback={{
-			seconds: MR3_VTURB_DELAY_SEC,
-			selectors: ['.esconder'],
-			persist: MR3_VTURB_PERSIST
-		}}
-		onReveal={handleReveal}
-		onDelayRegistered={handleDelayRegistered}
-	/>
+	<VturbPlayer playerId={PLAYER_ID} scriptSrc={PLAYER_SCRIPT_SRC} playbackGate={MR3_PLAYBACK_GATE} />
 </div>

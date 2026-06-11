@@ -25,12 +25,23 @@ function createAuthStore() {
 		initialized = true;
 
 		const {
-			data: { session }
-		} = await supabase.auth.getSession();
+			data: { user }
+		} = await supabase.auth.getUser();
+
+		let session: Session | null = null;
+		if (user) {
+			const {
+				data: { session: activeSession }
+			} = await supabase.auth.getSession();
+			session = activeSession;
+		} else {
+			// Sessão local obsoleta (ex.: usuário removido no Auth)
+			await supabase.auth.signOut();
+		}
 
 		set({
-			user: session?.user ?? null,
-			session: session ?? null,
+			user: user ?? null,
+			session,
 			loading: false
 		});
 

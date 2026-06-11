@@ -1,8 +1,14 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import MealMarkConfirmSheet from '$lib/components/challenge/MealMarkConfirmSheet.svelte';
-	import { mealOptionLabel, type MealOption } from '$lib/data/challenge-plan';
-	import { MEAL_BLOCKS, type MealBlockId, type MealFoodItem } from '$lib/data/meal-preferences';
+	import {
+		mealOptionLabel,
+		getMealOptionKind,
+		getPhase,
+		type MealOption
+	} from '$lib/data/challenge-plan';
+	import { MEAL_BLOCKS, type ChallengeMealBlockId, type MealBlockId, type MealFoodItem } from '$lib/data/meal-preferences';
+	import { PHASE4_LANCHE_FORMATO_OPTIONS } from '$lib/data/meal-nutrition';
 	import type { MealCheckStatus } from '$lib/stores/challenge.store';
 
 	interface Props {
@@ -35,16 +41,33 @@
 	let selectedProtein = $state<string | null>(null);
 	let confirmOpen = $state(false);
 
-	function extractBlockId(mealId: string): MealBlockId {
+	function extractBlockId(mealId: string): ChallengeMealBlockId {
 		const parts = mealId.split('-');
-		return parts[1] as MealBlockId;
+		return parts[1] as ChallengeMealBlockId;
 	}
 
 	const blockId = $derived(meal ? extractBlockId(meal.id) : 'almoco');
-	const block = $derived(MEAL_BLOCKS.find((b) => b.id === blockId));
-	const showVegetais = $derived(blockId === 'almoco' || blockId === 'janta');
+	const mealKind = $derived(meal ? getMealOptionKind(meal) : 'main');
+	const mealDay = $derived(meal ? Number.parseInt(meal.id.split('-')[0].slice(1), 10) : 1);
+	const mealPhase = $derived(getPhase(mealDay));
+	const isAfternoonSnack = $derived(mealKind === 'snack');
+	const isLancheFormato = $derived(mealKind === 'lanche');
+	const isPhase4LancheFormato = $derived(isLancheFormato && mealPhase === 4);
+	const substituteBlockId = $derived<MealBlockId>(
+		isAfternoonSnack ? 'lanche' : isLancheFormato ? 'lancheNoite' : blockId
+	);
+	const block = $derived(MEAL_BLOCKS.find((b) => b.id === substituteBlockId));
+	const showVegetais = $derived(
+		blockId === 'almoco' || (blockId === 'janta' && mealKind === 'main')
+	);
+	const canSubstitute = $derived(!(isAfternoonSnack && mealPhase === 4));
 	const carbOptions = $derived<MealFoodItem[]>(block?.carbs ?? []);
 	const proteinOptions = $derived<MealFoodItem[]>(block?.proteins ?? []);
+	const substituteReady = $derived(
+		isAfternoonSnack || isPhase4LancheFormato
+			? !!selectedCarb
+			: !!selectedCarb && !!selectedProtein
+	);
 
 	function openSubstitute() {
 		selectedCarb = null;
@@ -62,8 +85,9 @@
 	}
 
 	function handleSubstitute() {
-		if (!selectedCarb || !selectedProtein) return;
-		onSubstitute(selectedCarb, selectedProtein);
+		if (!selectedCarb) return;
+		if (!isAfternoonSnack && !isPhase4LancheFormato && !selectedProtein) return;
+		onSubstitute(selectedCarb, selectedProtein ?? '');
 		closeSubstitute();
 	}
 
@@ -94,13 +118,15 @@
 				>
 					Refeição Finalizada
 				</button>
-				<button
-					type="button"
-					onclick={openSubstitute}
-					class="w-full rounded-challenge border border-line/40 bg-surface py-3.5 text-sm font-bold text-heading transition-all active:scale-[0.98]"
-				>
-					Substituir Refeição
-				</button>
+				{#if canSubstitute}
+					<button
+						type="button"
+						onclick={openSubstitute}
+						class="w-full rounded-challenge border border-line/40 bg-surface py-3.5 text-sm font-bold text-heading transition-all active:scale-[0.98]"
+					>
+						Substituir Refeição
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<button
@@ -117,9 +143,9 @@
 {#snippet substituteFooter()}
 	<button
 		type="button"
-		disabled={!selectedCarb || !selectedProtein}
+		disabled={!substituteReady}
 		onclick={handleSubstitute}
-		class="w-full rounded-challenge py-3.5 text-sm font-bold shadow-sm transition-all active:scale-[0.98] {selectedCarb && selectedProtein
+		class="w-full rounded-challenge py-3.5 text-sm font-bold shadow-sm transition-all active:scale-[0.98] {substituteReady
 			? 'bg-accent text-bg'
 			: 'bg-line/30 text-muted cursor-not-allowed'}"
 	>
@@ -237,6 +263,29 @@
 >
 	{#if meal}
 		<div class="flex flex-col gap-5 pb-2">
+			{#if isPhase4LancheFormato}
+				<div class="flex flex-col gap-2">
+					<h3 class="text-sm font-bold text-heading">Opção</h3>
+					<div class="flex flex-col gap-2">
+						{#each PHASE4_LANCHE_FORMATO_OPTIONS as combo, i (combo.name)}
+							<button
+								type="button"
+								onclick={() =>
+									(selectedCarb =
+										selectedCarb === `lancheNoite-combo-${i}`
+											? null
+											: `lancheNoite-combo-${i}`)}
+								class="rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedCarb ===
+								`lancheNoite-combo-${i}`
+									? 'border-accent bg-accent-soft font-bold text-heading'
+									: 'border-line/40 bg-surface text-body'}"
+							>
+								{combo.name}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{:else}
 			<div class="flex flex-col gap-2">
 				<h3 class="text-sm font-bold text-heading">
 					{block?.carbLabel ?? 'Carboidrato'}
@@ -257,25 +306,28 @@
 				</div>
 			</div>
 
-			<div class="flex flex-col gap-2">
-				<h3 class="text-sm font-bold text-heading">
-					{block?.proteinLabel ?? 'Proteína'}
-				</h3>
-				<div class="grid grid-cols-2 gap-2">
-					{#each proteinOptions as item (item.id)}
-						<button
-							type="button"
-							onclick={() => (selectedProtein = selectedProtein === item.id ? null : item.id)}
-							class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedProtein === item.id
-								? 'border-accent bg-accent-soft font-bold text-heading'
-								: 'border-line/40 bg-surface text-body'}"
-						>
-							<span class="text-base">{item.emoji}</span>
-							<span class="truncate">{item.label}</span>
-						</button>
-					{/each}
+			{#if !isAfternoonSnack}
+				<div class="flex flex-col gap-2">
+					<h3 class="text-sm font-bold text-heading">
+						{block?.proteinLabel ?? 'Proteína'}
+					</h3>
+					<div class="grid grid-cols-2 gap-2">
+						{#each proteinOptions as item (item.id)}
+							<button
+								type="button"
+								onclick={() => (selectedProtein = selectedProtein === item.id ? null : item.id)}
+								class="flex items-center gap-2 rounded-challenge border px-3 py-2.5 text-left text-sm transition-all active:scale-[0.98] {selectedProtein === item.id
+									? 'border-accent bg-accent-soft font-bold text-heading'
+									: 'border-line/40 bg-surface text-body'}"
+							>
+								<span class="text-base">{item.emoji}</span>
+								<span class="truncate">{item.label}</span>
+							</button>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{/if}
+			{/if}
 		</div>
 	{/if}
 </BottomSheet>

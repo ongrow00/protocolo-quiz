@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { slide, fade } from 'svelte/transition';
 	import MealOptionCard from '$lib/components/challenge/MealOptionCard.svelte';
-	import type { MealBlockId } from '$lib/data/meal-preferences';
-	import { MEAL_BLOCK_TITLES, type MealOption } from '$lib/data/challenge-plan';
+	import type { ChallengeMealBlockId } from '$lib/data/meal-preferences';
+	import { MEAL_BLOCK_TITLES, getMealOptionKind, type MealOption } from '$lib/data/challenge-plan';
 	import type { MealCheckStatus } from '$lib/stores/challenge.store';
 	import { canAccessTreino } from '$lib/stores/access.store';
 
 	interface Props {
-		blockId: MealBlockId;
+		blockId: ChallengeMealBlockId;
 		dayNum: number;
 		meals: MealOption[];
 		getStatus: (optionId: string) => MealCheckStatus | 'pending';
@@ -36,7 +36,40 @@
 
 	const sectionTitle = $derived(MEAL_BLOCK_TITLES[blockId]);
 	const contentId = $derived(`section-${blockId}-content`);
+	const isJantaBlock = $derived(blockId === 'janta');
+	const mainMeals = $derived(
+		isJantaBlock ? meals.filter((m) => getMealOptionKind(m) === 'main') : meals
+	);
+	const lancheMeals = $derived(
+		isJantaBlock ? meals.filter((m) => getMealOptionKind(m) === 'lanche') : []
+	);
+
+	function visibleMeals(list: MealOption[]) {
+		if (!isBlockResolved) return list;
+		return list.filter((m) => {
+			const s = getStatus(m.id);
+			return s === 'completed' || s === 'skipped';
+		});
+	}
 </script>
+
+{#snippet mealCards(list: MealOption[])}
+	{#each visibleMeals(list) as meal (meal.id)}
+		<div transition:slide={{ duration: 250 }}>
+			<div in:fade={{ duration: 200, delay: isBlockResolved ? 100 : 50 }}>
+				<MealOptionCard
+					{meal}
+					status={getStatus(meal.id)}
+					blockResolved={isBlockResolved}
+					selected={selectedOptionId === meal.id}
+					onCardClick={() => onSelect(meal)}
+					onMarkClick={() => onMarkClick(meal)}
+					onUndoClick={() => onUndoClick(meal)}
+				/>
+			</div>
+		</div>
+	{/each}
+{/snippet}
 
 <section class="flex flex-col gap-3" aria-labelledby="section-{blockId}">
 	<h2 id="section-{blockId}" class="m-0">
@@ -68,41 +101,16 @@
 			class="flex flex-col gap-2"
 			transition:slide={{ duration: 200 }}
 		>
-			{#if isBlockResolved}
-				{#each meals.filter((m) => {
-					const s = getStatus(m.id);
-					return s === 'completed' || s === 'skipped';
-				}) as meal (meal.id)}
-					<div transition:slide={{ duration: 250 }}>
-						<div in:fade={{ duration: 200, delay: 100 }}>
-							<MealOptionCard
-								{meal}
-								status={getStatus(meal.id)}
-								blockResolved={isBlockResolved}
-								selected={selectedOptionId === meal.id}
-								onCardClick={() => onSelect(meal)}
-								onMarkClick={() => onMarkClick(meal)}
-								onUndoClick={() => onUndoClick(meal)}
-							/>
-						</div>
-					</div>
-				{/each}
+			{#if isJantaBlock}
+				{@render mealCards(mainMeals)}
+				{#if lancheMeals.length > 0 && (visibleMeals(lancheMeals).length > 0 || !isBlockResolved)}
+					<p class="pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+						Opções de lanche
+					</p>
+					{@render mealCards(lancheMeals)}
+				{/if}
 			{:else}
-				{#each meals as meal (meal.id)}
-					<div transition:slide={{ duration: 250 }}>
-						<div in:fade={{ duration: 200, delay: 50 }}>
-							<MealOptionCard
-								{meal}
-								status={getStatus(meal.id)}
-								blockResolved={isBlockResolved}
-								selected={selectedOptionId === meal.id}
-								onCardClick={() => onSelect(meal)}
-								onMarkClick={() => onMarkClick(meal)}
-								onUndoClick={() => onUndoClick(meal)}
-							/>
-						</div>
-					</div>
-				{/each}
+				{@render mealCards(meals)}
 			{/if}
 
 			{#if !$canAccessTreino}

@@ -20,14 +20,16 @@
 		cafe: { carbs: [], proteins: [] },
 		almoco: { carbs: [], proteins: [] },
 		lanche: { carbs: [], proteins: [] },
-		janta: { carbs: [], proteins: [] }
+		janta: { carbs: [], proteins: [] },
+		lancheNoite: { carbs: [], proteins: [] }
 	});
 
 	const expanded = $state<Record<MealBlockId, boolean>>({
 		cafe: true,
 		almoco: false,
 		lanche: false,
-		janta: false
+		janta: false,
+		lancheNoite: false
 	});
 
 	type Category = 'carbs' | 'proteins';
@@ -69,7 +71,8 @@
 			cafe: { ...selections.cafe },
 			almoco: { ...selections.almoco },
 			lanche: { ...selections.lanche },
-			janta: { ...selections.janta }
+			janta: { ...selections.janta },
+			lancheNoite: { ...selections.lancheNoite }
 		});
 	});
 
@@ -174,6 +177,9 @@
 									Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
 								{/if}
 							</p>
+							{#if block.hint}
+								<p class="text-[11px] text-muted/80 mt-1 leading-relaxed">{block.hint}</p>
+							{/if}
 						</div>
 						<span
 							class="shrink-0 text-sm tabular-nums {blockComplete

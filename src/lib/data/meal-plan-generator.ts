@@ -7,11 +7,12 @@
  *   Fase 3 (dias 7–10) → Jejum + Low Carb  — 3 refeições (sem café)
  *   Fase 4 (dias 11–14)→ Jejum + LC Extremo— 3 refeições (sem café)
  *
- * Para cada refeição gera 4 opções baseadas nas preferências do usuário.
+ * Jantar: 2 opções de prato (COMIDA) + 2 opções Formato LANCHE (lancheNoite).
  */
 
 import { CHALLENGE_TOTAL_DAYS } from '$lib/constants/challenge-storage-keys';
-import type { MealBlockId, MealSelections } from '$lib/data/meal-preferences';
+import type { ChallengeMealBlockId, MealBlockId, MealSelections } from '$lib/data/meal-preferences';
+import { normalizeMealSelections } from '$lib/data/meal-preferences';
 import {
 	type Macros,
 	type PhaseId,
@@ -23,6 +24,9 @@ import {
 	BREAKFAST_PROTEIN_PORTIONS,
 	FRUIT_PORTIONS,
 	PHASE4_LANCHE_OPTIONS,
+	PHASE4_LANCHE_FORMATO_OPTIONS,
+	lancheFormatCarbPortions,
+	lancheFormatProteinPortions,
 	mainCarbMacros,
 	mainProteinMacros,
 	foodKeyToName
@@ -33,6 +37,8 @@ export type { PhaseId };
 export { getPhase, phaseHasBreakfast };
 
 export type MealBadge = 'light' | 'proteico' | 'fitness' | 'equilibrado';
+
+export type MealOptionKind = 'main' | 'snack' | 'lanche';
 
 export type MealMacros = {
 	protein: number;
@@ -53,30 +59,36 @@ export type MealOption = {
 	ingredients: string[];
 	steps: string[];
 	notes?: string;
+	kind?: MealOptionKind;
 };
 
 export type DayPlan = {
 	day: number;
 	phase: PhaseId;
-	blocks: Record<MealBlockId, MealOption[]>;
+	blocks: Record<ChallengeMealBlockId, MealOption[]>;
 };
 
 const MEAL_PLACEHOLDER_IMAGE = '/images/meals/placeholder.png';
 const OPTIONS_PER_BLOCK = 4;
+export const JANTA_MAIN_OPTIONS = 2;
+const JANTA_LANCHE_OPTIONS = 2;
+const JANTA_LANCHE_ROTATION_SHIFT = JANTA_MAIN_OPTIONS;
 
-/**
- * Offset de rotação dentro da fase para variar combos entre dias.
- * Ex: Fase 1 (dias 1–3) → offsets 0, 1, 2
- */
+export function getMealOptionKind(
+	meal: Pick<MealOption, 'kind' | 'optionIndex' | 'id'>
+): MealOptionKind {
+	if (meal.kind) return meal.kind;
+	const blockId = meal.id.split('-')[1];
+	if (blockId === 'janta' && meal.optionIndex > JANTA_MAIN_OPTIONS) return 'lanche';
+	if (blockId === 'lanche') return 'snack';
+	return 'main';
+}
+
 function dayRotationOffset(day: number): number {
 	const phase = getPhase(day);
 	const phaseStart = phase === 1 ? 1 : phase === 2 ? 4 : phase === 3 ? 7 : 11;
 	return day - phaseStart;
 }
-
-// ---------------------------------------------------------------------------
-// Badge heuristic based on macro ratios
-// ---------------------------------------------------------------------------
 
 function assignBadge(m: Macros): MealBadge {
 	if (m.kcal === 0) return 'equilibrado';
@@ -91,10 +103,6 @@ function assignBadge(m: Macros): MealBadge {
 function toMealMacros(m: Macros): MealMacros {
 	return { protein: m.protein, carbs: m.carbs, fat: m.fat };
 }
-
-// ---------------------------------------------------------------------------
-// Opções do café da manhã (só Fase 1)
-// ---------------------------------------------------------------------------
 
 function buildBreakfastOptions(
 	carbIds: string[],
@@ -125,24 +133,23 @@ function buildBreakfastOptions(
 			badge: assignBadge(total),
 			macros: toMealMacros(total),
 			ingredients: [carb.label, prot.label],
-			steps: []
+			steps: [],
+			kind: 'main'
 		};
 	});
 }
-
-// ---------------------------------------------------------------------------
-// Opções do almoço / jantar (formato comida)
-// ---------------------------------------------------------------------------
 
 function buildMainMealOptions(
 	block: 'almoco' | 'janta',
 	carbIds: string[],
 	proteinIds: string[],
 	phase: PhaseId,
-	day: number
+	day: number,
+	count = OPTIONS_PER_BLOCK,
+	startOptionIndex = 1
 ): MealOption[] {
 	const offset = dayRotationOffset(day);
-	return Array.from({ length: OPTIONS_PER_BLOCK }, (_, i) => {
+	return Array.from({ length: count }, (_, i) => {
 		const carbKey = extractFoodKey(carbIds[(i + offset) % carbIds.length]);
 		const protKey = extractFoodKey(proteinIds[(i + offset + 1) % proteinIds.length]);
 
@@ -153,16 +160,18 @@ function buildMainMealOptions(
 		const saladaMacros: Macros = { kcal: 15, protein: 0.5, carbs: 2.5, fat: 0.3 };
 		const withSalad = sumMacros(total, saladaMacros);
 
-		const carbShort = carbKey === 'arroz-feijao'
-			? 'Arroz + Feijão'
-			: capitalizeFirst(foodKeyToName(carbKey));
-		const protShort = protKey === 'ovos'
-			? 'Ovos'
-			: capitalizeFirst(foodKeyToName(protKey));
+		const carbShort =
+			carbKey === 'arroz-feijao'
+				? 'Arroz + Feijão'
+				: capitalizeFirst(foodKeyToName(carbKey));
+		const protShort =
+			protKey === 'ovos' ? 'Ovos' : capitalizeFirst(foodKeyToName(protKey));
+
+		const optionIndex = startOptionIndex + i;
 
 		return {
-			id: `d${day}-${block}-o${i + 1}`,
-			optionIndex: i + 1,
+			id: `d${day}-${block}-o${optionIndex}`,
+			optionIndex,
 			name: `${capitalizeFirst(carb.label)} + ${capitalizeFirst(prot.label)}`,
 			shortName: `${carbShort} + ${protShort}`,
 			image: MEAL_PLACEHOLDER_IMAGE,
@@ -175,16 +184,14 @@ function buildMainMealOptions(
 				capitalizeFirst(prot.label),
 				'Salada de vegetais livres'
 			],
-			steps: []
+			steps: [],
+			kind: 'main'
 		};
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Opções do lanche (Fases 1–3: frutas / Fase 4: combos Extremo)
-// ---------------------------------------------------------------------------
-
-function buildSnackOptions(
+/** Lanche da tarde — frutas (fases 1–3) ou combos (fase 4). */
+function buildAfternoonSnackOptions(
 	fruitIds: string[],
 	phase: PhaseId,
 	day: number
@@ -205,7 +212,8 @@ function buildSnackOptions(
 				badge: assignBadge(combo.macros),
 				macros: toMealMacros(combo.macros),
 				ingredients: [...combo.ingredients],
-				steps: []
+				steps: [],
+				kind: 'snack'
 			};
 		});
 	}
@@ -215,7 +223,7 @@ function buildSnackOptions(
 		const fruitKey = extractFoodKey(fruitIds[(i + snackOffset) % fruitIds.length]);
 		const fruit = FRUIT_PORTIONS[fruitKey];
 
-		if (!fruit) return emptyOption('lanche', day, i);
+		if (!fruit) return emptyOption('lanche', day, i, 'snack');
 
 		return {
 			id: `d${day}-lanche-o${i + 1}`,
@@ -228,16 +236,109 @@ function buildSnackOptions(
 			badge: 'light' as MealBadge,
 			macros: toMealMacros(fruit.macros),
 			ingredients: [fruit.label],
-			steps: []
+			steps: [],
+			kind: 'snack'
 		};
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Empty option fallback
-// ---------------------------------------------------------------------------
+/** Formato LANCHE — opções 3–4 do jantar (planilha). */
+function buildLancheFormatoOptions(
+	carbIds: string[],
+	proteinIds: string[],
+	phase: PhaseId,
+	day: number,
+	count: number,
+	startOptionIndex: number,
+	rotationShift: number
+): MealOption[] {
+	if (phase === 4) {
+		const p4offset = dayRotationOffset(day);
+		const items = PHASE4_LANCHE_FORMATO_OPTIONS;
+		return Array.from({ length: count }, (_, i) => {
+			const combo = items[(i + p4offset + rotationShift) % items.length];
+			const optionIndex = startOptionIndex + i;
+			return {
+				id: `d${day}-janta-o${optionIndex}`,
+				optionIndex,
+				name: combo.name,
+				shortName: combo.name,
+				image: MEAL_PLACEHOLDER_IMAGE,
+				calories: combo.macros.kcal,
+				prepMinutes: 10,
+				badge: assignBadge(combo.macros),
+				macros: toMealMacros(combo.macros),
+				ingredients: [...combo.ingredients],
+				steps: [],
+				kind: 'lanche'
+			};
+		});
+	}
 
-function emptyOption(block: MealBlockId, day: number, i: number): MealOption {
+	const carbTable = lancheFormatCarbPortions(phase);
+	const protTable = lancheFormatProteinPortions(phase);
+	const offset = dayRotationOffset(day);
+
+	return Array.from({ length: count }, (_, i) => {
+		const carbKey = extractFoodKey(carbIds[(i + offset + rotationShift) % carbIds.length]);
+		const protKey = extractFoodKey(
+			proteinIds[(i + offset + rotationShift + 1) % proteinIds.length]
+		);
+
+		const carb = carbTable[carbKey];
+		const prot = protTable[protKey];
+		const optionIndex = startOptionIndex + i;
+
+		if (!carb || !prot) return emptyOption('janta', day, optionIndex - 1, 'lanche');
+
+		const total = sumMacros(carb.macros, prot.macros);
+		return {
+			id: `d${day}-janta-o${optionIndex}`,
+			optionIndex,
+			name: `${carb.label} + ${prot.label}`,
+			shortName: `${carb.shortLabel} + ${prot.shortLabel}`,
+			image: MEAL_PLACEHOLDER_IMAGE,
+			calories: total.kcal,
+			prepMinutes: 10,
+			badge: assignBadge(total),
+			macros: toMealMacros(total),
+			ingredients: [carb.label, prot.label],
+			steps: [],
+			kind: 'lanche'
+		};
+	});
+}
+
+function buildJantaOptions(selections: MealSelections, phase: PhaseId, day: number): MealOption[] {
+	const dinner = buildMainMealOptions(
+		'janta',
+		selections.janta.carbs,
+		selections.janta.proteins,
+		phase,
+		day,
+		JANTA_MAIN_OPTIONS,
+		1
+	);
+
+	const lanche = buildLancheFormatoOptions(
+		selections.lancheNoite.carbs,
+		selections.lancheNoite.proteins,
+		phase,
+		day,
+		JANTA_LANCHE_OPTIONS,
+		JANTA_MAIN_OPTIONS + 1,
+		JANTA_LANCHE_ROTATION_SHIFT
+	);
+
+	return [...dinner, ...lanche];
+}
+
+function emptyOption(
+	block: ChallengeMealBlockId,
+	day: number,
+	i: number,
+	kind?: MealOptionKind
+): MealOption {
 	return {
 		id: `d${day}-${block}-o${i + 1}`,
 		optionIndex: i + 1,
@@ -249,13 +350,10 @@ function emptyOption(block: MealBlockId, day: number, i: number): MealOption {
 		badge: 'equilibrado',
 		macros: { protein: 0, carbs: 0, fat: 0 },
 		ingredients: [],
-		steps: []
+		steps: [],
+		...(kind ? { kind } : {})
 	};
 }
-
-// ---------------------------------------------------------------------------
-// Gerador principal
-// ---------------------------------------------------------------------------
 
 function buildDayPlan(day: number, selections: MealSelections): DayPlan {
 	const phase = getPhase(day);
@@ -273,15 +371,8 @@ function buildDayPlan(day: number, selections: MealSelections): DayPlan {
 		day
 	);
 
-	const lanche = buildSnackOptions(selections.lanche.carbs, phase, day);
-
-	const janta = buildMainMealOptions(
-		'janta',
-		selections.janta.carbs,
-		selections.janta.proteins,
-		phase,
-		day
-	);
+	const lanche = buildAfternoonSnackOptions(selections.lanche.carbs, phase, day);
+	const janta = buildJantaOptions(selections, phase, day);
 
 	return {
 		day,
@@ -291,14 +382,11 @@ function buildDayPlan(day: number, selections: MealSelections): DayPlan {
 }
 
 export function generateChallengePlan(selections: MealSelections): DayPlan[] {
+	const normalized = normalizeMealSelections(selections, DEFAULT_SELECTIONS);
 	return Array.from({ length: CHALLENGE_TOTAL_DAYS }, (_, i) =>
-		buildDayPlan(i + 1, selections)
+		buildDayPlan(i + 1, normalized)
 	);
 }
-
-// ---------------------------------------------------------------------------
-// Seleções padrão (fallback quando o usuário não escolheu)
-// ---------------------------------------------------------------------------
 
 export const DEFAULT_SELECTIONS: MealSelections = {
 	cafe: {
@@ -356,28 +444,117 @@ export const DEFAULT_SELECTIONS: MealSelections = {
 			'janta-prot-suino',
 			'janta-prot-figado'
 		]
+	},
+	lancheNoite: {
+		carbs: [
+			'lancheNoite-carb-pao-frances',
+			'lancheNoite-carb-tapioca',
+			'lancheNoite-carb-cuscuz',
+			'lancheNoite-carb-pao-forma'
+		],
+		proteins: [
+			'lancheNoite-prot-ovo-mussarela',
+			'lancheNoite-prot-frango-mussarela',
+			'lancheNoite-prot-2ovos',
+			'lancheNoite-prot-queijo-whey'
+		]
 	}
 };
 
-// ---------------------------------------------------------------------------
-// Substituição de refeição
-// ---------------------------------------------------------------------------
+function buildFruitSubstituteOption(
+	blockId: 'lanche',
+	day: number,
+	optionIndex: number,
+	carbItemId: string
+): MealOption {
+	const carbKey = extractFoodKey(carbItemId);
+	const fruit = FRUIT_PORTIONS[carbKey];
+	if (!fruit) return emptyOption(blockId, day, optionIndex - 1, 'snack');
+
+	return {
+		id: `d${day}-${blockId}-o${optionIndex}`,
+		optionIndex,
+		name: fruit.label,
+		shortName: fruit.shortLabel,
+		image: MEAL_PLACEHOLDER_IMAGE,
+		calories: fruit.macros.kcal,
+		prepMinutes: 2,
+		badge: 'light' as MealBadge,
+		macros: toMealMacros(fruit.macros),
+		ingredients: [fruit.label],
+		steps: [],
+		kind: 'snack'
+	};
+}
+
+function buildLancheFormatoSubstituteOption(
+	day: number,
+	optionIndex: number,
+	carbItemId: string,
+	proteinItemId: string,
+	phase: PhaseId,
+	comboIndex?: number
+): MealOption {
+	if (phase === 4 && comboIndex != null) {
+		const combo = PHASE4_LANCHE_FORMATO_OPTIONS[comboIndex];
+		if (!combo) return emptyOption('janta', day, optionIndex - 1, 'lanche');
+		return {
+			id: `d${day}-janta-o${optionIndex}`,
+			optionIndex,
+			name: combo.name,
+			shortName: combo.name,
+			image: MEAL_PLACEHOLDER_IMAGE,
+			calories: combo.macros.kcal,
+			prepMinutes: 10,
+			badge: assignBadge(combo.macros),
+			macros: toMealMacros(combo.macros),
+			ingredients: [...combo.ingredients],
+			steps: [],
+			kind: 'lanche'
+		};
+	}
+
+	const carbKey = extractFoodKey(carbItemId);
+	const protKey = extractFoodKey(proteinItemId);
+	const carb = lancheFormatCarbPortions(phase)[carbKey];
+	const prot = lancheFormatProteinPortions(phase)[protKey];
+	if (!carb || !prot) return emptyOption('janta', day, optionIndex - 1, 'lanche');
+
+	const total = sumMacros(carb.macros, prot.macros);
+	return {
+		id: `d${day}-janta-o${optionIndex}`,
+		optionIndex,
+		name: `${carb.label} + ${prot.label}`,
+		shortName: `${carb.shortLabel} + ${prot.shortLabel}`,
+		image: MEAL_PLACEHOLDER_IMAGE,
+		calories: total.kcal,
+		prepMinutes: 10,
+		badge: assignBadge(total),
+		macros: toMealMacros(total),
+		ingredients: [carb.label, prot.label],
+		steps: [],
+		kind: 'lanche'
+	};
+}
 
 export function buildSubstituteMealOption(
 	blockId: MealBlockId,
 	carbItemId: string,
 	proteinItemId: string,
 	day: number,
-	optionIndex: number
+	optionIndex: number,
+	kind?: MealOptionKind
 ): MealOption {
 	const phase = getPhase(day);
 	const carbKey = extractFoodKey(carbItemId);
 	const protKey = extractFoodKey(proteinItemId);
+	const resolvedKind =
+		kind ?? (blockId === 'janta' && optionIndex > JANTA_MAIN_OPTIONS ? 'lanche' : 'main');
 
 	if (blockId === 'cafe') {
 		const carb = BREAKFAST_CARB_PORTIONS[carbKey];
 		const prot = BREAKFAST_PROTEIN_PORTIONS[protKey];
-		if (!carb || !prot) return emptyOption(blockId, day, optionIndex - 1);
+		if (!carb || !prot) return emptyOption('cafe', day, optionIndex - 1);
 
 		const total = sumMacros(carb.macros, prot.macros);
 		return {
@@ -391,8 +568,22 @@ export function buildSubstituteMealOption(
 			badge: assignBadge(total),
 			macros: toMealMacros(total),
 			ingredients: [carb.label, prot.label],
-			steps: []
+			steps: [],
+			kind: 'main'
 		};
+	}
+
+	if (blockId === 'janta' && resolvedKind === 'lanche') {
+		const comboMatch = carbItemId.match(/^lancheNoite-combo-(\d+)$/);
+		const comboIndex = comboMatch ? Number.parseInt(comboMatch[1], 10) : undefined;
+		return buildLancheFormatoSubstituteOption(
+			day,
+			optionIndex,
+			carbItemId,
+			proteinItemId,
+			phase,
+			comboIndex
+		);
 	}
 
 	if (blockId === 'almoco' || blockId === 'janta') {
@@ -423,32 +614,13 @@ export function buildSubstituteMealOption(
 				capitalizeFirst(prot.label),
 				'Salada de vegetais livres'
 			],
-			steps: []
+			steps: [],
+			kind: 'main'
 		};
 	}
 
-	// Lanche: fruit + protein companion
-	const fruit = FRUIT_PORTIONS[carbKey];
-	if (!fruit) return emptyOption(blockId, day, optionIndex - 1);
-
-	return {
-		id: `d${day}-lanche-o${optionIndex}`,
-		optionIndex,
-		name: fruit.label,
-		shortName: fruit.shortLabel,
-		image: MEAL_PLACEHOLDER_IMAGE,
-		calories: fruit.macros.kcal,
-		prepMinutes: 2,
-		badge: 'light' as MealBadge,
-		macros: toMealMacros(fruit.macros),
-		ingredients: [fruit.label],
-		steps: []
-	};
+	return buildFruitSubstituteOption('lanche', day, optionIndex, carbItemId);
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function capitalizeFirst(s: string): string {
 	if (!s) return s;

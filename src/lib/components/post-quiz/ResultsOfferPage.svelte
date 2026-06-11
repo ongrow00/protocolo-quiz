@@ -23,8 +23,14 @@
 	import type { UtmParams } from '$lib/data/types';
 	import { authStore } from '$lib/stores/auth.store';
 	import { sessionStore } from '$lib/stores/session.store';
-	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
+	import { loadAppCheckoutState, loadProfileUtm } from '$lib/services/profile-utm.service';
+	import {
+		appendCheckoutParams,
+		buildAppCheckoutUrl,
+		EMPTY_APP_CHECKOUT_STATE,
+		mergeUtmParams,
+		type AppCheckoutState
+	} from '$lib/utils/checkout-url';
 
 	type ResultsOfferVariant = 'results' | 'ativacao';
 
@@ -163,6 +169,8 @@
 		onPrimaryCta?: () => void;
 		/** When provided, declining the offer calls this instead of navigating back. */
 		onDeclineCta?: () => void;
+		/** Área logada: nome, telefone e e-mail vêm do `profiles` (não do funil). */
+		useAppCheckoutBuyer?: boolean;
 	}
 
 	let {
@@ -176,7 +184,8 @@
 		offerCta,
 		offerAccessSection,
 		onPrimaryCta,
-		onDeclineCta
+		onDeclineCta,
+		useAppCheckoutBuyer = false
 	}: Props = $props();
 
 	const isAtivacaoVariant = $derived(variant === 'ativacao');
@@ -201,12 +210,23 @@
 		scriptSrc: string;
 	};
 
-	/** Vídeo: como acessar o protocolo (ConverteAI / VTurb). */
-	const vturbProtocoloAccess: VturbPlayerConfig = {
-		smartplayerId: 'vid-6a0c7c09d656f9aacbc4ef85',
+	/** Vídeo: /results (funil pós-quiz). */
+	const vturbProtocoloAccessResults: VturbPlayerConfig = {
+		smartplayerId: 'vid-6a2ad748127dad2cb2ccc1ed',
 		scriptSrc:
-			'https://scripts.converteai.net/a258539d-3567-40da-9aac-f9a431adf59f/players/6a0c7c09d656f9aacbc4ef85/v4/player.js'
+			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a2ad748127dad2cb2ccc1ed/v4/player.js'
 	};
+
+	/** Vídeo: /ativacao e /atiavacao-de-conta. */
+	const vturbProtocoloAccessAtivacao: VturbPlayerConfig = {
+		smartplayerId: 'vid-6a2ada3e3244f7b854ab90e4',
+		scriptSrc:
+			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a2ada3e3244f7b854ab90e4/v4/player.js'
+	};
+
+	const vturbProtocoloAccess = $derived(
+		isAtivacaoVariant ? vturbProtocoloAccessAtivacao : vturbProtocoloAccessResults
+	);
 
 
 	/** Iniciais do nome: "Maria Silva" → "MS", "Pedro" → "PE" */
@@ -283,6 +303,7 @@
 	const session = $derived($sessionStore);
 
 	let profileUtm = $state<UtmParams>({});
+	let appCheckoutState = $state<AppCheckoutState>(EMPTY_APP_CHECKOUT_STATE);
 
 	const checkoutUtm = $derived(mergeUtmParams(session.utm, profileUtm));
 
@@ -292,7 +313,7 @@
 	);
 
 	$effect(() => {
-		if (!browser) return;
+		if (!browser || useAppCheckoutBuyer) return;
 		const userId = $authStore.user?.id;
 		if (!userId) {
 			profileUtm = {};
@@ -301,6 +322,22 @@
 		let cancelled = false;
 		void loadProfileUtm(userId).then((utm) => {
 			if (!cancelled) profileUtm = utm;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		if (!browser || !useAppCheckoutBuyer) return;
+		const user = $authStore.user;
+		if (!user?.id) {
+			appCheckoutState = EMPTY_APP_CHECKOUT_STATE;
+			return;
+		}
+		let cancelled = false;
+		void loadAppCheckoutState(user.id, user.email).then((state) => {
+			if (!cancelled) appCheckoutState = state;
 		});
 		return () => {
 			cancelled = true;
@@ -318,6 +355,15 @@
 					: funnelOfferForCheckout && funnelOfferForCheckout !== 'OF002'
 						? funnelOfferForCheckout
 						: undefined);
+
+		if (useAppCheckoutBuyer) {
+			return buildAppCheckoutUrl(baseUrl, {
+				sessionUtm: session.utm,
+				checkout: appCheckoutState,
+				extra: src ? { src } : undefined
+			});
+		}
+
 		const funnelSessionId = quiz.funnelSessionId?.trim();
 		return appendCheckoutParams(baseUrl, {
 			utm: checkoutUtm,
@@ -435,8 +481,9 @@
 	const cascadeY = 14;
 
 	let declineModalOpen = $state(false);
-	/** Ativação: headline e vídeo só após animação do stepper. */
-	let ativacaoHeroUnlocked = $state(variant !== 'ativacao');
+	const storedAtivacaoOfferRevealed = $postQuizStore.ativacaoOfferRevealed;
+	/** Ativação: headline e vídeo só após animação do stepper (ou imediato se oferta já revelada). */
+	let ativacaoHeroUnlocked = $state(variant !== 'ativacao' || storedAtivacaoOfferRevealed);
 	/** Ativação: cardápio + perguntas antes do hero/vídeo/oferta. Resume from store if available. */
 	const storedSelections = $postQuizStore.mealSelections;
 	const storedFollowUp = $postQuizStore.followUpAnswers;
@@ -511,11 +558,66 @@
 	}
 
 	function revealResultsAfterVideo() {
-		postQuizStore.markResultsContentRevealed();
+		if (isAtivacaoVariant) {
+			postQuizStore.markAtivacaoOfferRevealed();
+		} else {
+			postQuizStore.markResultsContentRevealed();
+		}
 	}
+
+	/** Estável: revela no tempo real do vídeo (currentTime >= delay). */
+	const RESULTS_PLAYBACK_GATE = {
+		seconds: RESULTS_VTURB_DELAY_SEC,
+		onReached: revealResultsAfterVideo
+	};
+
+	const showResultsStickyFooter = $derived(!isAtivacaoVariant && ativacaoHeroUnlocked);
+	const resultsStickyFooterLoading = $derived(
+		showResultsStickyFooter && !$postQuizStore.resultsContentRevealed
+	);
+	let blocoPrecoInView = $state(false);
+	const showStickyFooterBar = $derived(
+		showResultsStickyFooter &&
+			(resultsStickyFooterLoading ||
+				($postQuizStore.resultsContentRevealed && !blocoPrecoInView))
+	);
+
+	$effect(() => {
+		if (!browser || isAtivacaoVariant || !$postQuizStore.resultsContentRevealed) {
+			blocoPrecoInView = false;
+			return;
+		}
+
+		let observer: IntersectionObserver | null = null;
+		let cancelled = false;
+
+		void tick().then(() => {
+			if (cancelled) return;
+			const el = document.getElementById('bloco-preco');
+			if (!el) return;
+
+			observer = new IntersectionObserver(
+				([entry]) => {
+					blocoPrecoInView = entry?.isIntersecting ?? false;
+				},
+				{ root: getPostQuizScrollRoot(), threshold: 0.08, rootMargin: '0px 0px -80px 0px' }
+			);
+			observer.observe(el);
+		});
+
+		return () => {
+			cancelled = true;
+			observer?.disconnect();
+			blocoPrecoInView = false;
+		};
+	});
 </script>
 
-<div class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center">
+<div
+	class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center {showStickyFooterBar
+		? 'pb-32'
+		: ''}"
+>
 	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
 		<div class="ativacao-onboarding-transition">
 			{#key mealPreferencesComplete ? 'follow-up' : 'meals'}
@@ -540,7 +642,7 @@
 			<OfferHeroProgress
 				currentStep={heroProgress.currentStep}
 				steps={heroProgress.steps}
-				introAnimation={isAtivacaoVariant}
+				introAnimation={isAtivacaoVariant && !storedAtivacaoOfferRevealed}
 				onIntroComplete={() => {
 					ativacaoHeroUnlocked = true;
 				}}
@@ -617,10 +719,7 @@
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
 				scriptSrc={vturbProtocoloAccess.scriptSrc}
-				playbackGate={{
-					seconds: RESULTS_VTURB_DELAY_SEC,
-					onReached: revealResultsAfterVideo
-				}}
+				playbackGate={RESULTS_PLAYBACK_GATE}
 			/>
 		</div>
 		</div>
@@ -659,16 +758,6 @@
 		id="results-after-video"
 		class="results-vturb-delay results-vturb-delay--revealed"
 	>
-	{#if !isAtivacaoVariant}
-	<button
-		type="button"
-		onclick={scrollToProtocoloSection}
-		class="w-full max-w-md mx-auto my-2.5 h-[60px] flex items-center justify-center rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-	>
-		Acessar Protocolo
-	</button>
-	{/if}
-
 	{#if !isAtivacaoVariant}
 	<section
 		class="w-full max-w-md mx-auto mt-3 mb-1 flex flex-col gap-4 py-[50px]"
@@ -1162,6 +1251,62 @@
 	</div>
 	{/if}
 	{/if}
+
+	{#if showResultsStickyFooter}
+		<div
+			class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none transition-all duration-300 ease-out {showStickyFooterBar
+				? 'translate-y-0 opacity-100'
+				: 'translate-y-full opacity-0'}"
+			aria-hidden={!showStickyFooterBar}
+		>
+			<div
+				class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] {showStickyFooterBar
+					? 'pointer-events-auto'
+					: 'pointer-events-none'}"
+			>
+				{#if resultsStickyFooterLoading}
+					<div
+						class="flex h-[60px] w-full items-center justify-center gap-2.5 rounded-2xl border-2 border-line bg-surface text-sm font-medium text-body"
+						aria-live="polite"
+						aria-busy="true"
+					>
+						<svg
+							class="h-5 w-5 shrink-0 animate-spin text-accent"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							aria-hidden="true"
+						>
+							<circle
+								class="opacity-25"
+								cx="12"
+								cy="12"
+								r="10"
+								stroke="currentColor"
+								stroke-width="4"
+							></circle>
+							<path
+								class="opacity-75"
+								fill="currentColor"
+								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+							></path>
+						</svg>
+						<span>Preparando seu protocolo...</span>
+					</div>
+				{:else}
+					<div class="results-sticky-cta-pulse w-full">
+						<button
+							type="button"
+							onclick={scrollToProtocoloSection}
+							class="results-sticky-cta relative w-full h-[60px] flex items-center justify-center overflow-hidden rounded-2xl font-bold text-base bg-accent text-bg transition-colors duration-200 active:scale-[0.98] hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+						>
+							<span class="relative z-[1]">Acessar Protocolo</span>
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -1178,61 +1323,68 @@
 		min-width: 0;
 	}
 
-	/* Conteúdo revelado após o vídeo: entra em cascata quando o bloco deixa display:none */
-	@keyframes results-cascade-in {
-		from {
-			opacity: 0;
-			transform: translateY(14px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
+	/* Revelação instantânea no gatilho do VTurb — sem atraso de animação */
 	.results-vturb-delay--revealed > :nth-child(n + 1) {
-		opacity: 0;
-		transform: translateY(14px);
-		animation: results-cascade-in 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-	}
-	.results-vturb-delay--revealed > :nth-child(1) {
-		animation-delay: 0.05s;
-	}
-	.results-vturb-delay--revealed > :nth-child(2) {
-		animation-delay: 0.23s;
-	}
-	.results-vturb-delay--revealed > :nth-child(3) {
-		animation-delay: 0.29s;
-	}
-	.results-vturb-delay--revealed > :nth-child(4) {
-		animation-delay: 0.35s;
-	}
-	.results-vturb-delay--revealed > :nth-child(5) {
-		animation-delay: 0.41s;
-	}
-	.results-vturb-delay--revealed > :nth-child(6) {
-		animation-delay: 0.47s;
-	}
-	.results-vturb-delay--revealed > :nth-child(7) {
-		animation-delay: 0.53s;
-	}
-	.results-vturb-delay--revealed > :nth-child(8) {
-		animation-delay: 0.59s;
-	}
-	.results-vturb-delay--revealed > :nth-child(9) {
-		animation-delay: 0.65s;
-	}
-	@media (prefers-reduced-motion: reduce) {
-		.results-vturb-delay--revealed > :nth-child(n + 1) {
-			animation: none;
-			opacity: 1;
-			transform: none;
-		}
+		opacity: 1;
+		transform: none;
 	}
 
 	/* Respostas do FAQ: mini texto (Pulse 1) */
 	.faq-answer {
 		font-size: 0.8125rem; /* 13px - Pulse 1 */
 		line-height: 1.4;
+	}
+
+	.results-sticky-cta-pulse {
+		animation: results-sticky-cta-pulse 2.4s ease-in-out infinite;
+	}
+
+	.results-sticky-cta::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: linear-gradient(
+			105deg,
+			transparent 0%,
+			transparent 38%,
+			rgba(255, 255, 255, 0.38) 50%,
+			transparent 62%,
+			transparent 100%
+		);
+		background-size: 220% 100%;
+		animation: results-sticky-cta-shimmer 2.8s ease-in-out infinite;
+		pointer-events: none;
+	}
+
+	@keyframes results-sticky-cta-pulse {
+		0%,
+		100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.025);
+		}
+	}
+
+	@keyframes results-sticky-cta-shimmer {
+		0% {
+			background-position: 220% 0;
+		}
+		100% {
+			background-position: -220% 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.results-sticky-cta-pulse {
+			animation: none;
+		}
+
+		.results-sticky-cta::after {
+			animation: none;
+			opacity: 0;
+		}
 	}
 
 	.bloco-preco-shimmer::after {

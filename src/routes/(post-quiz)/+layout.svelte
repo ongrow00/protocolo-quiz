@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import {
@@ -133,11 +134,27 @@
 	const showStandardContinuar = $derived(
 		!isCarregandoPage && !isResultsLikePage && !isBonusPage
 	);
-	const showBonusDualFooter = $derived(isBonusPage && !isCarregandoPage);
+	const BONUS_FOOTER_DELAY_MS = 5000;
+
+	let bonusFooterRevealed = $state(false);
+
+	$effect(() => {
+		if (!browser || !isBonusPage) {
+			bonusFooterRevealed = false;
+			return;
+		}
+		bonusFooterRevealed = false;
+		const timer = setTimeout(() => {
+			bonusFooterRevealed = true;
+		}, BONUS_FOOTER_DELAY_MS);
+		return () => clearTimeout(timer);
+	});
+
+	const showBonusDualFooter = $derived(isBonusPage && !isCarregandoPage && bonusFooterRevealed);
 	const contentSlotBottomPadding = $derived(
 		isCarregandoPage || isResultsLikePage
 			? 'pb-8'
-			: showBonusDualFooter
+			: isBonusPage
 				? 'pb-44'
 				: showStandardContinuar
 					? 'pb-32'
@@ -280,6 +297,13 @@
 					>
 						{@render children()}
 					</div>
+				{:else if isBonusPage}
+					<div
+						class="content-transition-slot max-w-lg mx-auto w-full px-4 pt-8 {contentSlotBottomPadding}"
+						style="pointer-events: auto;"
+					>
+						{@render children()}
+					</div>
 				{:else}
 					<div
 						in:fly={{ x: 30, duration: 260, delay: 40 }}
@@ -313,7 +337,10 @@
 	{/if}
 
 	{#if showBonusDualFooter}
-	<div class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none">
+	<div
+		class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none"
+		in:fly={{ y: 28, duration: 450, easing: cubicOut }}
+	>
 		<div class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto flex flex-col gap-3">
 			<a
 				href={ACCEPT_BONUS_RESULTS_HREF}

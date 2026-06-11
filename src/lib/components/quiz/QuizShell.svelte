@@ -31,11 +31,7 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 	import { quizConfig } from '$lib/data/quiz.config';
 	import { computeVisibleQuestions } from '$lib/utils/branching';
 	import { PROTEIN_COUNT_ANIM_MS, protocolChartCtaDelayMs } from '$lib/constants/chart-animation';
-	import {
-		MR3_CTA_REGISTERED_EVENT,
-		MR3_CTA_REVEAL_EVENT,
-		MR3_VTURB_DELAY_SEC
-	} from '$lib/constants/mr3-vturb';
+	import { MR3_CTA_REVEAL_EVENT } from '$lib/constants/mr3-vturb';
 	const quiz = $derived($quizStore);
 	const question = $derived($currentQuestion);
 	const isLast = $derived($isLastQuestion);
@@ -104,8 +100,10 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 	/** Duração total da sequência do calendário ilustrativo (mr-4) — manter alinhado a `ProtocolCalendarIllustration`. */
 	const MR4_CTA_DELAY_MS = 10_000;
 
-	/** mr-3: mostra “Analisando…” até o VTurb revelar o CTA. */
+	/** mr-3: mostra “Analisando…” até o gate de reprodução revelar o CTA. */
 	let mr3FooterLoading = $state(false);
+	/** mr-3: CTA revelado no segundo exato do vídeo (gate de `currentTime`). */
+	let mr3CtaRevealed = $state(false);
 
 	/** mr-4: false no 1º frame — esconde o CTA até o fim da animação do calendário (10s). */
 	let mr4CtaRevealed = $state(false);
@@ -113,86 +111,26 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 	/** mr-protein: CTA só após a contagem 0 → meta (4s). */
 	let mrProteinCtaLocked = $state(false);
 
-	// mr-3: “Analisando…” até o VTurb revelar o CTA (`displayHiddenElements` + classe `esconder`)
+	// mr-3: “Analisando…” até o gate de reprodução do vídeo disparar (currentTime >= delay).
 	$effect(() => {
 		if (!browser || !showNextButton || question?.id !== 'mr-3') {
 			mr3FooterLoading = false;
+			mr3CtaRevealed = false;
 			return;
 		}
 
 		mr3FooterLoading = true;
+		mr3CtaRevealed = false;
 
-		let mo: MutationObserver | null = null;
-		let registeredFallback: ReturnType<typeof setTimeout> | undefined;
-		let entryFallback: ReturnType<typeof setTimeout> | undefined;
-		let cancelled = false;
-
-		function isVturbRevealed(el: HTMLElement): boolean {
-			if (el.classList.contains('esconder')) return false;
-			const st = getComputedStyle(el);
-			if (st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0') return false;
-			return true;
-		}
-
-		function forceRevealCta(el: HTMLElement) {
-			el.classList.remove('esconder');
-			el.style.removeProperty('display');
-		}
-
-		function onVturbRevealed() {
-			if (cancelled) return;
+		const onVturbRevealEvent = () => {
 			mr3FooterLoading = false;
-			mo?.disconnect();
-			mo = null;
-		}
-
-		function tryFinishIfRevealed() {
-			const el = document.getElementById('quiz-mr3-cta-wrap');
-			if (el && isVturbRevealed(el)) onVturbRevealed();
-		}
-
-		const onVturbRevealEvent = () => tryFinishIfRevealed();
-
-		const onVturbRegistered = () => {
-			if (cancelled) return;
-			window.clearTimeout(registeredFallback);
-			registeredFallback = window.setTimeout(() => {
-				const el = document.getElementById('quiz-mr3-cta-wrap');
-				if (!el || cancelled) return;
-				if (!isVturbRevealed(el)) forceRevealCta(el);
-				onVturbRevealed();
-			}, MR3_VTURB_DELAY_SEC * 1000);
+			mr3CtaRevealed = true;
 		};
 
 		document.addEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
-		document.addEventListener(MR3_CTA_REGISTERED_EVENT, onVturbRegistered);
-
-		entryFallback = window.setTimeout(() => {
-			const el = document.getElementById('quiz-mr3-cta-wrap');
-			if (!el || cancelled || !mr3FooterLoading) return;
-			if (!isVturbRevealed(el)) forceRevealCta(el);
-			onVturbRevealed();
-		}, MR3_VTURB_DELAY_SEC * 1000 + 8000);
-
-		tick().then(() => {
-			if (cancelled) return;
-			const el = document.getElementById('quiz-mr3-cta-wrap');
-			if (!el) return;
-			if (isVturbRevealed(el)) {
-				onVturbRevealed();
-				return;
-			}
-			mo = new MutationObserver(() => tryFinishIfRevealed());
-			mo.observe(el, { attributes: true, subtree: true, attributeFilter: ['style', 'class'] });
-		});
 
 		return () => {
-			cancelled = true;
 			document.removeEventListener(MR3_CTA_REVEAL_EVENT, onVturbRevealEvent);
-			document.removeEventListener(MR3_CTA_REGISTERED_EVENT, onVturbRegistered);
-			window.clearTimeout(registeredFallback);
-			window.clearTimeout(entryFallback);
-			mo?.disconnect();
 		};
 	});
 
@@ -518,22 +456,17 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 						<span>Calculando suas calorias e macros</span>
 					</div>
 				{/if}
-				{#if !(question?.id === 'mr-protein' && mrProteinCtaLocked) && !(question?.id === 'mr-4' && !mr4CtaRevealed)}
-				<div
-					id={question?.id === 'mr-3'
-						? 'quiz-mr3-cta-wrap'
-						: question?.id === 'mr-4'
-							? 'quiz-mr4-cta-wrap'
-							: undefined}
-					class={question?.id === 'mr-3' ? 'esconder' : ''}
-				>
+				{#if !(question?.id === 'mr-protein' && mrProteinCtaLocked) && !(question?.id === 'mr-4' && !mr4CtaRevealed) && !(question?.id === 'mr-3' && !mr3CtaRevealed)}
+				<div id={question?.id === 'mr-4' ? 'quiz-mr4-cta-wrap' : undefined}>
 			<button
 				type="button"
 				onclick={() => handleNext()}
 				disabled={!canGoNext || navigating.from != null || advancing}
 				class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-				in:fade={{ duration: 550, delay: buttonCascadeDelay }}
-				out:fade={{ duration: 200 }}
+				in:fade={question?.id === 'mr-3'
+					? { duration: 0, delay: 0 }
+					: { duration: 550, delay: buttonCascadeDelay }}
+				out:fade={{ duration: question?.id === 'mr-3' ? 0 : 200 }}
 			>
 				<span>{buttonLabel}</span>
 				<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">

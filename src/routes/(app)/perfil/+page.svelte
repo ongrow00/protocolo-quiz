@@ -4,7 +4,7 @@
 	import ProfileMenuSection from '$lib/components/challenge/ProfileMenuSection.svelte';
 	import ProfileDadosPessoaisSheet from '$lib/components/profile/ProfileDadosPessoaisSheet.svelte';
 	import ProfileLegalSheet from '$lib/components/profile/ProfileLegalSheet.svelte';
-	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
+	import ProfilePaymentHistorySheet from '$lib/components/profile/ProfilePaymentHistorySheet.svelte';
 	import { authStore } from '$lib/stores/auth.store';
 	import { challengeStore } from '$lib/stores/challenge.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
@@ -19,17 +19,7 @@
 
 	type LegalSheetId = (typeof LEGAL_SHEET_IDS)[number];
 
-	type SheetId =
-		| 'dados-pessoais'
-		| 'perfil'
-		| 'historico-pagamentos'
-		| LegalSheetId;
-
-	const SHEET_TITLES: Record<Exclude<SheetId, LegalSheetId>, string> = {
-		'dados-pessoais': 'Dados pessoais',
-		perfil: 'Perfil',
-		'historico-pagamentos': 'Histórico de pagamentos'
-	};
+	type SheetId = 'dados-pessoais' | 'historico-pagamentos' | LegalSheetId;
 
 	let activeSheet = $state<SheetId | null>(null);
 
@@ -56,20 +46,12 @@
 
 <div class="mx-auto flex w-full max-w-sm flex-col gap-7 pt-2 pb-6">
 	<ProfileMenuSection title="Configurações">
-		<ProfileMenuRow label="Dados pessoais" onclick={() => openSheet('dados-pessoais')}>
+		<ProfileMenuRow label="Dados pessoais" isLast onclick={() => openSheet('dados-pessoais')}>
 			{#snippet icon()}
 				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 					<rect x="3" y="5" width="18" height="14" rx="2" />
 					<circle cx="9" cy="12" r="2" />
 					<path d="M15 10h4M15 14h4" stroke-linecap="round" />
-				</svg>
-			{/snippet}
-		</ProfileMenuRow>
-		<ProfileMenuRow label="Perfil" isLast onclick={() => openSheet('perfil')}>
-			{#snippet icon()}
-				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-					<circle cx="12" cy="8" r="3.5" />
-					<path d="M5 20c0-3.5 3.5-6 7-6s7 2.5 7 6" stroke-linecap="round" />
 				</svg>
 			{/snippet}
 		</ProfileMenuRow>
@@ -137,18 +119,13 @@
 
 <ProfileDadosPessoaisSheet open={activeSheet === 'dados-pessoais'} onClose={closeSheet} />
 
+<ProfilePaymentHistorySheet
+	open={activeSheet === 'historico-pagamentos'}
+	onClose={closeSheet}
+/>
+
 <ProfileLegalSheet
 	open={isLegalSheet(activeSheet)}
 	docId={isLegalSheet(activeSheet) ? activeSheet : null}
 	onClose={closeSheet}
 />
-
-{#if activeSheet === 'perfil' || activeSheet === 'historico-pagamentos'}
-	<BottomSheet
-		open
-		title={SHEET_TITLES[activeSheet]}
-		onClose={closeSheet}
-	>
-		<!-- Conteúdo será adicionado depois -->
-	</BottomSheet>
-{/if}

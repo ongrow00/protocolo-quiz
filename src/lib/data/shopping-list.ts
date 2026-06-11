@@ -1,4 +1,6 @@
 import type { MealSelections } from '$lib/data/meal-preferences';
+import { normalizeMealSelections } from '$lib/data/meal-preferences';
+import { DEFAULT_SELECTIONS } from '$lib/data/meal-plan-generator';
 import { extractFoodKey } from '$lib/data/meal-nutrition';
 
 export type ShoppingItem = {
@@ -8,7 +10,7 @@ export type ShoppingItem = {
 };
 
 export type ShoppingCategory = {
-	id: 'cafe' | 'almoco' | 'lanche' | 'janta' | 'basicos';
+	id: 'cafe' | 'almoco' | 'lanche' | 'janta' | 'lancheNoite' | 'basicos';
 	title: string;
 	items: ShoppingItem[];
 };
@@ -140,20 +142,21 @@ function buildCategory(
 }
 
 export function generateShoppingList(selections: MealSelections): ShoppingCategory[] {
+	const normalized = normalizeMealSelections(selections, DEFAULT_SELECTIONS);
 	const categories: ShoppingCategory[] = [];
 
 	const cafe = buildCategory(
 		'cafe',
 		'Café da Manhã',
-		selections.cafe.carbs,
-		selections.cafe.proteins,
+		normalized.cafe.carbs,
+		normalized.cafe.proteins,
 		CAFE_CARB_SHOPPING,
 		CAFE_PROT_SHOPPING
 	);
 	if (cafe.items.length > 0) categories.push(cafe);
 
 	// Mussarela/requeijão extras para café (deduzido das proteínas)
-	const cafeProtKeys = selections.cafe.proteins.map(extractFoodKey);
+	const cafeProtKeys = normalized.cafe.proteins.map(extractFoodKey);
 	const needsMussarela = cafeProtKeys.some((k) =>
 		['ovo-mussarela', 'frango-mussarela', 'patinho-mussarela'].includes(k)
 	);
@@ -170,8 +173,8 @@ export function generateShoppingList(selections: MealSelections): ShoppingCatego
 	const almoco = buildCategory(
 		'almoco',
 		'Almoço',
-		selections.almoco.carbs,
-		selections.almoco.proteins,
+		normalized.almoco.carbs,
+		normalized.almoco.proteins,
 		ALMOCO_CARB_SHOPPING,
 		ALMOCO_PROT_SHOPPING
 	);
@@ -180,8 +183,8 @@ export function generateShoppingList(selections: MealSelections): ShoppingCatego
 	const lanche = buildCategory(
 		'lanche',
 		'Lanche da Tarde',
-		selections.lanche.carbs,
-		selections.lanche.proteins,
+		normalized.lanche.carbs,
+		normalized.lanche.proteins,
 		LANCHE_FRUIT_SHOPPING,
 		{}
 	);
@@ -195,12 +198,37 @@ export function generateShoppingList(selections: MealSelections): ShoppingCatego
 	const janta = buildCategory(
 		'janta',
 		'Janta',
-		selections.janta.carbs,
-		selections.janta.proteins,
+		normalized.janta.carbs,
+		normalized.janta.proteins,
 		JANTA_CARB_SHOPPING,
 		JANTA_PROT_SHOPPING
 	);
 	if (janta.items.length > 0) categories.push(janta);
+
+	const lancheNoite = buildCategory(
+		'lancheNoite',
+		'Lanche da Noite',
+		normalized.lancheNoite.carbs,
+		normalized.lancheNoite.proteins,
+		CAFE_CARB_SHOPPING,
+		CAFE_PROT_SHOPPING
+	);
+	const lancheNoiteProtKeys = normalized.lancheNoite.proteins.map(extractFoodKey);
+	if (lancheNoiteProtKeys.some((k) => ['ovo-mussarela', 'frango-mussarela', 'patinho-mussarela'].includes(k))) {
+		lancheNoite.items.push({
+			id: 'lancheNoite-mussarela',
+			name: 'Mussarela fatiada (lanche noite)',
+			qty: '200 g'
+		});
+	}
+	if (lancheNoiteProtKeys.some((k) => ['atum-requeijao', 'frango-requeijao'].includes(k))) {
+		lancheNoite.items.push({
+			id: 'lancheNoite-requeijao',
+			name: 'Requeijão light (lanche noite)',
+			qty: '250 g'
+		});
+	}
+	if (lancheNoite.items.length > 0) categories.push(lancheNoite);
 
 	categories.push({
 		id: 'basicos',
@@ -230,5 +258,19 @@ export const SHOPPING_LIST: ShoppingCategory[] = generateShoppingList({
 	janta: {
 		carbs: ['janta-carb-arroz', 'janta-carb-mandioca', 'janta-carb-batata-inglesa', 'janta-carb-inhame'],
 		proteins: ['janta-prot-frango', 'janta-prot-patinho', 'janta-prot-suino', 'janta-prot-figado']
+	},
+	lancheNoite: {
+		carbs: [
+			'lancheNoite-carb-pao-frances',
+			'lancheNoite-carb-tapioca',
+			'lancheNoite-carb-cuscuz',
+			'lancheNoite-carb-pao-forma'
+		],
+		proteins: [
+			'lancheNoite-prot-ovo-mussarela',
+			'lancheNoite-prot-frango-mussarela',
+			'lancheNoite-prot-2ovos',
+			'lancheNoite-prot-queijo-whey'
+		]
 	}
 });

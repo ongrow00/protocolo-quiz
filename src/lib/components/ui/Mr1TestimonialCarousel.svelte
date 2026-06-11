@@ -23,9 +23,17 @@
 
 	/** Velocidade do auto-scroll (~55s por ciclo com faixa ~3,2k px). */
 	const AUTO_PX_PER_SEC = 58;
+	const DRAG_THRESHOLD_PX = 5;
 
 	let maskEl = $state<HTMLDivElement | null>(null);
 	let edgeJump = false;
+	let isDragging = $state(false);
+	let didDrag = false;
+	let dragStartX = 0;
+	let dragStartY = 0;
+	let scrollStart = 0;
+	let activePointerId: number | null = null;
+	let dragAxis = $state<'x' | 'y' | null>(null);
 	/** Pausa o avanço automático enquanto o utilizador interage ou há inércia do scroll. */
 	let userPaused = false;
 	let awaitingInertia = false;
@@ -97,14 +105,83 @@
 	}
 
 	function onPointerDown(e: PointerEvent) {
+		if (!maskEl || e.button !== 0) return;
+		e.stopPropagation();
+		isDragging = true;
+		didDrag = false;
+		dragAxis = null;
+		dragStartX = e.clientX;
+		dragStartY = e.clientY;
+		scrollStart = maskEl.scrollLeft;
+		activePointerId = e.pointerId;
 		userPaused = true;
 		awaitingInertia = false;
 		clearResumeTimer();
-		(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
 	}
 
-	function onPointerUp() {
-		resumeAutoSoon();
+	function onPointerMove(e: PointerEvent) {
+		e.stopPropagation();
+		if (!isDragging || !maskEl) return;
+
+		const dx = e.clientX - dragStartX;
+		const dy = e.clientY - dragStartY;
+
+		if (dragAxis === null) {
+			if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+			dragAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+			if (dragAxis === 'y') {
+				endDrag(e, { immediate: true });
+				return;
+			}
+		}
+
+		if (dragAxis !== 'x') return;
+
+		if (Math.abs(dx) > DRAG_THRESHOLD_PX) {
+			didDrag = true;
+			if (activePointerId !== null && !maskEl.hasPointerCapture(activePointerId)) {
+				try {
+					maskEl.setPointerCapture(activePointerId);
+				} catch {
+					/* ignore */
+				}
+			}
+		}
+
+		if (didDrag) {
+			maskEl.scrollLeft = scrollStart - dx;
+			normalizeScrollLoop();
+		}
+	}
+
+	function endDrag(e: PointerEvent, opts?: { immediate?: boolean }) {
+		e.stopPropagation();
+		if (!maskEl) return;
+
+		const wasDragging = isDragging;
+		isDragging = false;
+		dragAxis = null;
+		activePointerId = null;
+
+		if (maskEl.hasPointerCapture(e.pointerId)) {
+			try {
+				maskEl.releasePointerCapture(e.pointerId);
+			} catch {
+				/* ignore */
+			}
+		}
+
+		if (!wasDragging) return;
+
+		if (opts?.immediate) {
+			userPaused = false;
+			awaitingInertia = false;
+			clearResumeTimer();
+		} else {
+			resumeAutoSoon();
+		}
+
+		didDrag = false;
 	}
 
 	$effect(() => {
@@ -150,11 +227,14 @@
 		role="region"
 		aria-label="Fotos de resultados em sequência"
 		bind:this={maskEl}
-		class="marquee-mask marquee-scroll rounded-2xl bg-surface-2/20"
+		class="marquee-mask marquee-scroll rounded-2xl bg-surface-2/20 select-none
+			{isDragging && dragAxis === 'x' ? 'cursor-grabbing' : 'cursor-grab'}"
 		onscroll={normalizeScrollLoop}
 		onpointerdown={onPointerDown}
-		onpointerup={onPointerUp}
-		onpointercancel={onPointerUp}
+		onpointermove={onPointerMove}
+		onpointerup={(e) => endDrag(e)}
+		onpointercancel={(e) => endDrag(e)}
+		onpointerleave={(e) => endDrag(e)}
 		onscrollend={onScrollEndResume}
 	>
 		<div class="marquee-track flex w-max gap-3 py-1">

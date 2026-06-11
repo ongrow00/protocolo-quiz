@@ -13,7 +13,7 @@ export const questions: Question[] = [
 		order: 1,
 		section: 'Perfil',
 		text: 'Qual é o seu principal objetivo?',
-		subtext: 'Para iniciar, selecione um objetivo.',
+		subtext: 'Para iniciar, selecione um objetivo para gerarmos um plano feito para você.',
 		type: 'single',
 		required: true,
 		variable: 'goal_type',

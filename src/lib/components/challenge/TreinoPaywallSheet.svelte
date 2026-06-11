@@ -1,11 +1,14 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import { TREINO_PAYWALL } from '$lib/data/treino-paywall';
-	import type { UtmParams } from '$lib/data/types';
+	import { loadAppCheckoutState } from '$lib/services/profile-utm.service';
 	import { authStore } from '$lib/stores/auth.store';
 	import { sessionStore } from '$lib/stores/session.store';
-	import { loadProfileUtm } from '$lib/services/profile-utm.service';
-	import { appendCheckoutParams, mergeUtmParams } from '$lib/utils/checkout-url';
+	import {
+		buildAppCheckoutUrl,
+		EMPTY_APP_CHECKOUT_STATE,
+		type AppCheckoutState
+	} from '$lib/utils/checkout-url';
 
 	interface Props {
 		open: boolean;
@@ -14,18 +17,18 @@
 
 	let { open, onClose }: Props = $props();
 
-	let profileUtm = $state<UtmParams>({});
+	let checkoutState = $state<AppCheckoutState>(EMPTY_APP_CHECKOUT_STATE);
 
 	$effect(() => {
 		if (!open) return;
-		const userId = $authStore.user?.id;
-		if (!userId) {
-			profileUtm = {};
+		const user = $authStore.user;
+		if (!user?.id) {
+			checkoutState = EMPTY_APP_CHECKOUT_STATE;
 			return;
 		}
 		let cancelled = false;
-		void loadProfileUtm(userId).then((utm) => {
-			if (!cancelled) profileUtm = utm;
+		void loadAppCheckoutState(user.id, user.email).then((state) => {
+			if (!cancelled) checkoutState = state;
 		});
 		return () => {
 			cancelled = true;
@@ -38,8 +41,9 @@
 
 	const checkoutUrl = $derived(
 		checkoutBaseUrl
-			? appendCheckoutParams(checkoutBaseUrl, {
-					utm: mergeUtmParams($sessionStore.utm, profileUtm),
+			? buildAppCheckoutUrl(checkoutBaseUrl, {
+					sessionUtm: $sessionStore.utm,
+					checkout: checkoutState,
 					extra: { src: TREINO_PAYWALL.checkoutSrc }
 				})
 			: ''

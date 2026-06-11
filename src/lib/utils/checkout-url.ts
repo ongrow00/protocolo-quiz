@@ -15,10 +15,11 @@ export function mergeUtmParams(...sources: (UtmParams | undefined)[]): UtmParams
 	return merged;
 }
 
-/** Dados do lead para checkout pré-populado (Lastlink: name, phone, sck). */
+/** Dados do lead para checkout pré-populado (Lastlink: name, phone, email, sck). */
 export type CheckoutBuyerParams = {
 	name?: string;
 	phone?: string;
+	email?: string;
 	/** Rastreamento — ex.: funnel_session_id do funil. */
 	sck?: string;
 };
@@ -60,10 +61,12 @@ export function appendCheckoutParams(
 	if (buyer) {
 		const name = buyer.name?.trim();
 		const phone = buyer.phone ? formatCheckoutPhone(buyer.phone) : undefined;
+		const email = buyer.email?.trim().toLowerCase();
 		const sck = buyer.sck?.trim();
 		applyQueryParams(url, {
 			...(name ? { name } : {}),
 			...(phone ? { phone } : {}),
+			...(email ? { email } : {}),
 			...(sck ? { sck } : {})
 		});
 	}
@@ -73,4 +76,27 @@ export function appendCheckoutParams(
 	}
 
 	return url.toString();
+}
+
+export type AppCheckoutState = {
+	utm: UtmParams;
+	buyer: CheckoutBuyerParams;
+};
+
+export const EMPTY_APP_CHECKOUT_STATE: AppCheckoutState = { utm: {}, buyer: {} };
+
+/** Checkout interno (área logada): UTMs da sessão + perfil e dados do comprador no banco. */
+export function buildAppCheckoutUrl(
+	baseUrl: string,
+	options: {
+		sessionUtm?: UtmParams;
+		checkout: AppCheckoutState;
+		extra?: Record<string, string | undefined>;
+	}
+): string {
+	return appendCheckoutParams(baseUrl, {
+		utm: mergeUtmParams(options.sessionUtm, options.checkout.utm),
+		buyer: options.checkout.buyer,
+		extra: options.extra
+	});
 }

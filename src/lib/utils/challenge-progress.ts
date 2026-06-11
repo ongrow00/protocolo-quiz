@@ -2,7 +2,7 @@ import {
 	CHALLENGE_PLAN,
 	MEAL_BLOCK_ORDER,
 	activeBlocksForDay,
-	type MealBlockId
+	type ChallengeMealBlockId
 } from '$lib/data/challenge-plan';
 import { CHALLENGE_TOTAL_DAYS } from '$lib/constants/challenge-storage-keys';
 import type { ChallengeState, DayStatus, MealCheckStatus } from '$lib/stores/challenge.store';
@@ -24,12 +24,12 @@ export function isDayNavigable(_state: ChallengeState, _day: number): boolean {
 export function getMealStatusesForDay(
 	state: ChallengeState,
 	day: number
-): Record<MealBlockId, MealCheckStatus | 'pending'> {
+): Record<ChallengeMealBlockId, MealCheckStatus | 'pending'> {
 	const plan = CHALLENGE_PLAN.find((d) => d.day === day);
 	if (!plan) {
 		return { cafe: 'pending', almoco: 'pending', lanche: 'pending', janta: 'pending' };
 	}
-	const result = {} as Record<MealBlockId, MealCheckStatus | 'pending'>;
+	const result = {} as Record<ChallengeMealBlockId, MealCheckStatus | 'pending'>;
 	for (const block of MEAL_BLOCK_ORDER) {
 		const options = plan.blocks[block];
 		if (!options || options.length === 0) {

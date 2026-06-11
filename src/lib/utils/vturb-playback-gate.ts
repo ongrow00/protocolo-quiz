@@ -1,83 +1,151 @@
 import type { VturbSmartPlayerInstance } from '$lib/types/vturb-smartplayer';
 
-const MAX_RESOLVE_ATTEMPTS = 120;
-const RESOLVE_INTERVAL_MS = 250;
+const RESOLVE_INTERVAL_MS = 200;
+const TIME_POLL_INTERVAL_MS = 250;
+
+/** O `<video>` do VTurb costuma viver no shadow DOM do `vturb-smartplayer`. */
+function videoBelongsToHost(video: Element, host: HTMLElement): boolean {
+	if (host.contains(video)) return true;
+	const root = video.getRootNode();
+	return root instanceof ShadowRoot && root.host === host;
+}
+
+/** Vídeo dentro do host (light DOM ou shadow). */
+export function findVideoInHost(host: HTMLElement): HTMLVideoElement | null {
+	const direct = host.querySelector('video');
+	if (direct instanceof HTMLVideoElement) return direct;
+
+	if (host.shadowRoot) {
+		const shadow = host.shadowRoot.querySelector('video');
+		if (shadow instanceof HTMLVideoElement) return shadow;
+	}
+
+	return null;
+}
 
 /** Resolve a instância do player ligada ao `vturb-smartplayer` com este id. */
 export function resolveVturbInstance(playerId: string): VturbSmartPlayerInstance | undefined {
+	const host = document.getElementById(playerId);
+	if (!host) return undefined;
+
 	const instances = typeof window !== 'undefined' ? window.smartplayer?.instances : undefined;
 	if (!instances?.length) return undefined;
 
-	const host = document.getElementById(playerId);
-	if (host) {
-		for (const inst of instances) {
-			const video = inst.video;
-			if (video instanceof HTMLVideoElement && host.contains(video)) return inst;
-		}
+	for (const inst of instances) {
+		const video = inst.video;
+		if (video instanceof HTMLVideoElement && videoBelongsToHost(video, host)) return inst;
 	}
 
-	return instances[instances.length - 1];
+	return undefined;
 }
 
 export type AttachPlaybackGateOptions = {
 	playerId: string;
 	seconds: number;
+	/** Disparado quando `video.currentTime >= seconds` (sincronizado com o vídeo). */
 	onReached: () => void;
-	/** Chamado quando a instância foi encontrada e o listener `timeupdate` está ativo. */
+	/** Chamado quando a instância foi encontrada e os listeners estão ativos. */
 	onAttached?: () => void;
+	/**
+	 * Se a instância do player nunca resolver dentro deste tempo (player falhou ao carregar),
+	 * `onReached` é chamado mesmo assim para não prender o utilizador. Padrão: 20s.
+	 */
+	resolveTimeoutMs?: number;
 };
 
 /**
- * Revela conteúdo quando `video.currentTime` atinge `seconds` (sincronizado com play/pause).
- * @returns função de cleanup
+ * Revela conteúdo quando `video.currentTime` atinge `seconds`.
+ * Fonte única de verdade = tempo real de reprodução do vídeo.
  */
 export function attachVturbPlaybackGate(opts: AttachPlaybackGateOptions): () => void {
+	const { playerId, seconds, onReached, onAttached, resolveTimeoutMs = 20_000 } = opts;
+
 	let reached = false;
-	let attempts = 0;
-	let pollId: number | undefined;
-	let attachedInstance: VturbSmartPlayerInstance | undefined;
+	let resolvePollId: number | undefined;
+	let timePollId: number | undefined;
+	let unresolvedId: number | undefined;
+	let instance: VturbSmartPlayerInstance | undefined;
 	let onTimeupdate: (() => void) | undefined;
+	let pollVideo: HTMLVideoElement | null = null;
+
+	const clearTimers = () => {
+		if (resolvePollId != null) window.clearInterval(resolvePollId);
+		if (timePollId != null) window.clearInterval(timePollId);
+		if (unresolvedId != null) window.clearTimeout(unresolvedId);
+		resolvePollId = undefined;
+		timePollId = undefined;
+		unresolvedId = undefined;
+	};
 
 	const cleanup = () => {
-		if (pollId != null) window.clearInterval(pollId);
-		pollId = undefined;
-		if (attachedInstance && onTimeupdate) {
-			attachedInstance.off?.('timeupdate', onTimeupdate);
-		}
-		attachedInstance = undefined;
+		clearTimers();
+		if (instance && onTimeupdate) instance.off?.('timeupdate', onTimeupdate);
+		instance = undefined;
 		onTimeupdate = undefined;
+		pollVideo = null;
+	};
+
+	const fire = () => {
+		if (reached) return;
+		reached = true;
+		cleanup();
+		onReached();
+	};
+
+	const getCurrentTime = (): number | null => {
+		const fromInst = instance?.video?.currentTime;
+		if (typeof fromInst === 'number' && Number.isFinite(fromInst)) return fromInst;
+		const fromDom = pollVideo?.currentTime;
+		if (typeof fromDom === 'number' && Number.isFinite(fromDom)) return fromDom;
+		return null;
+	};
+
+	const checkTime = () => {
+		const t = getCurrentTime();
+		if (t != null && t >= seconds) fire();
 	};
 
 	const tryAttach = (): boolean => {
-		const inst = resolveVturbInstance(opts.playerId);
-		if (!inst?.video || typeof inst.on !== 'function') return false;
+		const inst = resolveVturbInstance(playerId);
+		const host = document.getElementById(playerId);
+		const domVideo = host ? findVideoInHost(host) : null;
 
-		attachedInstance = inst;
-		onTimeupdate = () => {
-			if (reached) return;
-			if (inst.video.currentTime < opts.seconds) return;
-			reached = true;
-			opts.onReached();
-			cleanup();
-		};
+		if (!inst?.video && !domVideo) return false;
 
-		inst.on('timeupdate', onTimeupdate);
-		opts.onAttached?.();
+		instance = inst;
+		pollVideo = domVideo;
 
-		if (inst.video.currentTime >= opts.seconds) {
-			onTimeupdate();
+		if (unresolvedId != null) {
+			window.clearTimeout(unresolvedId);
+			unresolvedId = undefined;
 		}
 
+		if (inst && typeof inst.on === 'function') {
+			onTimeupdate = () => checkTime();
+			inst.on('timeupdate', onTimeupdate);
+		}
+
+		if (timePollId == null) {
+			timePollId = window.setInterval(checkTime, TIME_POLL_INTERVAL_MS);
+		}
+
+		onAttached?.();
+		checkTime();
 		return true;
 	};
 
-	pollId = window.setInterval(() => {
-		attempts += 1;
-		if (tryAttach() || attempts >= MAX_RESOLVE_ATTEMPTS) {
-			if (pollId != null) window.clearInterval(pollId);
-			pollId = undefined;
+	resolvePollId = window.setInterval(() => {
+		if (tryAttach()) {
+			window.clearInterval(resolvePollId);
+			resolvePollId = undefined;
 		}
 	}, RESOLVE_INTERVAL_MS);
+
+	unresolvedId = window.setTimeout(() => {
+		if (!instance && !pollVideo) fire();
+	}, resolveTimeoutMs);
+
+	tryAttach();
 
 	return cleanup;
 }
