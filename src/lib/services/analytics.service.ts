@@ -30,7 +30,6 @@ const DEDUPE_KEYS = {
 	quiz_view: 'ga4:quiz_view',
 	quiz_complete_prefix: 'ga4:quiz_complete:',
 	generate_lead_prefix: 'ga4:generate_lead:',
-	meta_view_content: 'meta:view_content',
 	meta_lead_prefix: 'meta:lead:'
 } as const;
 
@@ -131,12 +130,11 @@ export function trackGenerateLead(method: 'whatsapp' = 'whatsapp'): void {
 	});
 }
 
-/** Meta: "start" do usuário no app. */
+/** Meta: início do quiz (1ª opção em goal_type). */
 export function trackMetaViewContent(): void {
-	if (dedupeOnce(DEDUPE_KEYS.meta_view_content)) return;
 	sendMetaEvent('ViewContent', {
 		content_name: 'Protocolo Desbloqueio',
-		content_type: 'app'
+		content_type: 'quiz'
 	});
 }
 

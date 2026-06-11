@@ -5,7 +5,12 @@
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 	import { quizStore } from '$lib/stores/quiz.store';
-	import { trackQuizStart, trackQuizView, trackQuizStepComplete } from '$lib/services/analytics.service';
+	import {
+		trackMetaViewContent,
+		trackQuizStart,
+		trackQuizView,
+		trackQuizStepComplete
+	} from '$lib/services/analytics.service';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import ScrollViewportFill from '$lib/components/ui/ScrollViewportFill.svelte';
 	import QuestionCard from '$lib/components/quiz/QuestionCard.svelte';
@@ -32,6 +37,7 @@
 		if (!state.startedAt) {
 			quizStore.start();
 			trackQuizStart();
+			trackMetaViewContent();
 		}
 
 		quizStore.answer(questionId, value);

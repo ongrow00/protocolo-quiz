@@ -5,20 +5,12 @@
 	import { sessionStore } from '$lib/stores/session.store';
 	import { env } from '$env/dynamic/public';
 	import { PUBLIC_GA4_ID } from '$env/static/public';
-	import { trackMetaViewContent } from '$lib/services/analytics.service';
-
 	let { children } = $props();
 
 	/** UTMs first-touch; `offer` atualiza em cada rota com query na URL. */
 	$effect(() => {
 		if (!browser) return;
 		sessionStore.hydrateFromUrl(page.url.searchParams);
-	});
-
-	$effect(() => {
-		if (!browser) return;
-		// "Start" do app: 1x por sessão
-		trackMetaViewContent();
 	});
 </script>
 
