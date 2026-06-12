@@ -11,10 +11,11 @@
 	} from '$lib/data/meal-preferences';
 
 	interface Props {
+		hideLogo?: boolean;
 		onComplete?: (selections: MealSelections) => void;
 	}
 
-	let { onComplete }: Props = $props();
+	let { hideLogo = false, onComplete }: Props = $props();
 
 	const selections = $state<MealSelections>({
 		cafe: { carbs: [], proteins: [] },
@@ -131,9 +132,11 @@
 </script>
 
 <div class="meal-picker w-full max-w-md mx-auto min-w-0 text-left">
-	<div class="flex justify-center mb-6">
-		<Logo class="block h-7 w-auto" />
-	</div>
+	{#if !hideLogo}
+		<div class="flex justify-center mb-6">
+			<Logo class="block h-7 w-auto" />
+		</div>
+	{/if}
 	<div class="mb-4 px-1">
 		<h2 class="text-xl font-extrabold text-heading leading-snug">
 			Selecione suas preferências

@@ -9,10 +9,11 @@
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
-	import { RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
+	import { ATIVACAO_VTURB_DELAY_SEC, RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
 	import { RESULTS_OFFER } from '$lib/data/results-offer';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
+	import Logo from '$lib/components/ui/Logo.svelte';
 	import OfferHeroProgress from '$lib/components/post-quiz/OfferHeroProgress.svelte';
 	import MealFoodPreferencePicker from '$lib/components/post-quiz/MealFoodPreferencePicker.svelte';
 	import MealFollowUpQuestions from '$lib/components/post-quiz/MealFollowUpQuestions.svelte';
@@ -169,6 +170,8 @@
 		onPrimaryCta?: () => void;
 		/** When provided, declining the offer calls this instead of navigating back. */
 		onDeclineCta?: () => void;
+		/** Link "Sair" no rodapé (ex.: logout na /ativacao). */
+		onExitCta?: () => void | Promise<void>;
 		/** Área logada: nome, telefone e e-mail vêm do `profiles` (não do funil). */
 		useAppCheckoutBuyer?: boolean;
 	}
@@ -185,6 +188,7 @@
 		offerAccessSection,
 		onPrimaryCta,
 		onDeclineCta,
+		onExitCta,
 		useAppCheckoutBuyer = false
 	}: Props = $props();
 
@@ -587,12 +591,13 @@
 	}
 
 	/** Estável: revela no tempo real do vídeo (currentTime >= delay). */
-	const RESULTS_PLAYBACK_GATE = {
-		seconds: RESULTS_VTURB_DELAY_SEC,
+	const resultsPlaybackGate = $derived({
+		seconds: isAtivacaoVariant ? ATIVACAO_VTURB_DELAY_SEC : RESULTS_VTURB_DELAY_SEC,
 		onReached: revealResultsAfterVideo
-	};
+	});
 
 	const showResultsStickyFooter = $derived(!isAtivacaoVariant && ativacaoHeroUnlocked);
+	const showAtivacaoCloseButton = $derived($postQuizStore.resultsContentRevealed);
 	const resultsStickyFooterLoading = $derived(
 		showResultsStickyFooter && !$postQuizStore.resultsContentRevealed
 	);
@@ -618,11 +623,64 @@
 	});
 </script>
 
+{#snippet offerDeclineButton()}
+	{#if offerCta?.declineLabel}
+		<button
+			type="button"
+			class="w-full mt-2.5 flex items-center justify-center rounded-2xl border-2 border-red-700 px-5 py-4 text-base font-bold text-red-700 bg-transparent transition-all duration-200 active:scale-[0.98] hover:bg-red-700/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+			onclick={() => (offerCta.declineModal ? openDeclineModal() : undefined)}
+		>
+			{offerCta.declineLabel}
+		</button>
+	{/if}
+{/snippet}
+
 <div
 	class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center {showStickyFooterBar
 		? 'pb-fixed-cta-reserve'
 		: ''}"
 >
+	{#if isAtivacaoVariant}
+		<header
+			class="fixed inset-x-0 top-0 z-40 flex shrink-0 items-center justify-between px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] bg-challenge-hero/90 backdrop-blur-md supports-[backdrop-filter]:bg-challenge-hero/75"
+		>
+			<div class="w-9 h-9 shrink-0" aria-hidden="true"></div>
+
+			<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+				<Logo class="block h-7 w-auto" />
+			</div>
+
+			{#if showAtivacaoCloseButton}
+				<button
+					type="button"
+					class="w-9 h-9 flex items-center justify-center rounded-xl border border-black text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shrink-0"
+					aria-label="Fechar"
+					onclick={() =>
+						offerCta?.declineModal ? openDeclineModal() : onDeclineCta?.()}
+				>
+					<svg
+						width="20"
+						height="20"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2.5"
+						stroke-linecap="round"
+						aria-hidden="true"
+					>
+						<path d="M6 6l12 12M18 6 6 18" />
+					</svg>
+				</button>
+			{:else}
+				<div class="w-9 h-9 shrink-0" aria-hidden="true"></div>
+			{/if}
+		</header>
+		<div
+			class="shrink-0"
+			style:height="calc(3.75rem + max(0.75rem, env(safe-area-inset-top)))"
+			aria-hidden="true"
+		></div>
+	{/if}
 	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
 		<div class="ativacao-onboarding-transition">
 			{#key mealPreferencesComplete ? 'follow-up' : 'meals'}
@@ -631,9 +689,9 @@
 					out:fly={{ x: -30, duration: 180 }}
 				>
 					{#if !mealPreferencesComplete}
-						<MealFoodPreferencePicker onComplete={handleMealPreferencesComplete} />
+						<MealFoodPreferencePicker hideLogo onComplete={handleMealPreferencesComplete} />
 					{:else if !followUpQuestionsComplete}
-						<MealFollowUpQuestions onComplete={handleFollowUpQuestionsComplete} />
+						<MealFollowUpQuestions hideLogo onComplete={handleFollowUpQuestionsComplete} />
 					{/if}
 				</div>
 			{/key}
@@ -724,7 +782,7 @@
 			<VturbPlayer
 				playerId={vturbProtocoloAccess.smartplayerId}
 				scriptSrc={vturbProtocoloAccess.scriptSrc}
-				playbackGate={RESULTS_PLAYBACK_GATE}
+				playbackGate={resultsPlaybackGate}
 			/>
 		</div>
 		</div>
@@ -1112,15 +1170,7 @@
 		{/if}
 	</div>
 
-	{#if offerCta?.declineLabel}
-		<button
-			type="button"
-			class="w-full mt-2.5 flex items-center justify-center rounded-2xl border-2 border-red-700 px-5 py-4 text-base font-bold text-red-700 bg-transparent transition-all duration-200 active:scale-[0.98] hover:bg-red-700/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-			onclick={() => (offerCta.declineModal ? openDeclineModal() : undefined)}
-		>
-			{offerCta.declineLabel}
-		</button>
-	{/if}
+	{@render offerDeclineButton()}
 
 	{#if declineModalOpen && offerCta?.declineModal}
 		<div
@@ -1249,8 +1299,21 @@
 		</div>
 	</section>
 
+	{@render offerDeclineButton()}
+
 	<div class="w-full pt-10 pb-2 border-t border-line/70 shrink-0">
 		<LegalFooter />
+		{#if isAtivacaoVariant && onExitCta}
+			<p class="mt-4 text-center text-[11px] leading-snug text-[#C1C1C1]">
+				<button
+					type="button"
+					class="text-accent underline underline-offset-2"
+					onclick={() => void onExitCta()}
+				>
+					Sair
+				</button>
+			</p>
+		{/if}
 	</div>
 
 	</div>

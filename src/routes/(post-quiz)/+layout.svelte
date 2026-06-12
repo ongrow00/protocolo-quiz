@@ -14,6 +14,7 @@
 	} from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { trackGenerateLead, trackMetaLead } from '$lib/services/analytics.service';
+	import { isValidName } from '$lib/utils/validation';
 
 	let { children } = $props();
 
@@ -128,6 +129,7 @@
 	});
 
 	const isCarregandoPage = $derived(pathname === '/carregando');
+	const isNomePage = $derived(pathname === '/nome' || pathname.startsWith('/nome/'));
 	const isWhatsappPage = $derived(pathname === '/whatsapp' || pathname.startsWith('/whatsapp/'));
 	const isBonusPage = $derived(pathname === '/plan/bonus' || pathname.startsWith('/plan/bonus/'));
 	const hideNavOnThisPage = $derived(isResultsLikePage);
@@ -182,7 +184,10 @@
 		return withoutCountry.slice(0, 11);
 	});
 	const hasValidWhatsapp = $derived(whatsappDigits.length >= 10);
-	const canAdvance = $derived(!isWhatsappPage || hasValidWhatsapp);
+	const hasValidName = $derived(isValidName($postQuizStore.name));
+	const canAdvance = $derived(
+		(!isNomePage || hasValidName) && (!isWhatsappPage || hasValidWhatsapp)
+	);
 
 	/** Em /results o Voltar fica visível desde o início (1.º clique → /plan/bonus com desconto extra). */
 	const showPostQuizBackButton = $derived(

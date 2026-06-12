@@ -7,6 +7,7 @@
 	import { challengeStore } from '$lib/stores/challenge.store';
 	import { authStore } from '$lib/stores/auth.store';
 	import { accessStore } from '$lib/stores/access.store';
+	import { profileStore } from '$lib/stores/profile.store';
 	import {
 		loadOnboardingStatus,
 		markOnboardingCompletedInDb
@@ -80,6 +81,14 @@
 
 		await enterAppAfterOnboarding();
 	}
+
+	async function handleExit() {
+		await authStore.signOut();
+		challengeStore.reset();
+		postQuizStore.reset();
+		profileStore.reset();
+		await goto('/', { replaceState: true });
+	}
 </script>
 
 <svelte:head>
@@ -99,6 +108,7 @@
 	offerAccessSection={ATIVACAO_OFFER_ACCESS_SECTION}
 	useAppCheckoutBuyer
 	onDeclineCta={handleActivation}
+	onExitCta={handleExit}
 />
 
 {#if declineError}

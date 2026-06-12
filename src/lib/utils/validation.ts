@@ -10,13 +10,18 @@ export function isValidEmailFormat(email: string): boolean {
 	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 }
 
+/** Nome com ao menos 2 caracteres (pós-quiz /nome e lead form). */
+export function isValidName(name: string): boolean {
+	return name.trim().length >= 2;
+}
+
 export function validateLeadForm(name: string, email: string): ValidationResult {
 	const errors: Record<string, string> = {};
 
 	const trimmedName = name.trim();
 	if (!trimmedName) {
 		errors.name = 'Nome é obrigatório';
-	} else if (trimmedName.length < 2) {
+	} else if (!isValidName(trimmedName)) {
 		errors.name = 'Nome deve ter ao menos 2 caracteres';
 	}
 

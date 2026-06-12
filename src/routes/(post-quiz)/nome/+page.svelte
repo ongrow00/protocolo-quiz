@@ -22,6 +22,8 @@
 		placeholder="Digite seu nome"
 		value={name}
 		oninput={handleInput}
+		required
+		minlength="2"
 		class="w-full px-4 py-4 rounded-2xl border-2 border-line bg-surface text-body placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 transition-colors"
 		autocomplete="name"
 	/>

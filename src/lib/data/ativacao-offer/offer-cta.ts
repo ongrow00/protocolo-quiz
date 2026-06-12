@@ -4,7 +4,7 @@ export const ATIVACAO_OFFER_CTA: OfferCta = {
 	primaryLabel: 'Aceitar Oferta',
 	checkoutUrl: 'https://lastlink.com/p/CAEB73A76/checkout-payment/',
 	checkoutSrc: 'onboarding-upsell',
-	declineLabel: 'Recusar Oferta',
+	declineLabel: 'Recusar e entrar no App',
 	declineModal: {
 		message: 'Essa condição não está disponível em outro lugar. Deseja mesmo recusar?',
 		confirmLabel: 'Sim',

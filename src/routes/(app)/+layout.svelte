@@ -154,7 +154,7 @@
 	</div>
 {:else if $isAuthenticated && isAtivacaoPage}
 	<div class="flex min-h-0 flex-1 flex-col bg-challenge-hero">
-		<main class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overscroll-contain bg-challenge-hero px-4 py-8">
+		<main class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overscroll-contain bg-challenge-hero px-4 pb-8">
 			{@render children()}
 		</main>
 	</div>

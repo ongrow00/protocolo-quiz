@@ -10,10 +10,11 @@
 	} from '$lib/data/meal-follow-up-questions';
 
 	interface Props {
+		hideLogo?: boolean;
 		onComplete?: (answers: Record<string, MealFollowUpAnswer>) => void;
 	}
 
-	let { onComplete }: Props = $props();
+	let { hideLogo = false, onComplete }: Props = $props();
 
 	const YES_NO_OPTIONS: QuizOption[] = [
 		{ id: 'nao', text: 'Não', scores: {} },
@@ -59,9 +60,11 @@
 </script>
 
 <div class="meal-follow-up w-full max-w-md mx-auto min-w-0 text-left">
-	<div class="flex justify-center mb-6">
-		<Logo class="block h-7 w-auto" />
-	</div>
+	{#if !hideLogo}
+		<div class="flex justify-center mb-6">
+			<Logo class="block h-7 w-auto" />
+		</div>
+	{/if}
 
 	{#if currentQuestion}
 		<div class="content-transition-root min-h-[280px]">
