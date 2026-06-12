@@ -78,6 +78,11 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 
 	const showNextButton = $derived(!isSingleChoiceQuestion);
 
+	/** Info/microresult preenchem a viewport; listas longas crescem com o conteúdo para rolar. */
+	const needsFlexFill = $derived(
+		isInfoOrMicroResult || question?.id === 'info_medication'
+	);
+
 	/** Demais microresultados (ex.: mr-1). */
 	const MICRORESULT_DEFAULT_CTA_DELAY_MS = 2800;
 
@@ -315,7 +320,9 @@ import { trackQuizFinishQuestions, trackQuizStepComplete } from '$lib/services/a
 			</div>
 		{:else}
 		<div
-			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-32' : 'pb-8'} flex-1 flex flex-col min-h-0 {question.id === 'info_medication'
+			class="max-w-lg mx-auto w-full px-4 pt-8 {showNextButton ? 'pb-fixed-cta-reserve' : 'pb-8'} {needsFlexFill
+				? 'flex-1 flex flex-col min-h-0'
+				: ''} {question.id === 'info_medication'
 				? 'justify-start'
 				: question.type === 'microresult'
 					? 'justify-start'

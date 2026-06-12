@@ -155,9 +155,9 @@
 		isCarregandoPage || isResultsLikePage
 			? 'pb-8'
 			: isBonusPage
-				? 'pb-44'
+				? 'pb-fixed-dual-cta-reserve'
 				: showStandardContinuar
-					? 'pb-32'
+					? 'pb-fixed-cta-reserve'
 					: 'pb-8'
 	);
 	/** Nome, WhatsApp, metabolismo e bonus: sem barra de progresso no header. */
@@ -281,7 +281,11 @@
 	<main
 		class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain bg-bg {showUpsellChargeAlert
 			? 'pt-10'
-			: ''}"
+			: ''} {showBonusDualFooter
+			? 'scroll-pb-fixed-dual-cta-reserve'
+			: showStandardContinuar
+				? 'scroll-pb-fixed-cta-reserve'
+				: ''}"
 	>
 		{#if !showUpsellChargeAlert && !isAtivacaoContaPage && isResultsPage}
 			<header class="shrink-0 bg-bg px-4 pt-4 pb-3">

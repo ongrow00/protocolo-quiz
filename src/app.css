@@ -26,6 +26,12 @@
 	--safe-bottom: env(safe-area-inset-bottom);
 	--safe-left: env(safe-area-inset-left);
 	--safe-right: env(safe-area-inset-right);
+	/** Rodapé fixo: gradiente pt-20 + botão 60px + safe-area */
+	--fixed-cta-reserve: calc(5rem + 3.75rem + max(2rem, env(safe-area-inset-bottom)));
+	/** Rodapé fixo com dois botões (bonus): gradiente + 2×60px + gap-3 + safe-area */
+	--fixed-dual-cta-reserve: calc(
+		5rem + 3.75rem + 0.75rem + 3.75rem + max(2rem, env(safe-area-inset-bottom))
+	);
 }
 
 * {
@@ -97,6 +103,22 @@ body {
 		display: none;
 		width: 0;
 		height: 0;
+	}
+
+	.pb-fixed-cta-reserve {
+		padding-bottom: var(--fixed-cta-reserve);
+	}
+
+	.scroll-pb-fixed-cta-reserve {
+		scroll-padding-bottom: var(--fixed-cta-reserve);
+	}
+
+	.pb-fixed-dual-cta-reserve {
+		padding-bottom: var(--fixed-dual-cta-reserve);
+	}
+
+	.scroll-pb-fixed-dual-cta-reserve {
+		scroll-padding-bottom: var(--fixed-dual-cta-reserve);
 	}
 
 	.bg-challenge-hero {

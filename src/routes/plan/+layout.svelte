@@ -149,7 +149,7 @@
 
 <div
 	data-scroll-viewport
-	class="scrollbar-hidden flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
+	class="scrollbar-hidden scroll-pb-fixed-cta-reserve flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-y-contain"
 >
 	<div class="content-transition-root">
 		{#key questionKey}

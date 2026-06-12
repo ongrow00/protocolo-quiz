@@ -236,7 +236,7 @@
 	</div>
 {/if}
 
-<div class="flex flex-col gap-8 w-full pb-24">
+<div class="flex flex-col gap-8 w-full pb-fixed-cta-reserve">
 	<div class="flex flex-col gap-2">
 		<h2 class="text-2xl font-extrabold text-heading leading-[24px]">Estamos finalizando seu protocolo</h2>
 		<p class="text-sm text-body leading-relaxed">

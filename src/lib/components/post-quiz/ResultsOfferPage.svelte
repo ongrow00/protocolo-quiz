@@ -620,7 +620,7 @@
 
 <div
 	class="flex flex-col gap-2.5 w-full min-w-0 min-h-0 text-center {showStickyFooterBar
-		? 'pb-32'
+		? 'pb-fixed-cta-reserve'
 		: ''}"
 >
 	{#if isAtivacaoVariant && !ativacaoPreOfferComplete}
