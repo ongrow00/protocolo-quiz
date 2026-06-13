@@ -18,3 +18,13 @@ export const ATIVACAO_HERO_HEADLINE: readonly HeroHeadlineSegment[] = [
 	{ bold: true, text: 'continuar' },
 	{ text: '.' }
 ];
+
+export const ATIVACAO_HERO_SUBHEADLINE: readonly HeroHeadlineSegment[] = [
+	{ text: 'Assista a este ' },
+	{ bold: true, text: 'breve vídeo' },
+	{ text: ' antes de ' },
+	{ bold: true, text: 'acessar o aplicativo' },
+	{ text: '. Assim que ele terminar, seu acesso ' },
+	{ bold: true, text: 'será liberado automaticamente' },
+	{ text: '.' }
+];

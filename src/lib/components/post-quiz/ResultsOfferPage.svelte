@@ -160,6 +160,8 @@
 		offerFaq?: OfferFaq;
 		/** Headline do hero (substitui o título padrão acima do vídeo). */
 		heroHeadline?: HeroHeadline;
+		/** Subtítulo abaixo do headline do hero (ex.: /ativacao). */
+		heroSubheadline?: HeroHeadline;
 		/** Stepper de progresso acima do hero. */
 		heroProgress?: HeroProgress;
 		/** CTAs do bloco de preço (ex.: `/atiavacao-de-conta`). */
@@ -183,6 +185,7 @@
 		offerGuarantee,
 		offerFaq,
 		heroHeadline,
+		heroSubheadline,
 		heroProgress,
 		offerCta,
 		offerAccessSection,
@@ -728,6 +731,20 @@
 			<strong class="text-accent">{goalLabel}</strong>.
 		{/if}
 	</h1>
+	{#if heroSubheadline}
+	<p
+		class="text-sm text-body leading-relaxed max-w-md mx-auto min-w-0 mb-[25px] mt-3 px-1 text-center [&_strong]:font-extrabold"
+		in:fly={{ y: cascadeY, duration: cascadeDur, delay: cascadeGap, easing: cubicOut }}
+	>
+		{#if Array.isArray(heroSubheadline)}
+			{#each heroSubheadline as segment}
+				{#if segment.bold}<strong>{segment.text}</strong>{:else}{segment.text}{/if}
+			{/each}
+		{:else}
+			{heroSubheadline}
+		{/if}
+	</p>
+	{/if}
 	{#if !hasCustomHeroHeadline}
 	<p
 		class="text-sm text-body leading-[14px] max-w-md mx-auto min-w-0 mb-[25px]"
