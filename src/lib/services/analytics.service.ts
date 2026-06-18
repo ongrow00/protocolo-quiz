@@ -30,7 +30,9 @@ const DEDUPE_KEYS = {
 	quiz_view: 'ga4:quiz_view',
 	quiz_complete_prefix: 'ga4:quiz_complete:',
 	generate_lead_prefix: 'ga4:generate_lead:',
-	meta_lead_prefix: 'meta:lead:'
+	meta_lead_prefix: 'meta:lead:',
+	meta_add_to_cart_prefix: 'meta:add_to_cart:',
+	ga4_add_to_cart_prefix: 'ga4:add_to_cart:'
 } as const;
 
 function canSend(): boolean {
@@ -144,6 +146,37 @@ export function trackMetaLead(): void {
 	const dedupeKey = `${DEDUPE_KEYS.meta_lead_prefix}${funnel_session_id ?? anonymous_id}`;
 	if (dedupeOnce(dedupeKey)) return;
 	sendMetaEvent('Lead', { lead_type: 'whatsapp' });
+}
+
+/** Meta + GA4: oferta em /results revelada pelo VTurb. */
+export function trackAddToCart(params?: {
+	content_name?: string;
+	value?: number;
+	currency?: string;
+}): void {
+	const { funnel_session_id, anonymous_id } = baseParams();
+	const dedupeId = funnel_session_id ?? anonymous_id;
+	const metaDedupeKey = `${DEDUPE_KEYS.meta_add_to_cart_prefix}${dedupeId}`;
+	const ga4DedupeKey = `${DEDUPE_KEYS.ga4_add_to_cart_prefix}${dedupeId}`;
+
+	if (!dedupeOnce(metaDedupeKey)) {
+		sendMetaEvent('AddToCart', {
+			content_name: params?.content_name ?? 'Protocolo Desbloqueio',
+			content_type: 'product',
+			currency: params?.currency ?? 'BRL',
+			...(params?.value != null ? { value: params.value } : {})
+		});
+	}
+
+	if (!dedupeOnce(ga4DedupeKey)) {
+		sendEvent('add_to_cart', {
+			...baseParams(),
+			page_path: '/results',
+			content_name: params?.content_name ?? 'Protocolo Desbloqueio',
+			currency: params?.currency ?? 'BRL',
+			...(params?.value != null ? { value: params.value } : {})
+		});
+	}
 }
 
 /** Back-compat (se existir algum uso legado). */

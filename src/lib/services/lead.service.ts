@@ -45,6 +45,8 @@ export type QuizProgressPayload = {
 	/** Pós-quiz (/nome, /whatsapp): persiste no mesmo registro do funil */
 	postQuizName?: string;
 	postQuizWhatsapp?: string;
+	/** /results: oferta revelada (VTurb, restore ou bónus). */
+	offerRevealed?: boolean;
 };
 
 /** Monta payload completo a partir dos stores (fetch e sendBeacon). */
@@ -72,7 +74,8 @@ export function buildQuizProgressPayload(): QuizProgressPayload | null {
 		...(hasUtm ? { utm } : {}),
 		offer: session.offer,
 		...(postName ? { postQuizName: postName.slice(0, 200) } : {}),
-		...(postWa ? { postQuizWhatsapp: postWa.slice(0, 32) } : {})
+		...(postWa ? { postQuizWhatsapp: postWa.slice(0, 32) } : {}),
+		...(post.resultsOfferRevealed ? { offerRevealed: true } : {})
 	};
 }
 
@@ -93,7 +96,8 @@ function progressBody(data: QuizProgressPayload): Record<string, unknown> {
 		...(data.postQuizName?.trim() ? { postQuizName: data.postQuizName.trim().slice(0, 200) } : {}),
 		...(data.postQuizWhatsapp?.replace(/\s/g, '').trim()
 			? { postQuizWhatsapp: data.postQuizWhatsapp.replace(/\s/g, '').trim().slice(0, 32) }
-			: {})
+			: {}),
+		...(data.offerRevealed ? { offerRevealed: true } : {})
 	};
 }
 

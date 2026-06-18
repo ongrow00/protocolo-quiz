@@ -51,7 +51,8 @@ function payloadHash(payload: QuizProgressPayload): string {
 		completedAt: payload.completedAt,
 		currentQuestionId: payload.currentQuestionId,
 		postQuizName: payload.postQuizName ?? '',
-		postQuizWhatsapp: payload.postQuizWhatsapp ?? ''
+		postQuizWhatsapp: payload.postQuizWhatsapp ?? '',
+		offerRevealed: payload.offerRevealed === true
 	});
 }
 

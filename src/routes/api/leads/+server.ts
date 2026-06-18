@@ -74,7 +74,7 @@ async function upsertByFunnelSession(
 ) {
 	const { data: existing, error: selErr } = await supabase
 		.from(TABLE)
-		.select('id')
+		.select('id, offer_revealed')
 		.eq('funnel_session_id', funnelSessionId)
 		.maybeSingle();
 
@@ -171,6 +171,13 @@ async function handleProgress(
 	if (postQuizName) row.name = postQuizName;
 	if (postQuizWhatsapp) row.whatsapp = postQuizWhatsapp;
 	if (emailOk) row.email = postQuizEmail;
+
+	if (b.offerRevealed === true) {
+		row.offer_revealed = true;
+		if (!existing?.offer_revealed) {
+			row.offer_revealed_at = new Date().toISOString();
+		}
+	}
 
 	await upsertByFunnelSession(supabase, funnelSessionId, row);
 

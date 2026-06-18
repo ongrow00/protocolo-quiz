@@ -21,6 +21,10 @@
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
 	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
 	import { persistActivationMealPlan } from '$lib/services/meal-plan-activation.service';
+	import {
+		onResultsOfferRevealedByVturb,
+		syncResultsOfferRevealedToDb
+	} from '$lib/services/offer-revealed-sync.service';
 	import type { UtmParams } from '$lib/data/types';
 	import { authStore } from '$lib/stores/auth.store';
 	import { sessionStore } from '$lib/stores/session.store';
@@ -590,6 +594,7 @@
 			postQuizStore.markAtivacaoOfferRevealed();
 		} else {
 			postQuizStore.markResultsContentRevealed();
+			onResultsOfferRevealedByVturb();
 		}
 	}
 
@@ -614,6 +619,11 @@
 	$effect(() => {
 		if (!browser || isAtivacaoVariant) return;
 		postQuizStore.restoreResultsContentIfOfferRevealed();
+	});
+
+	$effect(() => {
+		if (!browser || isAtivacaoVariant || !$postQuizStore.resultsOfferRevealed) return;
+		syncResultsOfferRevealedToDb();
 	});
 
 	$effect(() => {

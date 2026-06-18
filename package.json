@@ -27,6 +27,8 @@
 	"dependencies": {
 		"@supabase/supabase-js": "^2.105.0",
 		"canvas-confetti": "^1.9.4",
+		"jspdf": "^4.2.1",
+		"jspdf-autotable": "^5.0.8",
 		"lottie-web": "^5.13.0"
 	}
 }
