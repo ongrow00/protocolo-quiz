@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { browser } from '$app/environment';
+	import { tick } from 'svelte';
 	import {
 		attachVturbPlaybackGate,
 		findVideoInHost,
@@ -103,26 +104,26 @@
 	}
 
 	/** SPA remount: o player.js é one-shot — recria elemento + script com cache-bust. */
-	async function bootstrapPlayerScript(): Promise<void> {
-		removePlayerScripts(scriptSrc);
-		const bustedSrc = `${scriptSrc}${scriptSrc.includes('?') ? '&' : '?'}_=${Date.now()}`;
+	async function bootstrapPlayerScript(src: string): Promise<void> {
+		removePlayerScripts(src);
+		const bustedSrc = `${src}${src.includes('?') ? '&' : '?'}_=${Date.now()}`;
 		await loadScriptTag(bustedSrc);
 	}
 
-	function mountPlayerInHost(): void {
+	function mountPlayerInHost(id: string): void {
 		const host = hostEl;
 		if (!host) return;
 		host.replaceChildren();
 		const el = document.createElement('vturb-smartplayer');
-		el.id = playerId;
+		el.id = id;
 		el.setAttribute('style', 'display:block;margin:0 auto;width:100%;max-width:400px;');
 		host.appendChild(el);
 		playerEl = el;
 		playerMounted = true;
 	}
 
-	function markReadyIfVideoPresent(): boolean {
-		if (isVturbPlayerInitialized(playerId)) {
+	function markReadyIfVideoPresent(id: string): boolean {
+		if (isVturbPlayerInitialized(id)) {
 			playerReady = true;
 			return true;
 		}
@@ -190,7 +191,14 @@
 		return () => host.removeEventListener('click', onClick, true);
 	});
 
-	onMount(() => {
+	$effect(() => {
+		if (!browser) return;
+
+		const activePlayerId = playerId;
+		const activeScriptSrc = scriptSrc;
+		const host = hostEl;
+		if (!host) return;
+
 		let cancelled = false;
 
 		async function waitForPlayerReady(timeoutMs: number): Promise<boolean> {
@@ -214,11 +222,11 @@
 				el.addEventListener('player:ready', onReady);
 
 				const pollId = window.setInterval(() => {
-					if (markReadyIfVideoPresent()) finish(true);
+					if (markReadyIfVideoPresent(activePlayerId)) finish(true);
 				}, 150);
 
 				const timeoutId = window.setTimeout(() => {
-					finish(markReadyIfVideoPresent());
+					finish(markReadyIfVideoPresent(activePlayerId));
 				}, timeoutMs);
 			});
 		}
@@ -227,9 +235,12 @@
 			if (!cancelled) playerReady = true;
 		}, 22_000);
 
+		playerMounted = false;
+		playerReady = false;
+		playerEl = undefined;
+
 		(async () => {
 			try {
-				// Pequena pausa pós-transição SPA antes de montar o player.
 				await new Promise<void>((r) => setTimeout(r, 320));
 				await tick();
 				if (cancelled || !hostEl) return;
@@ -240,7 +251,7 @@
 				}
 				if (cancelled || !hostEl) return;
 
-				mountPlayerInHost();
+				mountPlayerInHost(activePlayerId);
 				const el = playerEl;
 				if (!el) return;
 
@@ -252,10 +263,9 @@
 				);
 				if (cancelled) return;
 
-				await bootstrapPlayerScript();
+				await bootstrapPlayerScript(activeScriptSrc);
 				if (cancelled) return;
 
-				// VTurb usa intersection observer — não destruir/recriar; aguardar bind + vídeo.
 				await waitForPlayerReady(18_000);
 			} catch (err) {
 				console.error('[VturbPlayer] init failed:', err);
@@ -266,8 +276,8 @@
 		return () => {
 			cancelled = true;
 			clearTimeout(overlayFallback);
-			removePlayerScripts(scriptSrc);
-			hostEl?.replaceChildren();
+			removePlayerScripts(activeScriptSrc);
+			host.replaceChildren();
 			playerEl = undefined;
 			playerMounted = false;
 			playerReady = false;

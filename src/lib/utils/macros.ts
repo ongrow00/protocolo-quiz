@@ -7,9 +7,110 @@ const ACTIVITY_MULTIPLIER: Record<string, number> = {
 	'al-muito': 1.725
 };
 
+/** Meta de kcal da Etapa 1 (quiz + oferta): sempre entre 1000 e 1200. */
+const PHASE1_KCAL_MIN = 1000;
+const PHASE1_KCAL_MAX = 1200;
+const PHASE1_KCAL_STEP = 50;
+
+/** Mais atividade → score maior → mais kcal dentro da faixa. */
+const ACTIVITY_SCORE: Record<string, number> = {
+	'al-sedentaria': 0,
+	'al-leve': 0.33,
+	'al-moderada': 0.66,
+	'al-muito': 1
+};
+
 function parseNum(v: unknown): number | null {
 	const n = typeof v === 'string' ? parseFloat(v) : typeof v === 'number' ? v : NaN;
 	return Number.isFinite(n) ? n : null;
+}
+
+function clamp01(value: number): number {
+	return Math.min(1, Math.max(0, value));
+}
+
+/** Índice 0..5 do grid de gordura: mais magra → score maior. */
+function bodyFatLevelScore(answers: Answers): number | null {
+	const raw = answers['body_fat_level'];
+	if (typeof raw !== 'string' || raw.trim() === '') return null;
+	const stage = parseInt(raw, 10);
+	if (Number.isNaN(stage)) return null;
+	const clamped = Math.min(5, Math.max(0, stage));
+	return (5 - clamped) / 5;
+}
+
+function activityLevelScore(answers: Answers): number | null {
+	const key = typeof answers['activity_level'] === 'string' ? answers['activity_level'] : '';
+	if (!key || !(key in ACTIVITY_SCORE)) return null;
+	return ACTIVITY_SCORE[key];
+}
+
+/** Antes de body_fat/activity no funil: posição na faixa via TDEE estimado. */
+function anthropometricKcalScore(
+	weight: number,
+	height: number,
+	age: number,
+	activityKey: string
+): number {
+	const bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+	const multiplier = ACTIVITY_MULTIPLIER[activityKey] ?? 1.375;
+	const tdee = bmr * multiplier;
+	return clamp01((tdee - 1200) / 1000);
+}
+
+/** Combina biotipo (gordura + atividade) ou fallback antropométrico. */
+function resolvePhase1KcalScore(answers: Answers, weight: number, height: number, age: number): number {
+	const fatScore = bodyFatLevelScore(answers);
+	const activityScore = activityLevelScore(answers);
+	const activityKey = typeof answers['activity_level'] === 'string' ? answers['activity_level'] : '';
+
+	const biotypeParts: number[] = [];
+	if (fatScore != null) biotypeParts.push(fatScore);
+	if (activityScore != null) biotypeParts.push(activityScore);
+
+	if (biotypeParts.length > 0) {
+		const sum = biotypeParts.reduce((acc, part) => acc + part, 0);
+		return sum / biotypeParts.length;
+	}
+
+	return anthropometricKcalScore(weight, height, age, activityKey);
+}
+
+/** Proteína como fração das kcal totais (coerente com a faixa 1000–1200). */
+const PROTEIN_KCAL_SHARE_MIN = 0.3;
+const PROTEIN_KCAL_SHARE_MAX = 0.4;
+
+/** g/kg dentro do orçamento calórico (mais ativa/magra → um pouco mais). */
+const PROTEIN_G_PER_KG_MIN = 1.2;
+const PROTEIN_G_PER_KG_MAX = 1.6;
+
+const PROTEIN_G_ABSOLUTE_MIN = 70;
+const PROTEIN_G_ROUND_STEP = 5;
+
+function roundProteinG(value: number): number {
+	return Math.round(value / PROTEIN_G_ROUND_STEP) * PROTEIN_G_ROUND_STEP;
+}
+
+/** Proteína alinhada à meta de kcal e ao biotipo (peso entra como teto prático). */
+function resolvePhase1ProteinG(kcal: number, kcalScore: number, weight: number): number {
+	const score = clamp01(kcalScore);
+	const proteinShare =
+		PROTEIN_KCAL_SHARE_MIN + score * (PROTEIN_KCAL_SHARE_MAX - PROTEIN_KCAL_SHARE_MIN);
+	const budgetG = (kcal * proteinShare) / 4;
+	const gPerKg = PROTEIN_G_PER_KG_MIN + score * (PROTEIN_G_PER_KG_MAX - PROTEIN_G_PER_KG_MIN);
+	const weightTargetG = gPerKg * weight;
+
+	const rawG = Math.min(weightTargetG, budgetG);
+	const flooredG = Math.max(PROTEIN_G_ABSOLUTE_MIN, rawG);
+	const cappedG = Math.min(flooredG, budgetG);
+
+	return roundProteinG(cappedG);
+}
+
+function scoreToPhase1Kcal(score: number): number {
+	const raw = PHASE1_KCAL_MIN + clamp01(score) * (PHASE1_KCAL_MAX - PHASE1_KCAL_MIN);
+	const stepped = Math.round(raw / PHASE1_KCAL_STEP) * PHASE1_KCAL_STEP;
+	return Math.min(PHASE1_KCAL_MAX, Math.max(PHASE1_KCAL_MIN, stepped));
 }
 
 export interface Phase1Macros {
@@ -30,22 +131,9 @@ export function computePhase1Macros(answers: Answers): Phase1Macros | null {
 	const age = parseNum(answers['age_years']);
 	if (weight == null || height == null || age == null) return null;
 
-	// Mifflin-St Jeor BMR (mulheres)
-	const base = 10 * weight + 6.25 * height - 5 * age;
-	const bmr = base - 161;
-
-	const activityKey = typeof answers['activity_level'] === 'string' ? answers['activity_level'] : '';
-	const multiplier = ACTIVITY_MULTIPLIER[activityKey] ?? 1.375;
-
-	const tdee = bmr * multiplier;
-
-	// Etapa 1 (Desbloqueio): déficit de ~500 kcal, mínimo 1200 kcal
-	const floor = 1200;
-	const kcalRaw = Math.max(floor, tdee - 500);
-	const kcal = Math.round(kcalRaw / 10) * 10;
-
-	// Proteína: 1,8 g/kg para perda de peso
-	const proteinG = Math.round((1.8 * weight) / 5) * 5;
+	const kcalScore = resolvePhase1KcalScore(answers, weight, height, age);
+	const kcal = scoreToPhase1Kcal(kcalScore);
+	const proteinG = resolvePhase1ProteinG(kcal, kcalScore, weight);
 
 	return { kcal, proteinG };
 }
@@ -53,7 +141,10 @@ export function computePhase1Macros(answers: Answers): Phase1Macros | null {
 /** Frações de kcal (proteína / carboidrato / gordura) para o donut da tela MR proteína. */
 export function macroSplitFromPhase1(macros: Phase1Macros): MacroSplit {
 	const { kcal, proteinG } = macros;
-	const proteinKcal = proteinG * 4;
+	if (kcal <= 0) {
+		return { proteinPct: 0, carbsPct: 0, fatPct: 0 };
+	}
+	const proteinKcal = Math.min(proteinG * 4, kcal);
 	const remaining = Math.max(0, kcal - proteinKcal);
 	const carbKcal = remaining * 0.35;
 	const fatKcal = remaining * 0.65;
@@ -76,7 +167,7 @@ export function dailyMacroGoals(answers: Answers): DailyMacroGoals | null {
 	const phase1 = computePhase1Macros(answers);
 	if (!phase1) return null;
 	const split = macroSplitFromPhase1(phase1);
-	const proteinKcal = phase1.proteinG * 4;
+	const proteinKcal = Math.min(phase1.proteinG * 4, phase1.kcal);
 	const remaining = Math.max(0, phase1.kcal - proteinKcal);
 	return {
 		kcal: phase1.kcal,
@@ -88,8 +179,8 @@ export function dailyMacroGoals(answers: Answers): DailyMacroGoals | null {
 
 /** Fallback quando o quiz não está disponível (demo / login direto). */
 export const DEFAULT_DAILY_MACRO_GOALS: DailyMacroGoals = {
-	kcal: 2139,
-	proteinG: 60,
-	carbsG: 20,
-	fatG: 142
+	kcal: 1100,
+	proteinG: 95,
+	carbsG: 61,
+	fatG: 51
 };

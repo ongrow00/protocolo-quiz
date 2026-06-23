@@ -31,6 +31,10 @@ const DEDUPE_KEYS = {
 	quiz_complete_prefix: 'ga4:quiz_complete:',
 	generate_lead_prefix: 'ga4:generate_lead:',
 	meta_lead_prefix: 'meta:lead:',
+	meta_view_content_plan_v2: 'meta:view_content:plan-v2',
+	meta_view_content_plan: 'meta:view_content:plan',
+	meta_add_to_wishlist_plan_v2: 'meta:add_to_wishlist:plan-v2',
+	meta_add_to_wishlist_plan: 'meta:add_to_wishlist:plan',
 	meta_add_to_cart_prefix: 'meta:add_to_cart:',
 	ga4_add_to_cart_prefix: 'ga4:add_to_cart:'
 } as const;
@@ -132,11 +136,51 @@ export function trackGenerateLead(method: 'whatsapp' = 'whatsapp'): void {
 	});
 }
 
-/** Meta: início do quiz (1ª opção em goal_type). */
+/** Meta: início do quiz (legado — preferir trackMetaViewContentPlan). */
 export function trackMetaViewContent(): void {
 	sendMetaEvent('ViewContent', {
 		content_name: 'Protocolo Desbloqueio',
 		content_type: 'quiz'
+	});
+}
+
+/** Meta: entrada em `/plan` (dispara no carregamento da página). */
+export function trackMetaViewContentPlan(): void {
+	if (dedupeOnce(DEDUPE_KEYS.meta_view_content_plan)) return;
+	sendMetaEvent('ViewContent', {
+		content_name: 'Protocolo Desbloqueio',
+		content_type: 'quiz',
+		page_path: '/plan'
+	});
+}
+
+/** Meta: clique em objetivo (Emagrecer / Definir) em `/plan`. */
+export function trackMetaAddToWishlistPlan(): void {
+	if (dedupeOnce(DEDUPE_KEYS.meta_add_to_wishlist_plan)) return;
+	sendMetaEvent('AddToWishlist', {
+		content_name: 'Protocolo Desbloqueio',
+		content_type: 'quiz',
+		page_path: '/plan'
+	});
+}
+
+/** Meta: entrada A/B em `/plan-v2` (dispara no carregamento da página). */
+export function trackMetaViewContentPlanV2(): void {
+	if (dedupeOnce(DEDUPE_KEYS.meta_view_content_plan_v2)) return;
+	sendMetaEvent('ViewContent', {
+		content_name: 'Protocolo Desbloqueio',
+		content_type: 'quiz',
+		page_path: '/plan-v2'
+	});
+}
+
+/** Meta: clique em «Começar teste gratuito» em `/plan-v2`. */
+export function trackMetaAddToWishlistPlanV2(): void {
+	if (dedupeOnce(DEDUPE_KEYS.meta_add_to_wishlist_plan_v2)) return;
+	sendMetaEvent('AddToWishlist', {
+		content_name: 'Teste do Metabolismo',
+		content_type: 'quiz',
+		page_path: '/plan-v2'
 	});
 }
 

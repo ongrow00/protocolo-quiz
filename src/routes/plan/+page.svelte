@@ -6,7 +6,8 @@
 	import { get } from 'svelte/store';
 	import { quizStore } from '$lib/stores/quiz.store';
 	import {
-		trackMetaViewContent,
+		trackMetaAddToWishlistPlan,
+		trackMetaViewContentPlan,
 		trackQuizStart,
 		trackQuizView,
 		trackQuizStepComplete
@@ -27,6 +28,7 @@
 	onMount(() => {
 		if (!browser) return;
 		trackQuizView();
+		trackMetaViewContentPlan();
 		quizStore.goTo('goal_type');
 	});
 
@@ -37,8 +39,9 @@
 		if (!state.startedAt) {
 			quizStore.start();
 			trackQuizStart();
-			trackMetaViewContent();
 		}
+
+		trackMetaAddToWishlistPlan();
 
 		quizStore.answer(questionId, value);
 

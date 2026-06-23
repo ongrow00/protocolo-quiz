@@ -3,7 +3,6 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { get } from 'svelte/store';
 	import {
 		flushQuizProgressNow,
 		startQuizProgressSync,
@@ -11,17 +10,16 @@
 	} from '$lib/services/quiz-progress-sync.service';
 	import { goto } from '$app/navigation';
 	import { navigating } from '$app/state';
-	import { progressPercent, currentQuestion, quizStore } from '$lib/stores/quiz.store';
-	import { quizConfig } from '$lib/data/quiz.config';
-	import { computeVisibleQuestions } from '$lib/utils/branching';
+	import { progressPercent, currentQuestion } from '$lib/stores/quiz.store';
 	import StepProgressBar from '$lib/components/quiz/StepProgressBar.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
-	import SocialProof from '$lib/components/ui/SocialProof.svelte';
 	import { quizTransitionDirection } from '$lib/stores/quiz-transition.store';
+
+	const PLAN_V2_ENTRY = '/plan-v2';
 
 	let { children } = $props();
 
-	const questionKey = $derived($currentQuestion?.id ?? 'plan-idle');
+	const questionKey = $derived($currentQuestion?.id ?? 'plan-v2-idle');
 
 	/** Mesmo padrão do funil pós-quiz (`content-transition-root`). */
 	const stepFlyIn = $derived(
@@ -43,13 +41,14 @@
 		stopQuizProgressSync();
 	});
 
-	const isPlanPath = (pathname: string) => pathname === '/plan' || pathname.startsWith('/plan/');
+	const isPlanV2Path = (pathname: string) =>
+		pathname === PLAN_V2_ENTRY || pathname.startsWith(`${PLAN_V2_ENTRY}/`);
 
 	beforeNavigate(({ from, to }) => {
 		if (!browser) return;
 		const fromPath = from?.url.pathname ?? '';
 		const toPath = to?.url.pathname ?? '';
-		const leavingPlan = isPlanPath(fromPath) && !isPlanPath(toPath);
+		const leavingPlan = isPlanV2Path(fromPath) && !isPlanV2Path(toPath);
 		if (leavingPlan) {
 			return flushQuizProgressNow();
 		}
@@ -82,38 +81,12 @@
 
 	async function handleBack() {
 		if (navigating.from != null || goingBack) return;
-
-		// Calcula alvo no momento do clique a partir do store (evita dessincronia com $prevQuestion)
-		const state = get(quizStore);
-		if (!state.currentQuestionId) {
-			await goto('/plan');
-			return;
-		}
-		const visible = computeVisibleQuestions(quizConfig.questions, state.answers);
-		const idx = visible.findIndex((q) => q.id === state.currentQuestionId);
-		const prevQuestionAtClick = idx > 0 ? visible[idx - 1] : null;
-		const targetId = prevQuestionAtClick?.id;
-		if (!targetId) {
-			await goto('/plan');
-			return;
-		}
-
-		goingBack = true;
-		try {
-			quizTransitionDirection.set('back');
-			quizStore.goTo(targetId);
-			await goto(`/plan/${targetId}`);
-		} finally {
-			goingBack = false;
-		}
+		await goto(PLAN_V2_ENTRY);
 	}
 </script>
 
-<!-- Fundo explícito em todo o /plan; degradês do rodapé usam o mesmo token em app.css -->
 <div class="flex h-dvh min-h-dvh flex-col overflow-hidden bg-bg">
-<!-- DOM order: header (0), main (1), spacer (2), slot content (3) so quiz content div is 4th child of plan root -->
 <header class="sticky top-0 z-10 bg-bg px-4 pt-4 pb-3">
-	<!-- Row 1: Voltar | Logo | (espaço espelha a esquerda para centralizar o logo) -->
 	<div class="flex items-center justify-between mb-3">
 		{#if !isGoalTypeScreen}
 			<button
@@ -135,12 +108,10 @@
 		<div class="w-9 h-9 shrink-0" aria-hidden="true"></div>
 	</div>
 
-	<!-- Row 2: Section label (oculto na tela de checkpoint e info medicamento) -->
 	{#if section && !hideHeaderUi}
 		<p class="text-xs text-muted text-center mb-2 tracking-wide">{section}</p>
 	{/if}
 
-	<!-- Row 3: Step progress bar (oculto na tela de checkpoint e info medicamento) -->
 	{#if !hideHeaderUi}
 		<StepProgressBar percent={$progressPercent} steps={4} />
 	{/if}
@@ -166,18 +137,6 @@
 		{/key}
 	</div>
 </div>
-
-{#if isGoalTypeScreen}
-	<div
-		class="fixed bottom-0 left-0 right-0 z-[60] bg-gradient-bottom-fade-white pt-12 pointer-events-none"
-	>
-		<div
-			class="max-w-lg mx-auto w-full bg-bg px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 pointer-events-auto"
-		>
-			<SocialProof bordered={false} />
-		</div>
-	</div>
-{/if}
 </div>
 
 <style>

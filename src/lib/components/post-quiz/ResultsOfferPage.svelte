@@ -230,9 +230,9 @@
 
 	/** Vídeo: /ativacao e /atiavacao-de-conta. */
 	const vturbProtocoloAccessAtivacao: VturbPlayerConfig = {
-		smartplayerId: 'vid-6a2ada3e3244f7b854ab90e4',
+		smartplayerId: 'vid-6a3a782f0c9bdb871a3b1eee',
 		scriptSrc:
-			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a2ada3e3244f7b854ab90e4/v4/player.js'
+			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a3a782f0c9bdb871a3b1eee/v4/player.js'
 	};
 
 	const vturbProtocoloAccess = $derived(
@@ -806,11 +806,13 @@
 		<div
 			class="w-full {isAtivacaoVariant ? '' : 'relative z-10 -mt-2'}"
 		>
-			<VturbPlayer
-				playerId={vturbProtocoloAccess.smartplayerId}
-				scriptSrc={vturbProtocoloAccess.scriptSrc}
-				playbackGate={resultsPlaybackGate}
-			/>
+			{#key vturbProtocoloAccess.smartplayerId}
+				<VturbPlayer
+					playerId={vturbProtocoloAccess.smartplayerId}
+					scriptSrc={vturbProtocoloAccess.scriptSrc}
+					playbackGate={resultsPlaybackGate}
+				/>
+			{/key}
 		</div>
 		</div>
 	</div>

@@ -55,11 +55,19 @@
 	const AXIS_LOCK_PX = 8;
 
 	const SWIPE_THRESHOLD_PX = 48;
+	const WEEKEND_GUIDE_PDF_URL = '/docs/guia-final-de-semana.pdf';
+
 	const protocolSlideIndex = 0;
 	const intakeSlideIndex = $derived(showIntake ? 1 : null);
 	const listaSlideIndex = $derived(showIntake ? 2 : 1);
 	const printSlideIndex = $derived(showIntake ? 3 : 2);
-	const maxSlideIndex = $derived(printSlideIndex);
+	const weekendGuideSlideIndex = $derived(showIntake ? 4 : 3);
+	const maxSlideIndex = $derived(weekendGuideSlideIndex);
+
+	function openWeekendGuidePdf() {
+		if (!browser) return;
+		window.open(WEEKEND_GUIDE_PDF_URL, '_blank', 'noopener,noreferrer');
+	}
 
 	function scrollToSlide(index: number) {
 		activeSlide = Math.min(maxSlideIndex, Math.max(0, index));
@@ -162,6 +170,11 @@
 				target?.closest('[data-print-trigger]')
 			) {
 				void downloadProtocolPdf();
+			} else if (
+				activeSlide === weekendGuideSlideIndex &&
+				target?.closest('[data-weekend-guide-trigger]')
+			) {
+				openWeekendGuidePdf();
 			} else if (carouselPointerDownSlide !== activeSlide) {
 				scrollToSlide(carouselPointerDownSlide);
 			}
@@ -294,6 +307,32 @@
 	</div>
 {/snippet}
 
+{#snippet weekendGuideFace()}
+	<div
+		data-weekend-guide-trigger
+		role="button"
+		tabindex="0"
+		class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
+		onkeydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				openWeekendGuidePdf();
+			}
+		}}
+	>
+		<span class="text-sm font-extrabold text-heading">Guia de Final de Semana</span>
+		<p class="text-xs leading-relaxed text-body">
+			Acesse seu guia e entenda como aproveitar seus momentos especiais, comendo o que gosta sem sair do plano.
+		</p>
+		<span class="mt-1 flex items-center gap-1 text-xs font-bold text-accent">
+			Acessar agora
+			<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<path d="M5 12h14M13 6l6 6-6 6" />
+			</svg>
+		</span>
+	</div>
+{/snippet}
+
 {#snippet protocolFace()}
 	<DayTimeline embedded days={days} {selectedDay} {onSelectDay} onOpenIntake={openIntakePanel} {onOpenInfo} />
 {/snippet}
@@ -363,6 +402,7 @@
 			{/if}
 			{@render protocolSlide(listaFace, listaSlideIndex)}
 			{@render protocolSlide(imprimirFace, printSlideIndex)}
+			{@render protocolSlide(weekendGuideFace, weekendGuideSlideIndex)}
 		</div>
 	</div>
 
@@ -406,6 +446,16 @@
 			aria-label="Imprimir protocolo"
 			onclick={() => scrollToSlide(printSlideIndex)}
 			class="h-2 rounded-full transition-all duration-200 {activeSlide === printSlideIndex
+				? 'w-5 bg-accent'
+				: 'w-2 bg-line'}"
+		></button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={activeSlide === weekendGuideSlideIndex}
+			aria-label="Guia de Final de Semana"
+			onclick={() => scrollToSlide(weekendGuideSlideIndex)}
+			class="h-2 rounded-full transition-all duration-200 {activeSlide === weekendGuideSlideIndex
 				? 'w-5 bg-accent'
 				: 'w-2 bg-line'}"
 		></button>
