@@ -28,16 +28,16 @@
 
 	const deliverables = [
 		{
-			text: 'Seu número exato de calorias pra destravar o metabolismo',
-			icon: 'calories' as const
+			text: 'Quantas calorias você precisa consumir',
+			faIcon: 'fa-fire'
 		},
 		{
-			text: 'Sua meta de proteína pra queimar gordura sem perder músculo',
-			icon: 'protein' as const
+			text: 'Sua meta diária de proteína',
+			faIcon: 'fa-drumstick-bite'
 		},
 		{
-			text: 'Seu Protocolo de Desbloqueio passo a passo: o que fazer já amanhã',
-			icon: 'protocol' as const
+			text: 'Seu plano de desbloqueio para 14 dias',
+			faIcon: 'fa-file-lines'
 		}
 	];
 
@@ -97,6 +97,15 @@
 	}
 </script>
 
+<svelte:head>
+	<link
+		rel="stylesheet"
+		href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+		crossorigin="anonymous"
+		referrerpolicy="no-referrer"
+	/>
+</svelte:head>
+
 {#if goalQuestion}
 	<div class="flex flex-col w-full flex-1 min-h-0">
 		<div class="max-w-lg mx-auto w-full px-4 pt-8 pb-8 flex-1 flex flex-col min-h-0">
@@ -117,10 +126,8 @@
 							<strong class="font-bold text-[#2E7D5B]">menos calorias</strong> do que deveria.
 						</h2>
 						<p class="text-sm text-body leading-relaxed text-center px-4">
-							Faça este <strong class="font-bold">teste</strong> para descobrir se o seu
-							<strong class="font-bold">metabolismo está bloqueando seu emagrecimento</strong> e receba um
-							<strong class="font-bold">plano personalizado</strong> para
-							<strong class="font-bold">destravá-lo nos próximos 14 dias</strong>.
+							Faça o teste e descubra como destravá-lo em
+							<strong class="font-bold text-[#2E7D5B]">14 dias</strong>.
 						</p>
 						<div class="flex justify-center pt-1" aria-hidden="true">
 							<div class="h-6 w-px bg-line"></div>
@@ -132,71 +139,23 @@
 							Seu resultado inclui
 						</p>
 
-						<div
-							class="overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_8px_24px_rgba(22,46,33,0.06)]"
-						>
-							<ul class="flex flex-col divide-y divide-line/50">
-							{#each deliverables as item (item.icon)}
-								<li class="flex items-center gap-3 px-4 py-3.5">
-									<span
-										class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent"
+						<ul class="grid grid-cols-3 items-stretch gap-2">
+							{#each deliverables as item (item.faIcon)}
+								<li
+									class="flex h-full min-w-0 flex-col items-center gap-3 rounded-2xl border border-line bg-surface px-2 py-4 text-center shadow-[0_8px_24px_rgba(22,46,33,0.06)]"
+								>
+									<div
+										class="flex h-9 w-9 shrink-0 items-center justify-center"
 										aria-hidden="true"
 									>
-										{#if item.icon === 'calories'}
-											<svg
-												width="18"
-												height="18"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<path d="M12 2c1 3 2.5 5.5 2.5 8.5a2.5 2.5 0 1 1-5 0C9.5 7.5 11 5 12 2Z" />
-												<path d="M8.5 14.5A4.5 4.5 0 0 0 12 19a4.5 4.5 0 0 0 3.5-4.5" />
-											</svg>
-										{:else if item.icon === 'protein'}
-											<svg
-												width="18"
-												height="18"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<line x1="18" y1="20" x2="18" y2="10" />
-												<line x1="12" y1="20" x2="12" y2="4" />
-												<line x1="6" y1="20" x2="6" y2="14" />
-											</svg>
-										{:else}
-											<svg
-												width="18"
-												height="18"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												stroke-linecap="round"
-												stroke-linejoin="round"
-											>
-												<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-												<rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
-												<path d="M9 12h6" />
-												<path d="M9 16h6" />
-												<path d="M9 8h.01" />
-											</svg>
-										{/if}
-									</span>
-									<p class="min-w-0 flex-1 text-sm leading-snug text-body">
+										<i class="fa-solid {item.faIcon} text-2xl leading-none text-accent"></i>
+									</div>
+									<p class="min-w-0 flex-1 text-sm text-body leading-relaxed text-center">
 										{item.text}
 									</p>
 								</li>
 							{/each}
 						</ul>
-						</div>
 						<div class="flex justify-center py-1" aria-hidden="true">
 							<div class="h-6 w-px bg-line"></div>
 						</div>
