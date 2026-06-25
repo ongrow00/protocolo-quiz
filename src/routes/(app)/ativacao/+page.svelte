@@ -41,7 +41,7 @@
 
 		checkingPurchase = true;
 		try {
-			await accessStore.load();
+			await accessStore.load(userId);
 			const { complete } = await loadOnboardingStatus(userId);
 			if (complete) {
 				await enterAppAfterOnboarding();
@@ -85,6 +85,7 @@
 
 	async function handleExit() {
 		await authStore.signOut();
+		accessStore.reset();
 		challengeStore.reset();
 		postQuizStore.reset();
 		profileStore.reset();

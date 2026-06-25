@@ -6,6 +6,7 @@
 	import ProfileLegalSheet from '$lib/components/profile/ProfileLegalSheet.svelte';
 	import ProfilePaymentHistorySheet from '$lib/components/profile/ProfilePaymentHistorySheet.svelte';
 	import { authStore } from '$lib/stores/auth.store';
+	import { accessStore } from '$lib/stores/access.store';
 	import { challengeStore } from '$lib/stores/challenge.store';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
 	import { profileStore } from '$lib/stores/profile.store';
@@ -37,6 +38,7 @@
 
 	async function signOut() {
 		await authStore.signOut();
+		accessStore.reset();
 		challengeStore.reset();
 		postQuizStore.reset();
 		profileStore.reset();

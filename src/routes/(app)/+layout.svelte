@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { get } from 'svelte/store';
 	import ChallengeBottomNav from '$lib/components/challenge/ChallengeBottomNav.svelte';
 	import ChallengeGreetingHeader from '$lib/components/challenge/ChallengeGreetingHeader.svelte';
 	import ProtocoloDeactivatedScreen from '$lib/components/challenge/ProtocoloDeactivatedScreen.svelte';
@@ -38,14 +40,44 @@
 		authStore.init();
 		challengeStore.hydrate();
 		challengeStore.ensureStarted();
-		accessStore.load();
 		treinoStore.hydrate();
+	});
+
+	$effect(() => {
+		const userId = $authStore.user?.id;
+		if ($authLoading || !userId) return;
+		void accessStore.load(userId);
 	});
 
 	$effect(() => {
 		if ($isAuthenticated && !$authLoading) {
 			void hydrateWorkoutFromSupabase();
 		}
+	});
+
+	onMount(() => {
+		if (!browser) return;
+
+		const refreshAccessOnVisible = () => {
+			if (document.visibilityState !== 'visible') return;
+
+			const auth = get(authStore);
+			const access = get(accessStore);
+			const userId = auth.user?.id;
+			if (!userId || auth.loading) return;
+
+			if (!access.loaded || !access.has_protocolo) {
+				void accessStore.load(userId);
+			}
+		};
+
+		window.addEventListener('focus', refreshAccessOnVisible);
+		document.addEventListener('visibilitychange', refreshAccessOnVisible);
+
+		return () => {
+			window.removeEventListener('focus', refreshAccessOnVisible);
+			document.removeEventListener('visibilitychange', refreshAccessOnVisible);
+		};
 	});
 
 	async function hydrateWorkoutFromSupabase() {
