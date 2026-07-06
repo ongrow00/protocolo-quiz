@@ -1,4 +1,4 @@
-import { mapTransactionRow } from './map-transaction-row.ts';
+import { mapTransactionRow, toTransactionPayloadUpdate } from './map-transaction-row.ts';
 import { parseLastlinkPayload } from './parse-payload.ts';
 import {
 	createsNewAccount,
@@ -8,10 +8,27 @@ import {
 import { grantAccessToExistingUser, provisionPurchasedUser } from './provision-user.ts';
 import { revokeProductAccess } from './revoke-user-access.ts';
 import { createSupabaseAdmin } from './supabase-admin.ts';
+import type { LastlinkWebhookPayload, TransactionInsertRow } from './types.ts';
 import { validateLastlinkToken } from './validate-token.ts';
 
 const CREATE_USER_EVENT = 'Purchase_Order_Confirmed';
 const REVOKE_EVENTS = new Set(['Payment_Refund', 'Payment_Chargeback']);
+
+type SupabaseAdmin = ReturnType<typeof createSupabaseAdmin>;
+
+type ExistingTransaction = {
+	id: string;
+	processed_at: string | null;
+	user_id: string | null;
+};
+
+type AccessSideEffectResult = {
+	userId: string | null;
+	anonymousId: string | null;
+	processedAt: string | null;
+	provisionError: string | null;
+	revoked: boolean;
+};
 
 function isLocalDev(): boolean {
 	const url = Deno.env.get('SUPABASE_URL') ?? '';
@@ -38,6 +55,203 @@ function jsonResponse(body: Record<string, unknown>, status = 200): Response {
 		status,
 		headers: { 'Content-Type': 'application/json' }
 	});
+}
+
+function dbErrorResponse(step: string, error: { message: string; code?: string; details?: string }): Response {
+	console.error(`[lastlink-webhook] ${step}:`, error.message, error.code ?? '', error.details ?? '');
+	return jsonResponse(
+		{
+			error: step,
+			pgCode: error.code ?? null,
+			pgMessage: error.message
+		},
+		500
+	);
+}
+
+async function loadExistingTransaction(
+	supabase: SupabaseAdmin,
+	webhookEventId: string
+): Promise<ExistingTransaction | null> {
+	const { data, error } = await supabase
+		.from('transactions')
+		.select('id, processed_at, user_id')
+		.eq('webhook_event_id', webhookEventId)
+		.maybeSingle();
+
+	if (error) {
+		console.error('[lastlink-webhook] transaction lookup failed:', error.message);
+		throw new Error('Failed to lookup transaction');
+	}
+
+	return data;
+}
+
+async function loadProfileAnonymousId(
+	supabase: SupabaseAdmin,
+	userId: string
+): Promise<string | null> {
+	const { data: profile } = await supabase
+		.from('profiles')
+		.select('anonymous_id')
+		.eq('id', userId)
+		.maybeSingle();
+
+	return profile?.anonymous_id ?? null;
+}
+
+async function runAccessSideEffects(
+	supabase: SupabaseAdmin,
+	payload: LastlinkWebhookPayload,
+	transactionRow: TransactionInsertRow,
+	provision: boolean,
+	revoke: boolean,
+	productAccess: ReturnType<typeof resolveProductAccess>
+): Promise<AccessSideEffectResult> {
+	const result: AccessSideEffectResult = {
+		userId: null,
+		anonymousId: null,
+		processedAt: null,
+		provisionError: null,
+		revoked: false
+	};
+
+	if (!provision && !revoke) return result;
+
+	const buyer = payload.Data?.Buyer;
+	if (!buyer?.Email) {
+		result.provisionError = 'Buyer email missing';
+		console.error('[lastlink-webhook]', result.provisionError);
+		return result;
+	}
+
+	if (revoke) {
+		const revokeResult = await revokeProductAccess(supabase, buyer, productAccess);
+		if (revokeResult.ok) {
+			result.userId = revokeResult.userId;
+			result.revoked = true;
+			result.processedAt = new Date().toISOString();
+			result.anonymousId = await loadProfileAnonymousId(supabase, revokeResult.userId);
+			console.info('[lastlink-webhook] access revoked:', revokeResult.userId, productAccess);
+		} else {
+			result.provisionError = revokeResult.error;
+			console.error('[lastlink-webhook] revoke failed:', revokeResult.error);
+		}
+		return result;
+	}
+
+	if (createsNewAccount(productAccess)) {
+		if (!buyer.PhoneNumber) {
+			result.provisionError = 'Buyer phone missing';
+			console.error('[lastlink-webhook]', result.provisionError);
+			return result;
+		}
+
+		const provisionResult = await provisionPurchasedUser(
+			supabase,
+			buyer,
+			payload.Data?.Utm,
+			productAccess
+		);
+
+		if (provisionResult.ok) {
+			result.userId = provisionResult.userId;
+			result.processedAt = new Date().toISOString();
+			result.anonymousId = await loadProfileAnonymousId(supabase, provisionResult.userId);
+			console.info(
+				'[lastlink-webhook] account provisioned:',
+				provisionResult.userId,
+				provisionResult.created ? 'created' : 'updated',
+				productAccess
+			);
+		} else {
+			result.provisionError = provisionResult.error;
+			console.error('[lastlink-webhook] provision failed:', provisionResult.error);
+		}
+		return result;
+	}
+
+	const grantResult = await grantAccessToExistingUser(supabase, buyer, productAccess);
+	if (grantResult.ok) {
+		result.userId = grantResult.userId;
+		result.processedAt = new Date().toISOString();
+		result.anonymousId = await loadProfileAnonymousId(supabase, grantResult.userId);
+		console.info(
+			'[lastlink-webhook] access granted to existing user:',
+			grantResult.userId,
+			productAccess
+		);
+	} else {
+		result.provisionError = grantResult.error;
+		console.error('[lastlink-webhook] access grant failed:', grantResult.error);
+	}
+
+	return result;
+}
+
+async function persistTransactionRow(
+	supabase: SupabaseAdmin,
+	transactionRow: TransactionInsertRow
+): Promise<ExistingTransaction> {
+	const insertRow = {
+		...transactionRow,
+		user_id: null,
+		anonymous_id: null,
+		processed_at: null
+	};
+
+	const { data, error } = await supabase
+		.from('transactions')
+		.insert(insertRow)
+		.select('id, processed_at, user_id')
+		.single();
+
+	if (!error && data) return data;
+
+	if (error?.code === '23505') {
+		const existing = await loadExistingTransaction(supabase, transactionRow.webhook_event_id);
+		if (existing) return existing;
+	}
+
+	if (error) {
+		throw error;
+	}
+
+	throw new Error('Failed to persist transaction');
+}
+
+async function refreshTransactionPayload(
+	supabase: SupabaseAdmin,
+	transactionId: string,
+	transactionRow: TransactionInsertRow
+): Promise<void> {
+	const { error } = await supabase
+		.from('transactions')
+		.update(toTransactionPayloadUpdate(transactionRow))
+		.eq('id', transactionId);
+
+	if (error) {
+		throw error;
+	}
+}
+
+async function linkTransactionToUser(
+	supabase: SupabaseAdmin,
+	transactionId: string,
+	link: Pick<AccessSideEffectResult, 'userId' | 'anonymousId' | 'processedAt'>
+): Promise<void> {
+	const { error } = await supabase
+		.from('transactions')
+		.update({
+			user_id: link.userId,
+			anonymous_id: link.anonymousId || null,
+			processed_at: link.processedAt
+		})
+		.eq('id', transactionId);
+
+	if (error) {
+		throw error;
+	}
 }
 
 export async function handleLastlinkWebhook(request: Request): Promise<Response> {
@@ -77,23 +291,13 @@ export async function handleLastlinkWebhook(request: Request): Promise<Response>
 		return jsonResponse({ error: 'Missing required webhook fields' }, 400);
 	}
 
-	let supabase: ReturnType<typeof createSupabaseAdmin>;
+	let supabase: SupabaseAdmin;
 	try {
 		supabase = createSupabaseAdmin();
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : '';
 		console.error('[lastlink-webhook]', msg);
 		return jsonResponse({ error: 'Server configuration error' }, 503);
-	}
-
-	const { data: existing } = await supabase
-		.from('transactions')
-		.select('id')
-		.eq('webhook_event_id', transactionRow.webhook_event_id)
-		.maybeSingle();
-
-	if (existing) {
-		return jsonResponse({ ok: true, duplicate: true });
 	}
 
 	const productAccess = resolveProductAccess(payload.Data);
@@ -104,109 +308,101 @@ export async function handleLastlinkWebhook(request: Request): Promise<Response>
 		supportedProduct
 	);
 	const revoke = shouldRevokeAccess(payload.Event, supportedProduct);
+	const needsAccessProcessing = provision || revoke;
 
-	let userId: string | null = null;
-	let provisionError: string | null = null;
-	let revoked = false;
-
-	if (provision || revoke) {
-		const buyer = payload.Data?.Buyer;
-		if (!buyer?.Email) {
-			provisionError = 'Buyer email missing';
-			console.error('[lastlink-webhook]', provisionError);
-		} else if (revoke) {
-			const result = await revokeProductAccess(supabase, buyer, productAccess);
-			if (result.ok) {
-				userId = result.userId;
-				revoked = true;
-				transactionRow.processed_at = new Date().toISOString();
-				console.info('[lastlink-webhook] access revoked:', result.userId, productAccess);
-			} else {
-				provisionError = result.error;
-				console.error('[lastlink-webhook] revoke failed:', result.error);
-			}
-		} else if (createsNewAccount(productAccess)) {
-			if (!buyer.PhoneNumber) {
-				provisionError = 'Buyer phone missing';
-				console.error('[lastlink-webhook]', provisionError);
-			} else {
-				const result = await provisionPurchasedUser(
-					supabase,
-					buyer,
-					payload.Data?.Utm,
-					productAccess
-				);
-				if (result.ok) {
-					userId = result.userId;
-					transactionRow.processed_at = new Date().toISOString();
-
-					const { data: profile } = await supabase
-						.from('profiles')
-						.select('anonymous_id')
-						.eq('id', result.userId)
-						.maybeSingle();
-
-					if (profile?.anonymous_id) {
-						transactionRow.anonymous_id = profile.anonymous_id;
-					}
-
-					console.info(
-						'[lastlink-webhook] account provisioned:',
-						result.userId,
-						result.created ? 'created' : 'updated',
-						productAccess
-					);
-				} else {
-					provisionError = result.error;
-					console.error('[lastlink-webhook] provision failed:', result.error);
-				}
-			}
-		} else {
-			const result = await grantAccessToExistingUser(supabase, buyer, productAccess);
-			if (result.ok) {
-				userId = result.userId;
-				transactionRow.processed_at = new Date().toISOString();
-
-				const { data: profile } = await supabase
-					.from('profiles')
-					.select('anonymous_id')
-					.eq('id', result.userId)
-					.maybeSingle();
-
-				if (profile?.anonymous_id) {
-					transactionRow.anonymous_id = profile.anonymous_id;
-				}
-
-				console.info(
-					'[lastlink-webhook] access granted to existing user:',
-					result.userId,
-					productAccess
-				);
-			} else {
-				provisionError = result.error;
-				console.error('[lastlink-webhook] access grant failed:', result.error);
-			}
-		}
+	let existing: ExistingTransaction | null;
+	try {
+		existing = await loadExistingTransaction(supabase, transactionRow.webhook_event_id);
+	} catch {
+		return jsonResponse({ error: 'Failed to lookup transaction' }, 500);
 	}
 
-	transactionRow.user_id = userId;
-
-	const { error: insertError } = await supabase.from('transactions').insert(transactionRow);
-
-	if (insertError) {
-		if (insertError.code === '23505') {
-			return jsonResponse({ ok: true, duplicate: true });
+	if (existing?.processed_at) {
+		// Reenvio da Lastlink: tenta atualizar payload, mas não falha o webhook
+		try {
+			await refreshTransactionPayload(supabase, existing.id, transactionRow);
+		} catch (e) {
+			const err = e as { message?: string; code?: string; details?: string };
+			console.warn(
+				'[lastlink-webhook] duplicate refresh skipped:',
+				err.message ?? e,
+				err.code ?? '',
+				err.details ?? ''
+			);
 		}
-		console.error('[lastlink-webhook] transaction insert failed:', insertError.message);
-		return jsonResponse({ error: 'Failed to persist transaction' }, 500);
+		return jsonResponse({ ok: true, duplicate: true, transactionId: existing.id });
+	}
+
+	let transactionId: string;
+	let isDuplicateRetry = false;
+
+	try {
+		if (existing) {
+			transactionId = existing.id;
+			isDuplicateRetry = true;
+			await refreshTransactionPayload(supabase, transactionId, transactionRow);
+		} else {
+			const persisted = await persistTransactionRow(supabase, transactionRow);
+			transactionId = persisted.id;
+			if (persisted.processed_at) {
+				return jsonResponse({ ok: true, duplicate: true });
+			}
+		}
+	} catch (e) {
+		const err = e as { message?: string; code?: string; details?: string };
+		if (err.code) {
+			return dbErrorResponse('Failed to persist transaction', {
+				message: err.message ?? 'insert/update failed',
+				code: err.code,
+				details: err.details
+			});
+		}
+		return jsonResponse({ error: err.message ?? 'Failed to persist transaction' }, 500);
+	}
+
+	let accessResult: AccessSideEffectResult = {
+		userId: existing?.user_id ?? null,
+		anonymousId: null,
+		processedAt: null,
+		provisionError: null,
+		revoked: false
+	};
+
+	if (needsAccessProcessing) {
+		accessResult = await runAccessSideEffects(
+			supabase,
+			payload,
+			transactionRow,
+			provision,
+			revoke,
+			productAccess
+		);
+
+		if (accessResult.processedAt) {
+			try {
+				await linkTransactionToUser(supabase, transactionId, accessResult);
+			} catch (e) {
+				const err = e as { message?: string; code?: string; details?: string };
+				if (err.code) {
+					return dbErrorResponse('Failed to link transaction', {
+						message: err.message ?? 'link failed',
+						code: err.code,
+						details: err.details
+					});
+				}
+				return jsonResponse({ error: err.message ?? 'Failed to link transaction' }, 500);
+			}
+		}
 	}
 
 	return jsonResponse({
 		ok: true,
-		provisioned: !!userId && !revoked,
-		revoked,
-		provisionError: provisionError ?? undefined,
+		duplicate: isDuplicateRetry,
+		provisioned: !!accessResult.userId && !accessResult.revoked,
+		revoked: accessResult.revoked,
+		provisionError: accessResult.provisionError ?? undefined,
 		event: payload.Event,
-		productAccess
+		productAccess,
+		transactionId
 	});
 }

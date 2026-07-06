@@ -3,10 +3,11 @@
 	import { canAccessConsultoria } from '$lib/stores/access.store';
 	import { generatingPlan } from '$lib/stores/generating.store';
 
-	type TabId = 'protocolo' | 'treino' | 'consultoria';
+	type TabId = 'protocolo' | 'arquivos' | 'treino' | 'consultoria';
 
 	const allTabs: { id: TabId; label: string; href: string; match: (path: string) => boolean }[] = [
 		{ id: 'protocolo', label: 'Protocolo', href: '/inicio', match: (p) => p === '/inicio' },
+		{ id: 'arquivos', label: 'Arquivos', href: '/arquivos', match: (p) => p === '/arquivos' },
 		{ id: 'treino', label: 'Treino', href: '/treino', match: (p) => p === '/treino' },
 		{
 			id: 'consultoria',
@@ -22,7 +23,9 @@
 			: allTabs
 	);
 
-	const gridCols = $derived(tabs.length === 2 ? 'grid-cols-2' : 'grid-cols-3');
+	const gridCols = $derived(
+		tabs.length === 2 ? 'grid-cols-2' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'
+	);
 	const navWidth = $derived(`${tabs.length * 75}px`);
 </script>
 
@@ -73,6 +76,27 @@
 							>
 								<rect x="4" y="5" width="16" height="16" rx="2" />
 								<path d="M8 3v2M16 3v2M4 10h16M9 14h2M13 14h2M9 17h2" stroke-linecap="round" />
+							</svg>
+						{/if}
+					{:else if tab.id === 'arquivos'}
+						{#if active}
+							<svg class="h-[22px] w-[22px]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+								<path
+									d="M3 7a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293L13.414 8H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"
+								/>
+							</svg>
+						{:else}
+							<svg
+								class="h-[22px] w-[22px]"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.75"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="M3 7a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293L13.414 8H19a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
 							</svg>
 						{/if}
 					{:else if tab.id === 'treino'}

@@ -8,8 +8,6 @@
 	import { canAccessConsultoria } from '$lib/stores/access.store';
 	import { generateShoppingList, SHOPPING_LIST, type ShoppingCategory } from '$lib/data/shopping-list';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
-	import { profileStore } from '$lib/stores/profile.store';
-	import { generateProtocolPdf } from '$lib/services/protocol-pdf.service';
 
 	interface Props {
 		days: DaySummary[];
@@ -24,23 +22,6 @@
 
 	let activeSlide = $state(0);
 	let listaSheetOpen = $state(false);
-	let printing = $state(false);
-
-	const printName = $derived(
-		$profileStore.firstName?.trim() || $postQuizStore.name?.trim().split(/\s+/)[0] || undefined
-	);
-
-	async function downloadProtocolPdf() {
-		if (printing) return;
-		printing = true;
-		try {
-			await generateProtocolPdf({ userName: printName });
-		} catch (err) {
-			console.error('Falha ao gerar o PDF do protocolo', err);
-		} finally {
-			printing = false;
-		}
-	}
 
 	let isCarouselDragging = $state(false);
 	let carouselDragDx = $state(0);
@@ -55,19 +36,11 @@
 	const AXIS_LOCK_PX = 8;
 
 	const SWIPE_THRESHOLD_PX = 48;
-	const WEEKEND_GUIDE_PDF_URL = '/docs/guia-final-de-semana.pdf';
 
 	const protocolSlideIndex = 0;
 	const intakeSlideIndex = $derived(showIntake ? 1 : null);
 	const listaSlideIndex = $derived(showIntake ? 2 : 1);
-	const printSlideIndex = $derived(showIntake ? 3 : 2);
-	const weekendGuideSlideIndex = $derived(showIntake ? 4 : 3);
-	const maxSlideIndex = $derived(weekendGuideSlideIndex);
-
-	function openWeekendGuidePdf() {
-		if (!browser) return;
-		window.open(WEEKEND_GUIDE_PDF_URL, '_blank', 'noopener,noreferrer');
-	}
+	const maxSlideIndex = $derived(listaSlideIndex);
 
 	function scrollToSlide(index: number) {
 		activeSlide = Math.min(maxSlideIndex, Math.max(0, index));
@@ -165,16 +138,6 @@
 				target?.closest('[data-lista-trigger]')
 			) {
 				listaSheetOpen = true;
-			} else if (
-				activeSlide === printSlideIndex &&
-				target?.closest('[data-print-trigger]')
-			) {
-				void downloadProtocolPdf();
-			} else if (
-				activeSlide === weekendGuideSlideIndex &&
-				target?.closest('[data-weekend-guide-trigger]')
-			) {
-				openWeekendGuidePdf();
 			} else if (carouselPointerDownSlide !== activeSlide) {
 				scrollToSlide(carouselPointerDownSlide);
 			}
@@ -273,66 +236,6 @@
 	</a>
 {/snippet}
 
-{#snippet imprimirFace()}
-	<div
-		data-print-trigger
-		role="button"
-		tabindex="0"
-		aria-busy={printing}
-		class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				void downloadProtocolPdf();
-			}
-		}}
-	>
-		<span class="text-sm font-extrabold text-heading">Imprimir protocolo</span>
-		<p class="text-xs leading-relaxed text-body">
-			Geramos um PDF do seu protocolo para você baixar e imprimir em casa quando quiser.
-		</p>
-		<span class="mt-1 flex items-center gap-1 text-xs font-bold text-accent">
-			{#if printing}
-				Gerando PDF…
-				<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-					<path d="M21 12a9 9 0 1 1-6.219-8.56" />
-				</svg>
-			{:else}
-				Imprimir agora
-				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-					<path d="M5 12h14M13 6l6 6-6 6" />
-				</svg>
-			{/if}
-		</span>
-	</div>
-{/snippet}
-
-{#snippet weekendGuideFace()}
-	<div
-		data-weekend-guide-trigger
-		role="button"
-		tabindex="0"
-		class="flex min-h-0 flex-1 flex-col justify-center gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				openWeekendGuidePdf();
-			}
-		}}
-	>
-		<span class="text-sm font-extrabold text-heading">Guia de Final de Semana</span>
-		<p class="text-xs leading-relaxed text-body">
-			Acesse seu guia e entenda como aproveitar seus momentos especiais, comendo o que gosta sem sair do plano.
-		</p>
-		<span class="mt-1 flex items-center gap-1 text-xs font-bold text-accent">
-			Acessar agora
-			<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-				<path d="M5 12h14M13 6l6 6-6 6" />
-			</svg>
-		</span>
-	</div>
-{/snippet}
-
 {#snippet protocolFace()}
 	<DayTimeline embedded days={days} {selectedDay} {onSelectDay} onOpenIntake={openIntakePanel} {onOpenInfo} />
 {/snippet}
@@ -401,8 +304,6 @@
 				{@render protocolSlide(intakeFace, intakeSlideIndex)}
 			{/if}
 			{@render protocolSlide(listaFace, listaSlideIndex)}
-			{@render protocolSlide(imprimirFace, printSlideIndex)}
-			{@render protocolSlide(weekendGuideFace, weekendGuideSlideIndex)}
 		</div>
 	</div>
 
@@ -436,26 +337,6 @@
 			aria-label="Lista de compras"
 			onclick={() => scrollToSlide(listaSlideIndex)}
 			class="h-2 rounded-full transition-all duration-200 {activeSlide === listaSlideIndex
-				? 'w-5 bg-accent'
-				: 'w-2 bg-line'}"
-		></button>
-		<button
-			type="button"
-			role="tab"
-			aria-selected={activeSlide === printSlideIndex}
-			aria-label="Imprimir protocolo"
-			onclick={() => scrollToSlide(printSlideIndex)}
-			class="h-2 rounded-full transition-all duration-200 {activeSlide === printSlideIndex
-				? 'w-5 bg-accent'
-				: 'w-2 bg-line'}"
-		></button>
-		<button
-			type="button"
-			role="tab"
-			aria-selected={activeSlide === weekendGuideSlideIndex}
-			aria-label="Guia de Final de Semana"
-			onclick={() => scrollToSlide(weekendGuideSlideIndex)}
-			class="h-2 rounded-full transition-all duration-200 {activeSlide === weekendGuideSlideIndex
 				? 'w-5 bg-accent'
 				: 'w-2 bg-line'}"
 		></button>

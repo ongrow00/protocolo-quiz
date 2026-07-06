@@ -1,6 +1,8 @@
 <script lang="ts">
 	import BottomSheet from '$lib/components/ui/BottomSheet.svelte';
 	import OtpInput from '$lib/components/auth/OtpInput.svelte';
+	import { authStore } from '$lib/stores/auth.store';
+	import { mapAuthError } from '$lib/utils/auth-errors';
 
 	type Step = 'email' | 'code' | 'password';
 
@@ -8,9 +10,10 @@
 		open: boolean;
 		initialEmail?: string;
 		onClose: () => void;
+		onSuccess?: () => void;
 	}
 
-	let { open, initialEmail = '', onClose }: Props = $props();
+	let { open, initialEmail = '', onClose, onSuccess }: Props = $props();
 
 	let step = $state<Step>('email');
 	let resetEmail = $state('');
@@ -21,6 +24,8 @@
 	let confirmarVisible = $state(false);
 	let error = $state('');
 	let loading = $state(false);
+	let recoverySessionActive = $state(false);
+	let recoveryComplete = $state(false);
 
 	const inputClass =
 		'w-full border-0 border-b border-line bg-transparent py-2.5 text-base text-heading outline-none transition-colors placeholder:text-muted/60 focus:border-accent';
@@ -43,9 +48,14 @@
 		confirmarVisible = false;
 		error = '';
 		loading = false;
+		recoverySessionActive = false;
+		recoveryComplete = false;
 	}
 
-	function close() {
+	async function close() {
+		if (recoverySessionActive && !recoveryComplete) {
+			await authStore.signOut().catch(() => {});
+		}
 		onClose();
 	}
 
@@ -73,10 +83,14 @@
 		}
 		resetEmail = trimmed;
 		loading = true;
-		// Integração com API de envio de código será adicionada posteriormente.
-		await new Promise((r) => setTimeout(r, 400));
-		loading = false;
-		step = 'code';
+		try {
+			await authStore.requestPasswordReset(resetEmail);
+			step = 'code';
+		} catch (err) {
+			error = mapAuthError(err);
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function handleCodeSubmit(e: Event) {
@@ -87,10 +101,15 @@
 			return;
 		}
 		loading = true;
-		// Integração com verificação do código será adicionada posteriormente.
-		await new Promise((r) => setTimeout(r, 400));
-		loading = false;
-		step = 'password';
+		try {
+			await authStore.verifyRecoveryOtp(resetEmail, code);
+			recoverySessionActive = true;
+			step = 'password';
+		} catch (err) {
+			error = mapAuthError(err);
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function handlePasswordSubmit(e: Event) {
@@ -105,18 +124,29 @@
 			return;
 		}
 		loading = true;
-		// Integração com redefinição de senha será adicionada posteriormente.
-		await new Promise((r) => setTimeout(r, 500));
-		loading = false;
-		close();
+		try {
+			await authStore.updatePassword(novaSenha);
+			recoveryComplete = true;
+			await close();
+			onSuccess?.();
+		} catch (err) {
+			error = mapAuthError(err);
+		} finally {
+			loading = false;
+		}
 	}
 
 	async function resendCode() {
 		error = '';
 		loading = true;
-		await new Promise((r) => setTimeout(r, 400));
-		loading = false;
-		code = '';
+		try {
+			await authStore.requestPasswordReset(resetEmail);
+			code = '';
+		} catch (err) {
+			error = mapAuthError(err);
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -179,9 +209,14 @@
 		</p>
 
 		<form class="mt-6 flex flex-col gap-6" onsubmit={handleCodeSubmit}>
-			{#key resetEmail}
-				<OtpInput id="reset-otp" value={code} oninput={(v) => (code = v)} />
-			{/key}
+			<div class="flex flex-col gap-3">
+				{#key resetEmail}
+					<OtpInput id="reset-otp" value={code} oninput={(v) => (code = v)} />
+				{/key}
+				<p class="rounded-xl bg-accent-soft px-3 py-2.5 text-center text-xs leading-relaxed text-muted">
+					Confira no lixo eletrônico.
+				</p>
+			</div>
 
 			{#if error}
 				<p class="text-center text-sm text-red-600" role="alert">{error}</p>

@@ -3,6 +3,7 @@ export function isProtocolRoute(pathname: string): boolean {
 	return (
 		pathname === '/inicio' ||
 		pathname.startsWith('/inicio/') ||
+		pathname === '/arquivos' ||
 		pathname === '/lista' ||
 		pathname === '/progresso' ||
 		pathname === '/ativacao' ||

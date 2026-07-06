@@ -16,7 +16,7 @@
 	});
 
 	$effect(() => {
-		if (!$authLoading && $isAuthenticated) {
+		if (!$authLoading && $isAuthenticated && !forgotPasswordOpen) {
 			goto('/inicio', { replaceState: true });
 		}
 	});
@@ -183,6 +183,9 @@
 	initialEmail={email}
 	onClose={() => {
 		forgotPasswordOpen = false;
+	}}
+	onSuccess={() => {
+		goto('/inicio', { replaceState: true });
 	}}
 />
 

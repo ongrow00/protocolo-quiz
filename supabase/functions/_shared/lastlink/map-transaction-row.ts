@@ -21,8 +21,18 @@ function pickEmail(v: unknown): string | null {
 }
 
 function pickNum(v: unknown): number | null {
-	if (typeof v !== 'number' || !Number.isFinite(v)) return null;
-	return v;
+	if (typeof v === 'number' && Number.isFinite(v)) return v;
+	if (typeof v === 'string' && v.trim()) {
+		const n = Number(v.replace(',', '.'));
+		return Number.isFinite(n) ? n : null;
+	}
+	return null;
+}
+
+function pickInt(v: unknown): number | null {
+	const n = pickNum(v);
+	if (n === null) return null;
+	return Math.trunc(n);
 }
 
 function toIso(v: unknown): string | null {
@@ -31,26 +41,79 @@ function toIso(v: unknown): string | null {
 	return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+function isValidIpv4(value: string): boolean {
+	const parts = value.split('.');
+	if (parts.length !== 4) return false;
+	return parts.every((part) => {
+		if (!/^\d{1,3}$/.test(part)) return false;
+		const n = Number(part);
+		return n >= 0 && n <= 255;
+	});
+}
+
+/** Postgres `inet` rejects arbitrary strings — only persist valid IPv4/IPv6. */
+function pickIp(v: unknown): string | null {
+	if (typeof v !== 'string' || !v.trim()) return null;
+	const s = v.trim();
+	if (isValidIpv4(s)) return s;
+	// IPv6 only (must contain ":" and hex/colon chars — not URLs like "https://...")
+	if (/^[0-9a-fA-F:]+$/.test(s) && s.includes(':')) return s;
+	return null;
+}
+
+function pickDeviceIp(device: Record<string, unknown> | undefined): string | null {
+	if (!device) return null;
+	return pickIp(device.ip) ?? pickIp(device.Ip) ?? pickIp(device.IP);
+}
+
+function resolveBuyerEmail(
+	buyerEmail: string | null | undefined,
+	eventId: string
+): string {
+	return (
+		pickEmail(buyerEmail) ??
+		`unknown+${eventId.replace(/-/g, '').slice(0, 12)}@lastlink.local`
+	);
+}
+
+function joinProductNames(payload: LastlinkWebhookPayload): string | null {
+	const names = (payload.Data?.Products ?? [])
+		.map((product) => pickStr(product?.Name, 200))
+		.filter((name): name is string => !!name);
+	if (names.length === 0) return null;
+	return names.join(', ');
+}
+
 export function mapTransactionRow(payload: LastlinkWebhookPayload): TransactionInsertRow | null {
 	const eventId = parseUuid(payload.Id);
+	if (!eventId) return null;
+
 	const data = payload.Data;
 	const buyer = data?.Buyer;
-	const email = pickEmail(buyer?.Email);
+	const buyerEmail = pickEmail(buyer?.Email);
+	const email = resolveBuyerEmail(buyer?.Email, eventId);
+	if (!buyerEmail) {
+		console.warn('[lastlink-webhook] buyer email missing; using placeholder for transaction:', eventId);
+	}
 
-	if (!eventId || !email) return null;
+	const products = data?.Products ?? [];
+	const product = products[0];
+	const productId = parseUuid(product?.Id);
+	const subscription =
+		(productId
+			? data?.Subscriptions?.find((item) => parseUuid(item?.ProductId) === productId)
+			: undefined) ?? data?.Subscriptions?.[0];
 
-	const product = data?.Products?.[0];
 	const purchase = data?.Purchase;
 	const payment = purchase?.Payment;
 	const offer = data?.Offer;
-	const subscription = data?.Subscriptions?.[0];
 	const utm = data?.Utm;
 	const seller = data?.Seller;
-	const device = data?.DeviceInfo;
+	const device = data?.DeviceInfo as Record<string, unknown> | undefined;
 
 	return {
 		webhook_event_id: eventId,
-		event: payload.Event,
+		event: pickStr(payload.Event, 128) ?? 'Unknown',
 		is_test: payload.IsTest === true,
 		buyer_lastlink_id: parseUuid(buyer?.Id),
 		buyer_email: email,
@@ -58,8 +121,8 @@ export function mapTransactionRow(payload: LastlinkWebhookPayload): TransactionI
 		buyer_phone: pickStr(buyer?.PhoneNumber, 32),
 		buyer_document: pickStr(buyer?.Document, 32),
 		buyer_address: buyer?.Address ?? null,
-		product_lastlink_id: parseUuid(product?.Id),
-		product_name: pickStr(product?.Name, 200),
+		product_lastlink_id: productId,
+		product_name: joinProductNames(payload),
 		product_price: pickNum(product?.Price),
 		offer_lastlink_id: parseUuid(offer?.Id),
 		offer_name: pickStr(offer?.Name, 200),
@@ -68,9 +131,9 @@ export function mapTransactionRow(payload: LastlinkWebhookPayload): TransactionI
 		payment_date: toIso(purchase?.PaymentDate),
 		original_price: pickNum(purchase?.OriginalPrice?.Value),
 		total_price: pickNum(purchase?.Price?.Value),
-		installments: pickNum(payment?.NumberOfInstallments),
+		installments: pickInt(payment?.NumberOfInstallments),
 		interest_amount: pickNum(payment?.InterestRateAmount),
-		recurrency: pickNum(purchase?.Recurrency),
+		recurrency: pickInt(purchase?.Recurrency),
 		next_billing_at: toIso(purchase?.NextBilling),
 		subscription_lastlink_id: parseUuid(subscription?.Id),
 		commissions: data?.Commissions ?? null,
@@ -83,8 +146,21 @@ export function mapTransactionRow(payload: LastlinkWebhookPayload): TransactionI
 		utm_term: pickStr(utm?.UtmTerm, 500),
 		utm_content: pickStr(utm?.UtmContent, 2000),
 		device_user_agent: pickStr(device?.UserAgent, 1000),
-		device_ip: pickStr(device?.ip, 64),
+		device_ip: pickDeviceIp(device),
 		raw_payload: payload,
 		lastlink_created_at: toIso(payload.CreatedAt)
 	};
+}
+
+/** Columns refreshed from the webhook payload (excludes linkage fields). */
+export function toTransactionPayloadUpdate(
+	row: TransactionInsertRow
+): Omit<TransactionInsertRow, 'user_id' | 'anonymous_id' | 'processed_at'> {
+	const {
+		user_id: _userId,
+		anonymous_id: _anonymousId,
+		processed_at: _processedAt,
+		...payloadFields
+	} = row;
+	return payloadFields;
 }

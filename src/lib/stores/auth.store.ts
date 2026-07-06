@@ -69,8 +69,24 @@ function createAuthStore() {
 			if (error) throw error;
 		},
 
-		async resetPassword(email: string) {
-			const { error } = await supabase.auth.resetPasswordForEmail(email);
+		async requestPasswordReset(email: string) {
+			const normalized = email.trim().toLowerCase();
+			const { error } = await supabase.auth.resetPasswordForEmail(normalized);
+			if (error) throw error;
+		},
+
+		async verifyRecoveryOtp(email: string, token: string) {
+			const { data, error } = await supabase.auth.verifyOtp({
+				email: email.trim().toLowerCase(),
+				token,
+				type: 'recovery'
+			});
+			if (error) throw error;
+			return data;
+		},
+
+		async updatePassword(password: string) {
+			const { error } = await supabase.auth.updateUser({ password });
 			if (error) throw error;
 		}
 	};
