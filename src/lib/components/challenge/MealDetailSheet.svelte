@@ -10,6 +10,7 @@
 	import { MEAL_BLOCKS, type ChallengeMealBlockId, type MealBlockId, type MealFoodItem } from '$lib/data/meal-preferences';
 	import { PHASE4_LANCHE_FORMATO_OPTIONS } from '$lib/data/meal-nutrition';
 	import type { MealCheckStatus } from '$lib/stores/challenge.store';
+	import { formatKcalNumber, formatGrams } from '$lib/utils/macros';
 
 	interface Props {
 		open: boolean;
@@ -166,19 +167,19 @@
 
 				<div class="grid grid-cols-4 divide-x divide-line/40 rounded-challenge border border-line/30 py-3">
 					<div class="text-center">
-						<p class="text-base font-extrabold text-heading">{meal.calories}</p>
+						<p class="text-base font-extrabold text-heading">{formatKcalNumber(meal.calories)}</p>
 						<p class="text-[10px] font-medium text-muted">kcal</p>
 					</div>
 					<div class="text-center">
-						<p class="text-base font-extrabold text-heading">{meal.macros.protein}g</p>
+						<p class="text-base font-extrabold text-heading">{formatGrams(meal.macros.protein)}</p>
 						<p class="text-[10px] font-medium text-muted">proteína</p>
 					</div>
 					<div class="text-center">
-						<p class="text-base font-extrabold text-heading">{meal.macros.carbs}g</p>
+						<p class="text-base font-extrabold text-heading">{formatGrams(meal.macros.carbs)}</p>
 						<p class="text-[10px] font-medium text-muted">carbo</p>
 					</div>
 					<div class="text-center">
-						<p class="text-base font-extrabold text-heading">{meal.macros.fat}g</p>
+						<p class="text-base font-extrabold text-heading">{formatGrams(meal.macros.fat)}</p>
 						<p class="text-[10px] font-medium text-muted">gordura</p>
 					</div>
 				</div>

@@ -56,7 +56,8 @@ function createAccessStore() {
 						await delay(RETRY_DELAY_MS);
 						continue;
 					}
-					set({ ...INITIAL, loaded: false });
+					// Evita loading infinito: libera a UI mesmo se o perfil falhar
+					set({ ...INITIAL, loaded: true });
 					return;
 				}
 
@@ -79,7 +80,8 @@ function createAccessStore() {
 					continue;
 				}
 				if (generation !== loadGeneration) return;
-				set({ ...INITIAL, loaded: false });
+				// Evita loading infinito em erro inesperado
+				set({ ...INITIAL, loaded: true });
 				return;
 			}
 		}

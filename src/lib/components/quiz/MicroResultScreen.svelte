@@ -9,7 +9,7 @@
 	import Mr3VturbPlayer from './Mr3VturbPlayer.svelte';
 	import ProteinUnlockCard from './ProteinUnlockCard.svelte';
 	import ProtocolCalendarIllustration from './ProtocolCalendarIllustration.svelte';
-	import { computePhase1Macros } from '$lib/utils/macros';
+	import { resolvePhase1Macros } from '$lib/utils/macros';
 
 	const DUR = 600;
 	const OUT = 200;
@@ -25,8 +25,7 @@
 
 	const data = $derived(getMicroResultData(question.id, answers));
 	const nexoChart = $derived(nexoMr3ChartFromData(data.nexo));
-	const phase1Macros = $derived(computePhase1Macros(answers));
-
+	const phase1Macros = $derived(resolvePhase1Macros(answers));
 </script>
 
 {#if question.id === 'mr-1'}
@@ -56,7 +55,7 @@
 			<Mr1TestimonialCarousel />
 		</div>
 	</div>
-{:else if question.id === 'mr-protein' && phase1Macros != null}
+{:else if question.id === 'mr-protein'}
 	<ProteinUnlockCard macros={phase1Macros} />
 {:else if question.id === 'mr-3' && data.bullets.length > 0}
 	<div class="flex flex-col items-center text-center w-full max-w-md mx-auto gap-1 px-4 pb-8 pt-0">

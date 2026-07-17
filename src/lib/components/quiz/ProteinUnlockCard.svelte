@@ -2,7 +2,7 @@
 	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import MacroDonutChart from './MacroDonutChart.svelte';
-	import { macroSplitFromPhase1, type Phase1Macros } from '$lib/utils/macros';
+	import { macroSplitFromPhase1, formatProteinG, type Phase1Macros } from '$lib/utils/macros';
 
 	interface Props {
 		macros: Phase1Macros;
@@ -31,7 +31,7 @@
 	<div
 		class="w-full -mx-4 max-w-[364px] self-center"
 		in:fly={{ y: 16, duration: 550, delay: 100, easing: cubicOut }}
-		aria-label="Meta de proteína diária: {macros.proteinG} gramas, etapa 1 do protocolo"
+		aria-label="Meta de proteína diária: {formatProteinG(macros.proteinG)}, etapa 1 do protocolo"
 	>
 		<MacroDonutChart proteinG={macros.proteinG} {split} />
 	</div>

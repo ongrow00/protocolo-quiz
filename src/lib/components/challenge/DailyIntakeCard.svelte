@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { challengeStore } from '$lib/stores/challenge.store';
-	import { getDayIntakeConsumed, getDayIntakeGoals, intakeProgress } from '$lib/utils/daily-intake';
+	import { quizStore } from '$lib/stores/quiz.store';
+	import { getDayIntakeConsumed, intakeProgress } from '$lib/utils/daily-intake';
+	import { formatKcalNumber, resolveDailyMacroGoals } from '$lib/utils/macros';
 
 	interface Props {
 		day: number;
@@ -16,7 +18,8 @@
 			: `rounded-challenge border border-challenge-border bg-surface px-4 py-4 ${className}`
 	);
 
-	const goals = $derived(getDayIntakeGoals(day));
+	/** Mesma meta do funil/results (Etapa 1), não a média do cardápio. */
+	const goals = $derived(resolveDailyMacroGoals($quizStore.answers));
 	const rawConsumed = $derived(getDayIntakeConsumed($challengeStore, day));
 
 	const consumed = $derived({
@@ -36,7 +39,7 @@
 	<div class="mb-3 flex items-center justify-between gap-3">
 		<span class="text-sm font-bold text-heading">Ingestão diária</span>
 		<span class="text-xs font-medium tabular-nums text-muted">
-			{consumed.kcal} / {goals.kcal} kcal
+			{formatKcalNumber(consumed.kcal)} / {formatKcalNumber(goals.kcal)} kcal
 		</span>
 	</div>
 

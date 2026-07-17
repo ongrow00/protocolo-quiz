@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { quizStore } from '$lib/stores/quiz.store';
-	import { computePhase1Macros } from '$lib/utils/macros';
+	import { formatKcal, formatProteinG, resolvePhase1Macros } from '$lib/utils/macros';
 
 	const ETAPAS = [
 		{ num: 1, name: 'Desbloqueio', days: 'Dia 1 – 4', locked: false },
@@ -10,7 +10,7 @@
 		{ num: 4, name: 'Finalização', days: 'Dia 12 – 14', locked: true }
 	] as const;
 
-	const macros = $derived(computePhase1Macros($quizStore.answers));
+	const macros = $derived(resolvePhase1Macros($quizStore.answers));
 
 	let visible = $state(false);
 
@@ -78,19 +78,11 @@
 					<div class="flex flex-col gap-1.5">
 						<div class="flex items-baseline justify-between gap-1">
 							<span class="text-[10px] uppercase tracking-wide font-medium text-muted">Calorias</span>
-							{#if macros != null}
-								<span class="text-sm font-semibold text-heading tabular-nums">{macros.kcal.toLocaleString('pt-BR')} kcal</span>
-							{:else}
-								<span class="text-sm font-semibold text-muted/25 tabular-nums select-none">— kcal</span>
-							{/if}
+							<span class="text-sm font-semibold text-heading tabular-nums">{formatKcal(macros.kcal)}</span>
 						</div>
 						<div class="flex items-baseline justify-between gap-1">
 							<span class="text-[10px] uppercase tracking-wide font-medium text-muted">Proteína</span>
-							{#if macros != null}
-								<span class="text-sm font-semibold text-heading tabular-nums">{macros.proteinG} g</span>
-							{:else}
-								<span class="text-sm font-semibold text-muted/25 tabular-nums select-none">— g</span>
-							{/if}
+							<span class="text-sm font-semibold text-heading tabular-nums">{formatProteinG(macros.proteinG)}</span>
 						</div>
 					</div>
 				{/if}

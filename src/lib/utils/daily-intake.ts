@@ -43,6 +43,10 @@ export type DailyIntakeGoals = {
 	fatG: number;
 };
 
+/**
+ * Média nutricional das opções do cardápio do dia.
+ * Preferir `resolveDailyMacroGoals` do quiz para metas exibidas ao usuário.
+ */
 export function getDayIntakeGoals(day: number): DailyIntakeGoals {
 	const plan = CHALLENGE_PLAN.find((d) => d.day === day);
 	if (!plan) {

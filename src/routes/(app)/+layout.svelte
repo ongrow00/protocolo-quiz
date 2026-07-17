@@ -21,10 +21,27 @@
 	import { loadActiveWorkoutPlan } from '$lib/services/treino-plan-sync.service';
 	import { loadOnboardingStatus } from '$lib/services/onboarding-completion.service';
 	import { treinoStore } from '$lib/stores/treino.store';
+	import { profileStore } from '$lib/stores/profile.store';
 
 	let { children } = $props();
 	let hydrationDone = $state(false);
 	let hydrating = false;
+
+	/** Logout forçado: limpa storage na hora e recarrega — não depende de await/rede. */
+	function forceLocalSignOut() {
+		try {
+			localStorage.clear();
+			sessionStorage.clear();
+		} catch {
+			// ignore
+		}
+		accessStore.reset();
+		challengeStore.reset();
+		postQuizStore.reset();
+		profileStore.reset();
+		void supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+		window.location.href = '/';
+	}
 
 	const pathname = $derived($page.url.pathname);
 	const isAtivacaoPage = $derived(pathname === '/ativacao');
@@ -35,12 +52,60 @@
 	const hasSelections = $derived($postQuizStore.mealSelections !== null);
 	const onboardingComplete = $derived($postQuizStore.onboardingComplete);
 	const needsOnboarding = $derived(hydrationDone && !onboardingComplete && !isAtivacaoPage);
+	const isAppBootLoading = $derived(
+		$authLoading || !$accessLoaded || (!hydrationDone && !onboardingComplete && $canAccessProtocolo)
+	);
+	const showForceSair = $derived(isAtivacaoPage || isAppBootLoading);
 
 	onMount(() => {
 		authStore.init();
 		challengeStore.hydrate();
 		challengeStore.ensureStarted();
 		treinoStore.hydrate();
+	});
+
+	/** Botão no <body> — fora de overflow/stacking do app, sempre clicável. */
+	$effect(() => {
+		if (!browser || !showForceSair) return;
+
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.textContent = 'SAIR';
+		btn.setAttribute('aria-label', 'Sair da conta');
+		btn.dataset.pdForceSair = '1';
+		btn.style.cssText = [
+			'position:fixed',
+			'left:50%',
+			'bottom:max(12px, env(safe-area-inset-bottom, 0px))',
+			'transform:translateX(-50%)',
+			'z-index:2147483647',
+			'margin:0',
+			'padding:14px 28px',
+			'border:0',
+			'background:transparent',
+			'color:#b0b0b0',
+			'font:10px/1 system-ui,sans-serif',
+			'letter-spacing:0.08em',
+			'cursor:pointer',
+			'pointer-events:auto',
+			'touch-action:manipulation',
+			'-webkit-tap-highlight-color:transparent'
+		].join(';');
+
+		const onPointerDown = (e: Event) => {
+			e.preventDefault();
+			e.stopPropagation();
+			forceLocalSignOut();
+		};
+		btn.addEventListener('pointerdown', onPointerDown, true);
+		btn.addEventListener('click', onPointerDown, true);
+		document.body.appendChild(btn);
+
+		return () => {
+			btn.removeEventListener('pointerdown', onPointerDown, true);
+			btn.removeEventListener('click', onPointerDown, true);
+			btn.remove();
+		};
 	});
 
 	$effect(() => {
@@ -162,9 +227,9 @@
 	});
 </script>
 
-{#if $authLoading || !$accessLoaded || (!hydrationDone && !onboardingComplete && $canAccessProtocolo)}
-	<div class="flex min-h-0 flex-1 items-center justify-center">
-		<div class="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
+{#if isAppBootLoading}
+	<div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-6">
+		<div class="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" aria-hidden="true"></div>
 	</div>
 {:else if $isAuthenticated && protocolAccessBlocked}
 	<div class="flex min-h-0 flex-1 flex-col bg-challenge-hero">
@@ -185,8 +250,8 @@
 		<ChallengeBottomNav />
 	</div>
 {:else if $isAuthenticated && isAtivacaoPage}
-	<div class="flex min-h-0 flex-1 flex-col bg-challenge-hero">
-		<main class="scrollbar-hidden flex flex-1 flex-col min-h-0 overflow-y-auto overscroll-contain bg-challenge-hero px-4 pb-8">
+	<div class="relative flex min-h-0 flex-1 flex-col bg-challenge-hero">
+		<main class="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-challenge-hero px-4 pb-14">
 			{@render children()}
 		</main>
 	</div>

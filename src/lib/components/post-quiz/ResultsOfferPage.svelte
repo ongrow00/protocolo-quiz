@@ -10,7 +10,12 @@
 	import AvatarStack from '$lib/components/ui/AvatarStack.svelte';
 	import VturbPlayer from '$lib/components/ui/VturbPlayer.svelte';
 	import { ATIVACAO_VTURB_DELAY_SEC, RESULTS_VTURB_DELAY_SEC } from '$lib/constants/mr3-vturb';
-	import { RESULTS_OFFER } from '$lib/data/results-offer';
+	import {
+		RESULTS_OFFER,
+		RESULTS_OFFERS,
+		resolveResultsOfferCode,
+		type ResultsOfferVideo
+	} from '$lib/data/results-offer';
 	import Mr1TestimonialCarousel from '$lib/components/ui/Mr1TestimonialCarousel.svelte';
 	import LegalFooter from '$lib/components/ui/LegalFooter.svelte';
 	import Logo from '$lib/components/ui/Logo.svelte';
@@ -19,7 +24,7 @@
 	import MealFollowUpQuestions from '$lib/components/post-quiz/MealFollowUpQuestions.svelte';
 	import type { MealBlockId, MealSelections } from '$lib/data/meal-preferences';
 	import type { MealFollowUpAnswer } from '$lib/data/meal-follow-up-questions';
-	import { computePhase1Macros, DEFAULT_DAILY_MACRO_GOALS } from '$lib/utils/macros';
+	import { formatKcal, formatProteinG, resolvePhase1Macros } from '$lib/utils/macros';
 	import { persistActivationMealPlan } from '$lib/services/meal-plan-activation.service';
 	import {
 		onResultsOfferRevealedByVturb,
@@ -216,28 +221,19 @@
 		return n.split(/\s+/)[0] ?? '';
 	});
 
-	type VturbPlayerConfig = {
-		smartplayerId: string;
-		scriptSrc: string;
-	};
-
-	/** Vídeo: /results (funil pós-quiz). */
-	const vturbProtocoloAccessResults: VturbPlayerConfig = {
+	/** Vídeo padrão: /results (funil pós-quiz). Campanhas `?offer=` trazem o seu (ver `activeOffer`). */
+	const vturbProtocoloAccessResults: ResultsOfferVideo = {
 		smartplayerId: 'vid-6a2ad748127dad2cb2ccc1ed',
 		scriptSrc:
 			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a2ad748127dad2cb2ccc1ed/v4/player.js'
 	};
 
 	/** Vídeo: /ativacao e /atiavacao-de-conta. */
-	const vturbProtocoloAccessAtivacao: VturbPlayerConfig = {
+	const vturbProtocoloAccessAtivacao: ResultsOfferVideo = {
 		smartplayerId: 'vid-6a3a782f0c9bdb871a3b1eee',
 		scriptSrc:
 			'https://scripts.converteai.net/cb674c2a-44f8-4af3-949d-f12749d714fb/players/6a3a782f0c9bdb871a3b1eee/v4/player.js'
 	};
-
-	const vturbProtocoloAccess = $derived(
-		isAtivacaoVariant ? vturbProtocoloAccessAtivacao : vturbProtocoloAccessResults
-	);
 
 
 	/** Iniciais do nome: "Maria Silva" → "MS", "Pedro" → "PE" */
@@ -294,22 +290,9 @@
 		quiz.answers['goal_type'] === 'goal-definir' ? 'definir o corpo' : 'emagrecer'
 	);
 
-	const phase1Macros = $derived(computePhase1Macros(quiz.answers));
-	const displayKcal = $derived(phase1Macros?.kcal ?? DEFAULT_DAILY_MACRO_GOALS.kcal);
-	const displayProteinG = $derived(phase1Macros?.proteinG ?? DEFAULT_DAILY_MACRO_GOALS.proteinG);
-
-	/** R$37 + checkout OF002: só após aceitar bónus e voltar com `?offer=OF002` (não basta query na landing). */
-	const showOf002Offer = $derived(
-		$page.url.searchParams.get('offer') === 'OF002' && postQuiz.bonusDiscountAccepted
-	);
-	const offerMainPrice = $derived(showOf002Offer ? 'R$37,00' : 'R$47,00');
-	const offerInstallmentLabel = $derived(
-		showOf002Offer ? RESULTS_OFFER.installmentLabelOf002 : RESULTS_OFFER.installmentLabel
-	);
-
-	const checkoutUrl = $derived(
-		showOf002Offer ? RESULTS_OFFER.checkoutUrlOf002 : RESULTS_OFFER.checkoutUrl
-	);
+	const phase1Macros = $derived(resolvePhase1Macros(quiz.answers));
+	const displayKcal = $derived(phase1Macros.kcal);
+	const displayProteinG = $derived(phase1Macros.proteinG);
 
 	const session = $derived($sessionStore);
 
@@ -321,6 +304,36 @@
 	/** Campanha `?offer=` (URL atual ou sessão) → parâmetro `src` no Lastlink (exceto OF002 sem bónus). */
 	const funnelOfferForCheckout = $derived(
 		$page.url.searchParams.get('offer')?.trim() || session.offer?.trim() || undefined
+	);
+
+	/** Campanha por `?offer=` (OF37/OF67/OF87): vídeo, preço e checkout próprios. */
+	const activeOfferCode = $derived(
+		isAtivacaoVariant ? undefined : resolveResultsOfferCode(funnelOfferForCheckout)
+	);
+	const activeOffer = $derived(activeOfferCode ? RESULTS_OFFERS[activeOfferCode] : undefined);
+
+	const vturbProtocoloAccess = $derived(
+		isAtivacaoVariant
+			? vturbProtocoloAccessAtivacao
+			: (activeOffer?.video ?? vturbProtocoloAccessResults)
+	);
+
+	/** R$37 + checkout OF002: só após aceitar bónus e voltar com `?offer=OF002` (não basta query na landing). */
+	const showOf002Offer = $derived(
+		$page.url.searchParams.get('offer') === 'OF002' && postQuiz.bonusDiscountAccepted
+	);
+	const offerMainPrice = $derived(
+		activeOffer?.mainPrice ?? (showOf002Offer ? 'R$37,00' : 'R$47,00')
+	);
+	const offerInstallmentLabel = $derived(
+		activeOffer?.installmentLabel ??
+			(showOf002Offer ? RESULTS_OFFER.installmentLabelOf002 : RESULTS_OFFER.installmentLabel)
+	);
+	const offerCompareAtPrice = $derived(activeOffer?.compareAtPrice ?? 'R$197');
+
+	const checkoutUrl = $derived(
+		activeOffer?.checkoutUrl ??
+			(showOf002Offer ? RESULTS_OFFER.checkoutUrlOf002 : RESULTS_OFFER.checkoutUrl)
 	);
 
 	$effect(() => {
@@ -363,9 +376,10 @@
 				? undefined
 				: showOf002Offer
 					? 'OF002'
-					: funnelOfferForCheckout && funnelOfferForCheckout !== 'OF002'
-						? funnelOfferForCheckout
-						: undefined);
+					: (activeOfferCode ??
+						(funnelOfferForCheckout && funnelOfferForCheckout !== 'OF002'
+							? funnelOfferForCheckout
+							: undefined)));
 
 		if (useAppCheckoutBuyer) {
 			return buildAppCheckoutUrl(baseUrl, {
@@ -600,7 +614,9 @@
 
 	/** Estável: revela no tempo real do vídeo (currentTime >= delay). */
 	const resultsPlaybackGate = $derived({
-		seconds: isAtivacaoVariant ? ATIVACAO_VTURB_DELAY_SEC : RESULTS_VTURB_DELAY_SEC,
+		seconds: isAtivacaoVariant
+			? ATIVACAO_VTURB_DELAY_SEC
+			: (activeOffer?.video.revealAtSec ?? RESULTS_VTURB_DELAY_SEC),
 		onReached: revealResultsAfterVideo
 	});
 
@@ -666,7 +682,7 @@
 			{#if showAtivacaoCloseButton}
 				<button
 					type="button"
-					class="w-9 h-9 flex items-center justify-center rounded-xl border border-black text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shrink-0"
+					class="relative z-10 w-9 h-9 flex items-center justify-center rounded-xl border border-black text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent shrink-0"
 					aria-label="Fechar"
 					onclick={() =>
 						offerCta?.declineModal ? openDeclineModal() : onDeclineCta?.()}
@@ -793,13 +809,13 @@
 				<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
 					<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Calorias</span>
 					<span class="text-sm font-extrabold tabular-nums text-heading">
-						{displayKcal.toLocaleString('pt-BR')} kcal
+						{formatKcal(displayKcal)}
 					</span>
 				</div>
 				<div class="my-1 w-px shrink-0 self-stretch bg-line/50" aria-hidden="true"></div>
 				<div class="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-0.5">
 					<span class="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">Proteína</span>
-					<span class="text-sm font-extrabold tabular-nums text-heading">{displayProteinG} g</span>
+					<span class="text-sm font-extrabold tabular-nums text-heading">{formatProteinG(displayProteinG)}</span>
 				</div>
 			</div>
 		{/if}
@@ -959,7 +975,7 @@
 						{/if}
 					</div>
 					<span class="shrink-0 text-base text-heading line-through">
-						{offerPricing?.compareAtPrice ?? 'R$197'}
+						{offerPricing?.compareAtPrice ?? offerCompareAtPrice}
 					</span>
 				</div>
 				<span class="text-sm text-muted">
@@ -1332,17 +1348,6 @@
 
 	<div class="w-full pt-10 pb-2 border-t border-line/70 shrink-0">
 		<LegalFooter />
-		{#if isAtivacaoVariant && onExitCta}
-			<p class="mt-4 text-center text-[11px] leading-snug text-[#C1C1C1]">
-				<button
-					type="button"
-					class="text-accent underline underline-offset-2"
-					onclick={() => void onExitCta()}
-				>
-					Sair
-				</button>
-			</p>
-		{/if}
 	</div>
 
 	</div>

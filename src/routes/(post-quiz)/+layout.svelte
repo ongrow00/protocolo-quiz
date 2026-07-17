@@ -13,6 +13,8 @@
 		stopPostQuizFunnelSync
 	} from '$lib/services/quiz-progress-sync.service';
 	import { postQuizStore } from '$lib/stores/post-quiz.store';
+	import { sessionStore } from '$lib/stores/session.store';
+	import { resolveResultsOffer } from '$lib/data/results-offer';
 	import { trackGenerateLead, trackMetaLead } from '$lib/services/analytics.service';
 	import { isValidName } from '$lib/utils/validation';
 
@@ -77,9 +79,18 @@
 	const bonusInteracted = $derived($postQuizStore.bonusInteracted);
 	const bonusDiscountAccepted = $derived($postQuizStore.bonusDiscountAccepted);
 
-	/** Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`. */
+	/** Campanha `?offer=` capturada no funil (sessão): tem prioridade sobre o bónus já aceite. */
+	const campaignInSession = $derived(resolveResultsOffer($sessionStore.offer));
+
+	/**
+	 * Destino do “Continuar”: calculado no clique com `page.url` atual — nunca `/plan/bonus`.
+	 * `bonusDiscountAccepted` persiste em localStorage, por isso só força OF002 sem campanha ativa:
+	 * senão um bónus antigo esconderia a oferta do anúncio antes de ela aparecer.
+	 */
 	const resultsVideoHref = $derived(
-		bonusDiscountAccepted ? '/results?offer=OF002#video-protocolo' : '/results#video-protocolo'
+		bonusDiscountAccepted && !campaignInSession
+			? '/results?offer=OF002#video-protocolo'
+			: '/results#video-protocolo'
 	);
 
 	function handlePostQuizContinuar() {
@@ -118,11 +129,21 @@
 		isAtivacaoContaPage && page.url.searchParams.get('upsell') === 'on'
 	);
 	const isResultsLikePage = $derived(isResultsPage || isAtivacaoContaPage);
+
+	/** Campanha ativa em /results (URL ou sessão) — decide se o bónus continua acessível. */
+	const campaignOnResults = $derived(
+		isResultsPage
+			? resolveResultsOffer(page.url.searchParams.get('offer') ?? $sessionStore.offer)
+			: undefined
+	);
+	/** OF37 já vale o preço do bónus: oferecer "+20%" ali prometeria um desconto inexistente. */
+	const bonusDisabledByOffer = $derived(campaignOnResults?.disablesBonus === true);
+
 	/** Voltar em /results: 1.ª vez (ainda sem interação no bónus) → /plan/bonus; depois → /metabolismo. */
 	const prevUrl = $derived.by(() => {
 		if (stepIndex <= 0) return '/plan';
 		if (isResultsPage) {
-			if (!bonusInteracted) return '/plan/bonus';
+			if (!bonusInteracted && !bonusDisabledByOffer) return '/plan/bonus';
 			return '/metabolismo';
 		}
 		return FUNNEL_STEPS[stepIndex - 1];
@@ -189,12 +210,15 @@
 		(!isNomePage || hasValidName) && (!isWhatsappPage || hasValidWhatsapp)
 	);
 
-	/** Em /results o Voltar fica visível desde o início (1.º clique → /plan/bonus com desconto extra). */
+	/**
+	 * Em /results o Voltar fica visível desde o início (1.º clique → /plan/bonus com desconto extra).
+	 * Excepção: campanhas com `disablesBonus` (OF37), onde o bónus não teria desconto a dar.
+	 */
 	const showPostQuizBackButton = $derived(
 		!isCarregandoPage &&
 			!isBonusPage &&
 			!isAtivacaoContaPage &&
-			(!hideNavOnThisPage || isResultsPage)
+			(!hideNavOnThisPage || (isResultsPage && !bonusDisabledByOffer))
 	);
 
 	/** Destino do “Aceitar desconto”: preço OF002 só com este query na URL. */

@@ -16,6 +16,7 @@ import {
 	getPhase
 } from '$lib/data/challenge-plan';
 import type { ChallengeMealBlockId, MealOption } from '$lib/data/challenge-plan';
+import { formatKcal } from '$lib/utils/macros';
 
 // Paleta da marca
 const BRAND_GREEN = '#162E21';
@@ -165,7 +166,7 @@ export async function buildProtocolPdf(opts: GenerateProtocolPdfOptions = {}) {
 					'', // checkbox desenhado no didDrawCell
 					{ content: `Opção ${option.optionIndex}`, styles: { fontStyle: 'bold' } },
 					optionCellContent(option),
-					{ content: `${option.calories} kcal`, styles: { halign: 'right' } }
+					{ content: formatKcal(option.calories), styles: { halign: 'right' } }
 				]);
 			}
 		}

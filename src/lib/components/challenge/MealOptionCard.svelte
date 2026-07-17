@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { mealOptionLabel, type MealOption } from '$lib/data/challenge-plan';
 	import type { MealCheckStatus } from '$lib/stores/challenge.store';
+	import { formatKcal } from '$lib/utils/macros';
 
 	interface Props {
 		meal: MealOption;
@@ -97,7 +98,7 @@
 		type="button"
 		onclick={onCardClick}
 		class="flex min-w-0 flex-1 items-center gap-3 text-left active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface rounded-challenge"
-		aria-label="{mealOptionLabel(meal.optionIndex)}, {displayName}, {meal.calories} calorias{isChosen ? ', consumida' : isDimmed ? ', outra opção escolhida' : ''}"
+		aria-label="{mealOptionLabel(meal.optionIndex)}, {displayName}, {formatKcal(meal.calories)}{isChosen ? ', consumida' : isDimmed ? ', outra opção escolhida' : ''}"
 	>
 		<div
 			class="flex h-14 w-14 shrink-0 items-center justify-center rounded-challenge bg-accent-soft {isDimmed
@@ -113,7 +114,7 @@
 			<p class="truncate text-sm font-bold text-heading">{displayName}</p>
 		</div>
 		<div class="flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted tabular-nums">
-			<span>{meal.calories} kcal</span>
+			<span>{formatKcal(meal.calories)}</span>
 			<svg
 				class="h-3.5 w-3.5 shrink-0 text-muted/70"
 				viewBox="0 0 24 24"

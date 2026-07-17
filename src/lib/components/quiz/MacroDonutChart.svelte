@@ -3,7 +3,7 @@
 	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
 	import { PROTEIN_COUNT_ANIM_MS } from '$lib/constants/chart-animation';
-	import type { MacroSplit } from '$lib/utils/macros';
+	import { formatProteinG, type MacroSplit } from '$lib/utils/macros';
 
 	interface Props {
 		proteinG: number;
@@ -98,7 +98,7 @@
 			fill="var(--color-heading)"
 			class="tabular-nums"
 		>
-			{displayProteinG}g
+			{formatProteinG(displayProteinG)}
 		</text>
 		<text
 			x={CX}

@@ -166,14 +166,13 @@ export type DailyMacroGoals = {
 export function dailyMacroGoals(answers: Answers): DailyMacroGoals | null {
 	const phase1 = computePhase1Macros(answers);
 	if (!phase1) return null;
-	const split = macroSplitFromPhase1(phase1);
 	const proteinKcal = Math.min(phase1.proteinG * 4, phase1.kcal);
 	const remaining = Math.max(0, phase1.kcal - proteinKcal);
 	return {
 		kcal: phase1.kcal,
 		proteinG: phase1.proteinG,
-		carbsG: Math.round((remaining * split.carbsPct) / 4),
-		fatG: Math.round((remaining * split.fatPct) / 9)
+		carbsG: Math.round((remaining * 0.35) / 4),
+		fatG: Math.round((remaining * 0.65) / 9)
 	};
 }
 
@@ -181,6 +180,44 @@ export function dailyMacroGoals(answers: Answers): DailyMacroGoals | null {
 export const DEFAULT_DAILY_MACRO_GOALS: DailyMacroGoals = {
 	kcal: 1100,
 	proteinG: 95,
-	carbsG: 61,
-	fatG: 51
+	carbsG: 63,
+	fatG: 52
 };
+
+/**
+ * Mesma meta em todo o funil e app: quiz (Etapa 1) ou fallback padrão.
+ * Use isto em qualquer UI que mostre calorias/proteína “do protocolo”.
+ */
+export function resolvePhase1Macros(answers: Answers): Phase1Macros {
+	return (
+		computePhase1Macros(answers) ?? {
+			kcal: DEFAULT_DAILY_MACRO_GOALS.kcal,
+			proteinG: DEFAULT_DAILY_MACRO_GOALS.proteinG
+		}
+	);
+}
+
+/** Metas diárias completas (kcal + macros) com o mesmo fallback. */
+export function resolveDailyMacroGoals(answers: Answers): DailyMacroGoals {
+	return dailyMacroGoals(answers) ?? DEFAULT_DAILY_MACRO_GOALS;
+}
+
+/** Formatação única de kcal (ex.: `1.150 kcal`). */
+export function formatKcal(kcal: number): string {
+	return `${kcal.toLocaleString('pt-BR')} kcal`;
+}
+
+/** Formatação única de gramas (ex.: `85 g`) — proteína, carbo ou gordura. */
+export function formatGrams(grams: number): string {
+	return `${grams.toLocaleString('pt-BR')} g`;
+}
+
+/** Alias semântico para meta de proteína. */
+export function formatProteinG(proteinG: number): string {
+	return formatGrams(proteinG);
+}
+
+/** Número de kcal com separador pt-BR (sem sufixo), p.ex. células de layout. */
+export function formatKcalNumber(kcal: number): string {
+	return kcal.toLocaleString('pt-BR');
+}
