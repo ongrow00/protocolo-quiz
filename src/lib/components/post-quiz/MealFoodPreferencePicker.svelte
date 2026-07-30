@@ -113,10 +113,10 @@
 		</div>
 	{/if}
 
-	<div class="mb-4 flex items-center gap-3 px-1">
+	<div class="mb-4 flex flex-col gap-2.5">
 		<button
 			type="button"
-			class="shrink-0 -ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none {stepIndex ===
+			class="self-start shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none {stepIndex ===
 			0
 				? 'invisible'
 				: ''}"
@@ -136,7 +136,7 @@
 			</svg>
 		</button>
 		<div
-			class="flex flex-1 items-center gap-1.5"
+			class="flex items-center gap-1.5"
 			role="progressbar"
 			aria-valuemin={1}
 			aria-valuemax={MEAL_BLOCKS.length}
