@@ -736,6 +736,18 @@
 				</div>
 			{/key}
 		</div>
+
+		{#if onExitCta}
+			<!-- Só no onboarding: na fase da oferta o vídeo entra e o SAIR sai. -->
+			<button
+				type="button"
+				aria-label="Sair da conta"
+				onclick={onExitCta}
+				class="mx-auto mt-6 mb-[var(--fixed-cta-reserve)] px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+			>
+				SAIR
+			</button>
+		{/if}
 	{:else}
 	{#if heroProgress}
 		<div

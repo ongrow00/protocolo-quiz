@@ -57,11 +57,11 @@
 	);
 	/**
 	 * Botão fixo só no boot loading — ali normalmente não há conteúdo para rolar,
-	 * então ele precisa estar sempre visível. Na ativação o SAIR vai no fim do
-	 * conteúdo, rolando junto com a página (ver markup abaixo).
+	 * então ele precisa estar sempre visível. Na ativação o SAIR é do próprio
+	 * ResultsOfferPage (via `onExitCta`), que sabe distinguir o onboarding da
+	 * fase da oferta e some quando o vídeo entra.
 	 */
 	const showForceSair = $derived(isAppBootLoading);
-	const showInlineSair = $derived(isAtivacaoPage && !isAppBootLoading);
 
 	onMount(() => {
 		authStore.init();
@@ -266,17 +266,6 @@
 			<div class="w-full shrink-0">
 				{@render children()}
 			</div>
-
-			{#if showInlineSair}
-				<button
-					type="button"
-					aria-label="Sair da conta"
-					onclick={forceLocalSignOut}
-					class="mx-auto mt-6 mb-[var(--fixed-cta-reserve)] shrink-0 px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-				>
-					SAIR
-				</button>
-			{/if}
 		</main>
 	</div>
 {:else if $isAuthenticated}
