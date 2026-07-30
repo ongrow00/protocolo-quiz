@@ -376,22 +376,92 @@ gravada e o erro volta em `provisionError`, como hoje.
   marcando `is_test`, token ausente.
 - Remoção do `api_token` do `raw_payload`.
 
+## Garantias de não-regressão da Lastlink
+
+Análise adversarial dos modos de falha que derrubariam a integração existente, com a
+mitigação de cada um. As regras marcadas como **duras** não admitem exceção na Fase 1.
+
+### Regras duras
+
+**Nunca rodar `supabase functions deploy` sem nomear a função.** Sem argumento, o
+comando deploya *todas* as funções, incluindo a `lastlink-webhook`. Sempre
+`supabase functions deploy guru-webhook`.
+
+**Nunca usar `supabase secrets set --env-file`.** O `.env` local contém
+`LASTLINK_WEBHOOK_TOKEN`; se estiver defasado em relação ao secret de produção, esse
+comando passa a rejeitar todos os webhooks da Lastlink com 401 — e a função continua
+no ar respondendo, então a falha não se parece com uma falha. Definir cada secret
+individualmente, por nome.
+
+**Zero alterações em `_shared/lastlink/` e `lastlink-webhook/` durante a Fase 1.** Só
+criação de arquivos novos. Verificável antes de cada commit:
+
+```sh
+git diff --stat -- supabase/functions/_shared/lastlink supabase/functions/lastlink-webhook
+# tem de sair vazio
+```
+
+Consequência aceita: o núcleo compartilhado nasce como cópia, e a Lastlink só passa a
+usá-lo na Fase 2. A duplicação temporária é o preço de manter a Lastlink fora do
+caminho crítico.
+
+### Riscos avaliados
+
+| Risco | Avaliação |
+|---|---|
+| Migração falha no meio e corrompe a tabela | **Impossível.** DDL no Postgres é transacional; falha faz rollback completo. |
+| `db push` aplica migrations pendentes indesejadas | **Descartado por verificação** (2026-07-30): as 8 migrations do repositório já estão aplicadas em produção; só a nova seria enviada. |
+| Lock da migração enfileira webhooks | 5.638 linhas reescrevem em milissegundos; `lock_timeout = 3s` aborta em vez de enfileirar. |
+| Código atual da Lastlink incompatível com `text` | Verificado item a item (ver Compatibilidade). |
+| Cache de schema do PostgREST após o DDL | Janela de segundos até o reload automático. Requisição que caia nela recebe 500, e a Lastlink reenvia. Impacto baixo, sem perda de dados. |
+| Deploy do `guru-webhook` afeta a Lastlink | Funções são isoladas; o bundle da `lastlink-webhook` não é reconstruído. |
+
+### Reversibilidade
+
+A migração **não precisa ser revertida**: ela é retrocompatível, e o código atual da
+Lastlink opera normalmente sobre as colunas `text`.
+
+Registrando ainda assim, com honestidade: reverter para `uuid` só é possível **antes**
+do primeiro webhook do Guru ser gravado, porque `guru:<id>:<status>` não converte para
+`uuid`. Depois disso, o caminho de volta é remover as linhas do Guru antes de reverter.
+Isso não é limitação prática — é apenas a razão pela qual a compatibilidade retroativa
+foi verificada com cuidado em vez de se contar com rollback.
+
+Já o deploy é plenamente reversível: redeploy da versão anterior da função.
+
+### Teste de fumaça
+
+Antes e depois da migração, confirmar que a Lastlink segue gravando:
+
+```sql
+select count(*), max(created_at)
+from transactions
+where gateway = 'lastlink' and created_at > now() - interval '24 hours';
+```
+
+Complementar com um reenvio de webhook pelo painel da Lastlink, confirmando resposta
+200 e a linha correspondente na tabela. Nas 24 horas seguintes, acompanhar os logs da
+`lastlink-webhook` em busca de erro novo.
+
 ## Rollout
 
 ### Fase 1 — Guru no ar, Lastlink intocada
 
 1. Consultando o banco diretamente, reconfirmar o volume de `transactions` (5.638 em
    2026-07-30) e a ausência de views, triggers ou FKs sobre as sete colunas.
-2. Aplicar a migração via `npx supabase db push` (o CLI já está linkado ao projeto
+2. Teste de fumaça da Lastlink **antes** da migração (ver Garantias).
+3. Aplicar a migração via `npx supabase db push` (o CLI já está linkado ao projeto
    `czvlwhfkcwhaqjgbatji`).
-3. Confirmar que a Lastlink segue gravando normalmente — uma venda real ou um reenvio.
-4. Criar `_shared/payments/` e `_shared/guru/`, e `functions/guru-webhook/`.
-5. Definir os secrets do Guru.
-6. `supabase functions deploy guru-webhook` — **só essa função**.
-7. Cadastrar a URL no painel do Guru e disparar um teste.
-8. **Comparar os UTMs gravados com os da Lastlink, valor a valor** (ver Rastreamento).
+4. Teste de fumaça da Lastlink **depois** — venda real ou reenvio pelo painel.
+5. Criar `_shared/payments/` e `_shared/guru/`, e `functions/guru-webhook/`. Conferir
+   que `git diff` sobre `_shared/lastlink/` e `lastlink-webhook/` sai vazio.
+6. Definir os secrets do Guru **um a um**, nunca com `--env-file`.
+7. `supabase functions deploy guru-webhook` — sempre nomeando a função.
+8. Cadastrar a URL no painel do Guru e disparar um teste.
+9. **Comparar os UTMs gravados com os da Lastlink, valor a valor** (ver Rastreamento).
    Divergência aqui bloqueia a migração de tráfego.
-9. Validar com venda real de cada um dos três produtos.
+10. Validar com venda real de cada um dos três produtos.
+11. Acompanhar os logs da `lastlink-webhook` por 24h em busca de erro novo.
 
 Nesta fase a Lastlink mantém sua cópia da lógica em `_shared/lastlink/`. A duplicação
 é temporária e intencional: é o que mantém a Lastlink fora do caminho crítico.
