@@ -73,10 +73,14 @@
 		});
 	}
 
-	function goBack() {
+	async function goBack() {
 		if (stepIndex === 0) return;
 		stepIndex -= 1;
 		void resetScroll();
+		// No step 0 o proprio botao vira `disabled`, e o browser joga o foco no
+		// <body>. Move o foco para o titulo do step para nao perder o lugar.
+		await tick();
+		stepHeading?.focus();
 	}
 
 	function categoryLabel(block: MealBlock, cat: Category): string {
@@ -94,6 +98,7 @@
 	const stepFlyOut = { x: -30, duration: 180 };
 
 	let stepRoot = $state<HTMLElement | null>(null);
+	let stepHeading = $state<HTMLElement | null>(null);
 
 	async function resetScroll() {
 		await tick();
@@ -158,7 +163,11 @@
 			<div in:fly={stepFlyIn} out:fly={stepFlyOut}>
 				<div class="mb-4 flex items-start justify-between gap-3 px-1">
 					<div class="min-w-0">
-						<h2 class="text-xl font-extrabold text-heading leading-snug">
+						<h2
+							bind:this={stepHeading}
+							tabindex="-1"
+							class="text-xl font-extrabold text-heading leading-snug focus:outline-none"
+						>
 							{currentBlock.title}
 						</h2>
 						<p class="text-sm text-muted mt-1 leading-relaxed">
@@ -177,7 +186,7 @@
 					</span>
 				</div>
 
-				<div class="flex flex-col gap-5 pb-fixed-cta-reserve">
+				<div class="flex flex-col gap-5">
 					{#each ['carbs', 'proteins'] as cat (cat)}
 						{@const category = cat as Category}
 						{@const items = category === 'carbs' ? currentBlock.carbs : currentBlock.proteins}
@@ -229,14 +238,8 @@
 			</div>
 		{/key}
 	</div>
-</div>
 
-<div
-	class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none"
->
-	<div
-		class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto"
-	>
+	<div class="mt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
 		<button
 			type="button"
 			onclick={goNext}
