@@ -70,6 +70,11 @@
 		});
 	}
 
+	function goBack() {
+		if (stepIndex === 0) return;
+		stepIndex -= 1;
+	}
+
 	function categoryLabel(block: MealBlock, cat: Category): string {
 		if (cat === 'carbs') return block.carbLabel ?? 'Carboidrato';
 		return block.proteinLabel ?? 'Proteína';
@@ -88,6 +93,44 @@
 			<Logo class="block h-7 w-auto" />
 		</div>
 	{/if}
+
+	<div class="mb-4 flex items-center gap-3 px-1">
+		{#if stepIndex > 0}
+			<button
+				type="button"
+				class="shrink-0 -ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+				aria-label="Voltar"
+				onclick={goBack}
+			>
+				<svg
+					class="h-5 w-5"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					viewBox="0 0 24 24"
+					aria-hidden="true"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+				</svg>
+			</button>
+		{/if}
+		<div
+			class="flex flex-1 items-center gap-1.5"
+			role="progressbar"
+			aria-valuemin={1}
+			aria-valuemax={MEAL_BLOCKS.length}
+			aria-valuenow={stepIndex + 1}
+			aria-label="Progresso das preferências"
+		>
+			{#each MEAL_BLOCKS as block, i (block.id)}
+				<span
+					class="h-1 flex-1 rounded-full transition-colors duration-200 {i <= stepIndex
+						? 'bg-accent'
+						: 'bg-line'}"
+				></span>
+			{/each}
+		</div>
+	</div>
 
 	<div class="mb-4 flex items-start justify-between gap-3 px-1">
 		<div class="min-w-0">
