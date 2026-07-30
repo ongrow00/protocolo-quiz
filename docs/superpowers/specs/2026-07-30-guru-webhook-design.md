@@ -196,7 +196,7 @@ Daí a reconfirmação no passo 1 do rollout.
 | `seller_lastlink_id` | `product.producer.marketplace_id` |
 | `seller_email` | `product.producer.contact_email` |
 | `utm_source` … `utm_content` | `source.utm_source` … `source.utm_content` |
-| `utm_id` | `source.source` |
+| `utm_id` | `null` (ver Rastreamento) |
 | `device_user_agent` | `infrastructure.user_agent` |
 | `device_ip` | `infrastructure.ip` |
 | `raw_payload` | payload **sem** `api_token` |
@@ -270,6 +270,51 @@ altera os últimos 4 dígitos, então o formato composto do Guru é seguro.
 `grantAccessToExistingUser` mantém o retry atual (3 tentativas, 15s de intervalo) para
 o caso do upsell chegar antes do produto principal ter provisionado a conta.
 
+## Rastreamento (UTMs)
+
+O modelo gravado tem de ser **byte a byte o mesmo** das linhas da Lastlink, sob pena de
+quebrar o rastreamento de campanha. Restrições, verificadas contra dados reais em
+2026-07-30:
+
+**Colunas idênticas.** `transactions` mantém `utm_id`, `utm_source`, `utm_medium`,
+`utm_campaign`, `utm_term`, `utm_content`, todas `text`. A migração de schema não toca
+em nenhuma delas. Em `profiles` são as mesmas cinco (sem `utm_id`), gravadas pelo mesmo
+`mapUtm`. `profile-utm.service.ts` permanece indiferente à fonte.
+
+**`utm_id` fica `null` no Guru.** Nas transações históricas da Lastlink a coluna é
+sempre nula. Preenchê-la apenas no Guru faria seu significado variar conforme o
+gateway. O `source.source` do Guru (equivalente ao `sck`) permanece só no
+`raw_payload`, que é onde o `sck` da Lastlink também já fica hoje.
+
+**`source.pptc.utm_*` é ignorado.** O Guru expõe um segundo conjunto de UTMs vindo do
+rastreamento interno dele. Usamos exclusivamente `source.utm_*`; misturar as duas
+origens criaria justamente a divergência que se quer evitar.
+
+**Formato dos valores.** Os UTMs seguem o padrão de dynamic params do Meta Ads,
+`Nome|ID`. Em uma amostra de 1.000 transações, 97–99% dos valores contêm `|`:
+
+```
+utm_source    Meta|216102221917389
+utm_campaign  [PROTOCOLO-D]-[VENDA]-[QUIZ]-[COSTCAP]-2307|52568213630963
+utm_content   H3_B1_C1-V1-[ORGANICO 19].mp4|52568213633363
+```
+
+**Comprimento.** A documentação do Guru declara `String(191)` para esses campos,
+enquanto o mapper atual aceita até 500 (2000 em `utm_content`). Na mesma amostra, o
+maior valor observado tem 88 caracteres (`utm_campaign`) e nenhum passa de 191. Folga
+de mais de duas vezes; não é risco. Os limites do mapper permanecem como estão.
+
+### Critério de aceite bloqueante
+
+O gateway não gera esses valores — captura o query param do checkout e repassa. O
+funil já os envia via `appendCheckoutParams`. Portanto, **antes de direcionar tráfego
+para o Guru**, uma venda de teste com UTMs contendo `|` deve ser comparada valor a
+valor com o que a Lastlink grava.
+
+Falha esperada a procurar: o Guru escapar o pipe como `%7C` ou truncar o valor no
+primeiro `|`. Qualquer divergência bloqueia a migração de tráfego até ser resolvida na
+configuração do checkout.
+
 ## Autenticação
 
 O Guru envia `api_token` **no corpo** do JSON, não em header. `_shared/guru/validate-token.ts`
@@ -336,7 +381,9 @@ gravada e o erro volta em `provisionError`, como hoje.
 5. Definir os secrets do Guru.
 6. `supabase functions deploy guru-webhook` — **só essa função**.
 7. Cadastrar a URL no painel do Guru e disparar um teste.
-8. Validar com venda real de cada um dos três produtos.
+8. **Comparar os UTMs gravados com os da Lastlink, valor a valor** (ver Rastreamento).
+   Divergência aqui bloqueia a migração de tráfego.
+9. Validar com venda real de cada um dos três produtos.
 
 Nesta fase a Lastlink mantém sua cópia da lógica em `_shared/lastlink/`. A duplicação
 é temporária e intencional: é o que mantém a Lastlink fora do caminho crítico.
