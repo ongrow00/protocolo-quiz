@@ -616,7 +616,7 @@
 	const resultsPlaybackGate = $derived({
 		seconds: isAtivacaoVariant
 			? ATIVACAO_VTURB_DELAY_SEC
-			: (activeOffer?.video.revealAtSec ?? RESULTS_VTURB_DELAY_SEC),
+			: (activeOffer?.video?.revealAtSec ?? RESULTS_VTURB_DELAY_SEC),
 		onReached: revealResultsAfterVideo
 	});
 
