@@ -109,31 +109,34 @@
 	{/if}
 
 	<div class="mb-4 flex items-center gap-3 px-1">
-		{#if stepIndex > 0}
-			<button
-				type="button"
-				class="shrink-0 -ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-				aria-label="Voltar"
-				onclick={goBack}
+		<button
+			type="button"
+			class="shrink-0 -ml-1 flex h-8 w-8 items-center justify-center rounded-lg text-heading transition-colors hover:bg-surface-2 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none {stepIndex ===
+			0
+				? 'invisible'
+				: ''}"
+			aria-label="Voltar"
+			disabled={stepIndex === 0}
+			onclick={goBack}
+		>
+			<svg
+				class="h-5 w-5"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="2"
+				viewBox="0 0 24 24"
+				aria-hidden="true"
 			>
-				<svg
-					class="h-5 w-5"
-					fill="none"
-					stroke="currentColor"
-					stroke-width="2"
-					viewBox="0 0 24 24"
-					aria-hidden="true"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-				</svg>
-			</button>
-		{/if}
+				<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+			</svg>
+		</button>
 		<div
 			class="flex flex-1 items-center gap-1.5"
 			role="progressbar"
 			aria-valuemin={1}
 			aria-valuemax={MEAL_BLOCKS.length}
 			aria-valuenow={stepIndex + 1}
+			aria-valuetext={`Etapa ${stepIndex + 1} de ${MEAL_BLOCKS.length}`}
 			aria-label="Progresso das preferências"
 		>
 			{#each MEAL_BLOCKS as block, i (block.id)}
@@ -145,6 +148,10 @@
 			{/each}
 		</div>
 	</div>
+
+	<p class="sr-only" aria-live="polite">
+		Etapa {stepIndex + 1} de {MEAL_BLOCKS.length}: {currentBlock.title}
+	</p>
 
 	<div class="content-transition-root" bind:this={stepRoot}>
 		{#key stepIndex}
@@ -263,6 +270,10 @@
 		grid-row: 1;
 		grid-column: 1;
 		min-width: 0;
+	}
+
+	.content-transition-root > *:not(:last-child) {
+		pointer-events: none;
 	}
 
 	.meal-picker {
