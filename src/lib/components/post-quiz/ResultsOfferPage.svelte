@@ -39,6 +39,7 @@
 		buildAppCheckoutUrl,
 		EMPTY_APP_CHECKOUT_STATE,
 		mergeUtmParams,
+		resolveGatewayCheckoutUrl,
 		type AppCheckoutState
 	} from '$lib/utils/checkout-url';
 
@@ -145,8 +146,10 @@
 	export type OfferCta = {
 		primaryLabel: string;
 		declineLabel: string;
-		/** Checkout Lastlink do CTA principal (abre em nova aba com UTMs + src). */
+		/** Checkout do CTA principal (abre em nova aba com UTMs + src). */
 		checkoutUrl?: string;
+		/** Usado no lugar de `checkoutUrl` quando o usuário comprou pelo Guru. */
+		checkoutUrlGuru?: string;
 		checkoutSrc?: string;
 		declineModal?: OfferDeclineModal;
 	};
@@ -369,7 +372,15 @@
 	});
 
 	const primaryCheckoutUrl = $derived.by(() => {
-		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
+		// O upsell de ativação segue o gateway da compra do usuário; o funil público
+		// (sem login) não tem gateway conhecido e mantém o checkout padrão.
+		const ctaUrl = offerCta?.checkoutUrl
+			? resolveGatewayCheckoutUrl(
+					{ checkoutUrl: offerCta.checkoutUrl, checkoutUrlGuru: offerCta.checkoutUrlGuru },
+					appCheckoutState.gateway
+				)
+			: undefined;
+		const baseUrl = ctaUrl ?? checkoutUrl;
 		const src =
 			offerCta?.checkoutSrc ??
 			(isAtivacaoVariant

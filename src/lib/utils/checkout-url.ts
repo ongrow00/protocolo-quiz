@@ -78,12 +78,39 @@ export function appendCheckoutParams(
 	return url.toString();
 }
 
+/** Gateway pelo qual o usuário comprou — decide para onde os upsells apontam. */
+export type PaymentGateway = 'lastlink' | 'guru';
+
 export type AppCheckoutState = {
 	utm: UtmParams;
 	buyer: CheckoutBuyerParams;
+	gateway: PaymentGateway;
 };
 
-export const EMPTY_APP_CHECKOUT_STATE: AppCheckoutState = { utm: {}, buyer: {} };
+export const EMPTY_APP_CHECKOUT_STATE: AppCheckoutState = {
+	utm: {},
+	buyer: {},
+	gateway: 'lastlink'
+};
+
+/** Config de oferta com checkout em cada gateway. */
+export type GatewayCheckoutUrls = {
+	checkoutUrl: string;
+	/** Ausente ⇒ mantém o checkout da Lastlink mesmo para quem comprou no Guru. */
+	checkoutUrlGuru?: string;
+};
+
+/**
+ * Checkout do gateway em que o usuário comprou. Quem veio pelo Guru continua
+ * no Guru nos upsells, para que a venda caia no mesmo lugar da compra original.
+ */
+export function resolveGatewayCheckoutUrl(
+	offer: GatewayCheckoutUrls,
+	gateway: PaymentGateway
+): string {
+	if (gateway === 'guru' && offer.checkoutUrlGuru) return offer.checkoutUrlGuru;
+	return offer.checkoutUrl;
+}
 
 /** Checkout interno (área logada): UTMs da sessão + perfil e dados do comprador no banco. */
 export function buildAppCheckoutUrl(

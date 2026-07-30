@@ -1,5 +1,9 @@
 import type { UtmParams } from '$lib/data/types';
-import type { AppCheckoutState, CheckoutBuyerParams } from '$lib/utils/checkout-url';
+import type {
+	AppCheckoutState,
+	CheckoutBuyerParams,
+	PaymentGateway
+} from '$lib/utils/checkout-url';
 import { supabase } from '$lib/supabase';
 
 const UTM_COLUMNS = 'utm_source, utm_medium, utm_campaign, utm_term, utm_content';
@@ -67,29 +71,54 @@ export async function loadProfileUtm(userId: string): Promise<UtmParams> {
 	return utmFromProfileRow(data as ProfileUtmRow | null);
 }
 
-/** UTMs + nome, telefone e e-mail salvos em `profiles` (área logada do app). */
+/**
+ * Gateway da compra do usuário. Quem já comprou pelo Guru recebe os upsells
+ * apontando para lá; na dúvida, mantém a Lastlink (comportamento anterior).
+ * A RLS de `transactions` já restringe as linhas ao próprio usuário.
+ */
+export async function loadPaymentGateway(userId: string): Promise<PaymentGateway> {
+	const { data, error } = await supabase
+		.from('transactions')
+		.select('id')
+		.eq('user_id', userId)
+		.eq('gateway', 'guru')
+		.eq('event', 'Purchase_Order_Confirmed')
+		.limit(1);
+
+	if (error) {
+		console.warn('loadPaymentGateway:', error.message);
+		return 'lastlink';
+	}
+
+	return (data?.length ?? 0) > 0 ? 'guru' : 'lastlink';
+}
+
+/** UTMs + nome, telefone, e-mail e gateway do usuário (área logada do app). */
 export async function loadAppCheckoutState(
 	userId: string,
 	authEmail?: string | null
 ): Promise<AppCheckoutState> {
-	const { data, error } = await supabase
-		.from('profiles')
-		.select(CHECKOUT_COLUMNS)
-		.eq('id', userId)
-		.maybeSingle();
+	const [profileResult, gateway] = await Promise.all([
+		supabase.from('profiles').select(CHECKOUT_COLUMNS).eq('id', userId).maybeSingle(),
+		loadPaymentGateway(userId)
+	]);
+
+	const { data, error } = profileResult;
 
 	if (error) {
 		console.warn('loadAppCheckoutState:', error.message);
 		return {
 			utm: {},
-			buyer: buyerFromProfileRow(null, authEmail)
+			buyer: buyerFromProfileRow(null, authEmail),
+			gateway
 		};
 	}
 
 	const row = data as ProfileCheckoutRow | null;
 	return {
 		utm: utmFromProfileRow(row),
-		buyer: buyerFromProfileRow(row, authEmail)
+		buyer: buyerFromProfileRow(row, authEmail),
+		gateway
 	};
 }
 
