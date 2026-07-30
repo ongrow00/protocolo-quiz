@@ -338,12 +338,39 @@ sem custo.
 dessa lista grava `is_test = true` e não provisiona, mesma regra do `IsTest`. A exceção
 de ambiente local (`isLocalDev()`) permanece.
 
+### Onde obter o token
+
+O token **não** é gerado na tela de webhook — é o *Account Token*, da conta inteira,
+e o mesmo valor chega em todos os webhooks. Caminho no painel:
+
+> menu superior direito → **Minha Conta** → aba **API** → **Token API**
+
+Atenção ao token errado: em *Meu Perfil → Tokens API* fica o *User Token*, usado para
+chamar a API do Guru via `Authorization: Bearer`. Ele **não** é o que vem no
+`api_token` do webhook. Usá-lo faria todos os webhooks retornarem 401 com a função no
+ar respondendo normalmente — falha que não se parece com falha.
+
+Consequência operacional: por ser um token de conta, não há como rotacioná-lo por
+webhook, e ele não distingue ambientes. `GURU_WEBHOOK_TEST_TOKENS` só é útil se o Guru
+oferecer uma conta ou ambiente de testes separado.
+
 Variáveis a definir antes do deploy:
 
 ```
-supabase secrets set GURU_WEBHOOK_TOKENS=<token do painel do Guru>
+supabase secrets set GURU_WEBHOOK_TOKENS=<Token API de Minha Conta → API>
 supabase secrets set GURU_WEBHOOK_TEST_TOKENS=<opcional>
 ```
+
+### Reenvios
+
+O Guru reenvia o webhook **até 10 vezes** enquanto não receber HTTP 200. Isso torna a
+idempotência obrigatória, não opcional: a chave `guru:<id>:<status>` garante que do
+segundo reenvio em diante a resposta seja `{ ok: true, duplicate: true }` sem
+reprocessar acesso.
+
+Cada requisição traz um header `X-Request-ID` único. **Não usar como chave de
+idempotência** — ele muda a cada reenvio, então dez reenvios do mesmo evento gerariam
+dez linhas e dez tentativas de provisionamento.
 
 ## Tratamento de erro
 
