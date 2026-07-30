@@ -70,7 +70,7 @@ supabase/functions/
 
 ```ts
 export type WebhookAdapter<P> = {
-  source: 'lastlink' | 'guru';
+  gateway: 'lastlink' | 'guru';
   /** Autentica a requisição. Guru usa o corpo (api_token); Lastlink usa header. */
   validate(request: Request, raw: unknown): boolean;
   parse(raw: unknown): P | null;
@@ -117,7 +117,7 @@ shape e nada precise mudar na Lastlink.
 set local lock_timeout = '3s';
 
 alter table public.transactions
-  add column if not exists source text not null default 'lastlink';
+  add column if not exists gateway text not null default 'lastlink';
 
 alter table public.transactions
   alter column webhook_event_id         type text using webhook_event_id::text,
@@ -128,7 +128,10 @@ alter table public.transactions
   alter column subscription_lastlink_id type text using subscription_lastlink_id::text,
   alter column seller_lastlink_id       type text using seller_lastlink_id::text;
 
-create index if not exists transactions_source_idx on public.transactions(source);
+create index if not exists transactions_gateway_idx on public.transactions(gateway);
+
+comment on column public.transactions.gateway is
+  'Gateway de pagamento (lastlink|guru). Não confundir com utm_source, que é origem de tráfego.';
 ```
 
 Os sete `alter column` vão num **único** `alter table`: uma reescrita, um lock. O
@@ -140,7 +143,12 @@ vem como `ch_1ke4QoCQOs7VE6VY`, `subscription.id` como `sub_BOAEj2WTKoclmg4X`,
 `product.id` como `1587151083`.
 
 Nenhuma coluna é renomeada, nenhuma linha existente é alterada, nenhuma policy é
-tocada. As vendas históricas permanecem com `source = 'lastlink'` pelo default.
+tocada. As vendas históricas permanecem com `gateway = 'lastlink'` pelo default.
+
+**Por que `gateway` e não `source`:** a tabela já tem `utm_source` (origem de tráfego,
+ex. `Meta|216102221917389`) e o payload do Guru tem um objeto `source` que contém as
+UTMs. Uma coluna chamada `source` significando gateway de pagamento colidiria com os
+dois e convidaria a erro de leitura em relatórios.
 
 ### Compatibilidade com o código atual da Lastlink
 
@@ -167,7 +175,7 @@ Daí a reconfirmação no passo 1 do rollout.
 
 | Coluna `transactions` | Origem no payload do Guru |
 |---|---|
-| `source` | `'guru'` |
+| `gateway` | `'guru'` |
 | `webhook_event_id` | `guru:<id>:<status>` (ver Idempotência) |
 | `event` | `status` normalizado (ver Eventos) |
 | `is_test` | token de teste (ver Autenticação) |
