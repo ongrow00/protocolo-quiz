@@ -217,8 +217,17 @@ export async function provisionPurchasedUser(
 	});
 
 	if (updateAuthError) {
-		console.error('[payments] updateUser failed:', updateAuthError.message);
-		return { ok: false, error: updateAuthError.message };
+		// Não aborta: o usuário já existe e já tem senha própria — negar o acesso
+		// porque não deu para redefini-la deixaria um cliente pagante sem o produto.
+		//
+		// O caso comum é a assimetria do GoTrue: createUser aceita senha de 4
+		// caracteres, updateUserById exige 6. Como a senha vem dos 4 últimos dígitos
+		// do telefone, toda recompra de quem já tem conta caía aqui e ficava sem
+		// acesso. Quem não souber a senha usa a recuperação por OTP.
+		console.warn(
+			'[payments] senha não redefinida, seguindo com a liberação de acesso:',
+			updateAuthError.message
+		);
 	}
 
 	const { data: existingProfile } = await supabase
