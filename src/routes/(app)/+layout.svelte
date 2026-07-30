@@ -265,7 +265,7 @@
 					type="button"
 					aria-label="Sair da conta"
 					onclick={forceLocalSignOut}
-					class="mx-auto mt-2 mb-[calc(3.75rem+max(2rem,env(safe-area-inset-bottom)))] shrink-0 px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+					class="mx-auto mt-6 mb-[var(--fixed-cta-reserve)] shrink-0 px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
 				>
 					SAIR
 				</button>
