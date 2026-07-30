@@ -9,6 +9,27 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 	return result === 0;
 }
 
+/**
+ * O Token API do painel do Guru vem como `<account-id>|<segredo>`, mas a
+ * documentação descreve api_token como Char(40) e o exemplo não tem pipe.
+ * Como não dá para saber qual forma o webhook envia — e errar significa 401
+ * silencioso em todas as vendas — aceitamos ambas.
+ */
+function tokenVariants(token: string): string[] {
+	const trimmed = token.trim();
+	const pipeIndex = trimmed.lastIndexOf('|');
+	if (pipeIndex === -1) return [trimmed];
+
+	const suffix = trimmed.slice(pipeIndex + 1);
+	return suffix ? [trimmed, suffix] : [trimmed];
+}
+
+function tokenMatches(received: string, expected: string): boolean {
+	const receivedForms = tokenVariants(received);
+	const expectedForms = tokenVariants(expected);
+	return receivedForms.some((r) => expectedForms.some((e) => timingSafeEqualStr(r, e)));
+}
+
 function loadTokens(envKey: string): string[] {
 	const tokens = new Set<string>();
 	const list = Deno.env.get(envKey);
@@ -60,11 +81,11 @@ export function authenticateGuruRequest(_request: Request, raw: unknown): AuthRe
 	const received = extractApiToken(raw);
 	if (!received) return { ok: false };
 
-	if (testTokens.some((token) => timingSafeEqualStr(received, token))) {
+	if (testTokens.some((token) => tokenMatches(received, token))) {
 		return { ok: true, isTest: true };
 	}
 
-	if (liveTokens.some((token) => timingSafeEqualStr(received, token))) {
+	if (liveTokens.some((token) => tokenMatches(received, token))) {
 		return { ok: true, isTest: false };
 	}
 

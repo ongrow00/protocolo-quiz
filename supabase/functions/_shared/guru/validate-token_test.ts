@@ -65,6 +65,48 @@ Deno.test('rejeita quando nenhum token está configurado', () => {
 	});
 });
 
+// O Token API do painel tem o formato `<account-id>|<segredo>`, mas a doc
+// descreve api_token como Char(40) sem pipe. Estes testes garantem que o
+// webhook autentica independente de qual forma o Guru enviar.
+const ACCOUNT_ID = '11111111-2222-3333-4444-555555555555';
+const SECRET = 'SegredoFalsoApenasParaTeste0123456789';
+const FULL = `${ACCOUNT_ID}|${SECRET}`;
+
+Deno.test('token completo configurado aceita webhook que envia o completo', () => {
+	withEnv({ GURU_WEBHOOK_TOKENS: FULL, GURU_WEBHOOK_TEST_TOKENS: null }, () => {
+		const payload = guruApprovedPayload({ api_token: FULL });
+		assertEquals(authenticateGuruRequest(request, payload), { ok: true, isTest: false });
+	});
+});
+
+Deno.test('token completo configurado aceita webhook que envia só o sufixo', () => {
+	withEnv({ GURU_WEBHOOK_TOKENS: FULL, GURU_WEBHOOK_TEST_TOKENS: null }, () => {
+		const payload = guruApprovedPayload({ api_token: SECRET });
+		assertEquals(authenticateGuruRequest(request, payload), { ok: true, isTest: false });
+	});
+});
+
+Deno.test('só o sufixo configurado aceita webhook que envia o completo', () => {
+	withEnv({ GURU_WEBHOOK_TOKENS: SECRET, GURU_WEBHOOK_TEST_TOKENS: null }, () => {
+		const payload = guruApprovedPayload({ api_token: FULL });
+		assertEquals(authenticateGuruRequest(request, payload), { ok: true, isTest: false });
+	});
+});
+
+Deno.test('tolerância ao pipe não aceita account id nem segredo errado', () => {
+	withEnv({ GURU_WEBHOOK_TOKENS: FULL, GURU_WEBHOOK_TEST_TOKENS: null }, () => {
+		// O account id sozinho não autentica — o segredo é a parte após o pipe.
+		assertEquals(
+			authenticateGuruRequest(request, guruApprovedPayload({ api_token: ACCOUNT_ID })),
+			{ ok: false }
+		);
+		assertEquals(
+			authenticateGuruRequest(request, guruApprovedPayload({ api_token: `${ACCOUNT_ID}|outro` })),
+			{ ok: false }
+		);
+	});
+});
+
 Deno.test('encontra o token dentro de wrappers de proxy', () => {
 	withEnv({ GURU_WEBHOOK_TOKENS: 'segredo-do-painel' }, () => {
 		const wrapped = { body: guruApprovedPayload() };
