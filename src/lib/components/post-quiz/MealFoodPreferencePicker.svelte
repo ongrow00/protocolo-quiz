@@ -186,7 +186,7 @@
 					</span>
 				</div>
 
-				<div class="flex flex-col gap-5">
+				<div class="flex flex-col gap-5 pb-fixed-cta-reserve">
 					{#each ['carbs', 'proteins'] as cat (cat)}
 						{@const category = cat as Category}
 						{@const items = category === 'carbs' ? currentBlock.carbs : currentBlock.proteins}
@@ -238,8 +238,14 @@
 			</div>
 		{/key}
 	</div>
+</div>
 
-	<div class="mt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+<div
+	class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none"
+>
+	<div
+		class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto"
+	>
 		<button
 			type="button"
 			onclick={goNext}

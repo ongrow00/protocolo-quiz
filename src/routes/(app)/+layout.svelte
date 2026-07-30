@@ -55,7 +55,13 @@
 	const isAppBootLoading = $derived(
 		$authLoading || !$accessLoaded || (!hydrationDone && !onboardingComplete && $canAccessProtocolo)
 	);
-	const showForceSair = $derived(isAtivacaoPage || isAppBootLoading);
+	/**
+	 * Botão fixo só no boot loading — ali normalmente não há conteúdo para rolar,
+	 * então ele precisa estar sempre visível. Na ativação o SAIR vai no fim do
+	 * conteúdo, rolando junto com a página (ver markup abaixo).
+	 */
+	const showForceSair = $derived(isAppBootLoading);
+	const showInlineSair = $derived(isAtivacaoPage && !isAppBootLoading);
 
 	onMount(() => {
 		authStore.init();
@@ -253,6 +259,17 @@
 	<div class="relative flex min-h-0 flex-1 flex-col bg-challenge-hero">
 		<main class="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-challenge-hero px-4 pb-14">
 			{@render children()}
+
+			{#if showInlineSair}
+				<button
+					type="button"
+					aria-label="Sair da conta"
+					onclick={forceLocalSignOut}
+					class="mx-auto mt-2 mb-[calc(3.75rem+max(2rem,env(safe-area-inset-bottom)))] shrink-0 px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+				>
+					SAIR
+				</button>
+			{/if}
 		</main>
 	</div>
 {:else if $isAuthenticated}
