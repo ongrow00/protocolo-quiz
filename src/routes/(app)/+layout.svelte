@@ -258,7 +258,14 @@
 {:else if $isAuthenticated && isAtivacaoPage}
 	<div class="relative flex min-h-0 flex-1 flex-col bg-challenge-hero">
 		<main class="scrollbar-hidden flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-challenge-hero px-4 pb-14">
-			{@render children()}
+			<!--
+				shrink-0: o conteudo e item flex deste <main>, que tambem e o scroller.
+				Sem isso ele encolhe ate a altura do main (a raiz do ResultsOfferPage
+				tem min-h-0), o main nunca transborda e a pagina nao rola.
+			-->
+			<div class="w-full shrink-0">
+				{@render children()}
+			</div>
 
 			{#if showInlineSair}
 				<button
