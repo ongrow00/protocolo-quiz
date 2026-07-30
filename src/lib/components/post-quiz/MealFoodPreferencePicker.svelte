@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import {
 		MEAL_BLOCKS,
@@ -56,6 +58,7 @@
 
 		if (!isLastStep) {
 			stepIndex += 1;
+			void resetScroll();
 			return;
 		}
 
@@ -73,6 +76,7 @@
 	function goBack() {
 		if (stepIndex === 0) return;
 		stepIndex -= 1;
+		void resetScroll();
 	}
 
 	function categoryLabel(block: MealBlock, cat: Category): string {
@@ -85,6 +89,16 @@
 	}
 
 	const totalLimit = MEAL_SELECTION_LIMIT * 2;
+
+	const stepFlyIn = { x: 30, duration: 260, delay: 40 };
+	const stepFlyOut = { x: -30, duration: 180 };
+
+	let stepRoot = $state<HTMLElement | null>(null);
+
+	async function resetScroll() {
+		await tick();
+		stepRoot?.closest('main')?.scrollTo({ top: 0, behavior: 'auto' });
+	}
 </script>
 
 <div class="meal-picker w-full max-w-md mx-auto min-w-0 text-left">
@@ -132,75 +146,81 @@
 		</div>
 	</div>
 
-	<div class="mb-4 flex items-start justify-between gap-3 px-1">
-		<div class="min-w-0">
-			<h2 class="text-xl font-extrabold text-heading leading-snug">
-				{currentBlock.title}
-			</h2>
-			<p class="text-sm text-muted mt-1 leading-relaxed">
-				Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
-			</p>
-			{#if currentBlock.hint}
-				<p class="text-[11px] text-muted/80 mt-1 leading-relaxed">{currentBlock.hint}</p>
-			{/if}
-		</div>
-		<span
-			class="shrink-0 text-sm tabular-nums {canAdvance
-				? 'font-semibold text-accent'
-				: 'text-muted'}"
-		>
-			{totalSelected(currentBlock.id)}/{totalLimit}
-		</span>
-	</div>
-
-	<div class="flex flex-col gap-5 pb-fixed-cta-reserve">
-		{#each ['carbs', 'proteins'] as cat (cat)}
-			{@const category = cat as Category}
-			{@const items = category === 'carbs' ? currentBlock.carbs : currentBlock.proteins}
-			{@const selected = selections[currentBlock.id][category]}
-			{@const catComplete = selected.length >= MEAL_SELECTION_LIMIT}
-			<div>
-				<div class="flex items-center justify-between mb-2 px-1">
+	<div class="content-transition-root" bind:this={stepRoot}>
+		{#key stepIndex}
+			<div in:fly={stepFlyIn} out:fly={stepFlyOut}>
+				<div class="mb-4 flex items-start justify-between gap-3 px-1">
+					<div class="min-w-0">
+						<h2 class="text-xl font-extrabold text-heading leading-snug">
+							{currentBlock.title}
+						</h2>
+						<p class="text-sm text-muted mt-1 leading-relaxed">
+							Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
+						</p>
+						{#if currentBlock.hint}
+							<p class="text-[11px] text-muted/80 mt-1 leading-relaxed">{currentBlock.hint}</p>
+						{/if}
+					</div>
 					<span
-						class="text-xs font-bold uppercase tracking-wide {catComplete
-							? 'text-accent'
-							: 'text-muted'}"
-					>
-						{categoryLabel(currentBlock, category)}
-					</span>
-					<span
-						class="text-xs tabular-nums {catComplete
+						class="shrink-0 text-sm tabular-nums {canAdvance
 							? 'font-semibold text-accent'
 							: 'text-muted'}"
 					>
-						{selected.length}/{MEAL_SELECTION_LIMIT}
+						{totalSelected(currentBlock.id)}/{totalLimit}
 					</span>
 				</div>
-				<div class="grid grid-cols-3 gap-2">
-					{#each items as item (item.id)}
-						{@const isSelected = selected.includes(item.id)}
-						{@const isDisabled = !isSelected && selected.length >= MEAL_SELECTION_LIMIT}
-						<button
-							type="button"
-							role="checkbox"
-							aria-checked={isSelected}
-							aria-disabled={isDisabled}
-							disabled={isDisabled}
-							onclick={() => toggleItem(currentBlock.id, category, item.id)}
-							class="meal-food-btn @container flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
-								{isSelected
-								? 'border-accent bg-accent text-bg font-medium'
-								: isDisabled
-									? 'border-line/40 bg-surface text-muted/50 cursor-not-allowed'
-									: 'border-line bg-surface text-body hover:border-accent/40 hover:bg-surface-2'}"
-						>
-							<span class="meal-food-emoji shrink-0" aria-hidden="true">{item.emoji}</span>
-							<span class="meal-food-label min-w-0 w-full text-balance">{item.label}</span>
-						</button>
+
+				<div class="flex flex-col gap-5 pb-fixed-cta-reserve">
+					{#each ['carbs', 'proteins'] as cat (cat)}
+						{@const category = cat as Category}
+						{@const items = category === 'carbs' ? currentBlock.carbs : currentBlock.proteins}
+						{@const selected = selections[currentBlock.id][category]}
+						{@const catComplete = selected.length >= MEAL_SELECTION_LIMIT}
+						<div>
+							<div class="flex items-center justify-between mb-2 px-1">
+								<span
+									class="text-xs font-bold uppercase tracking-wide {catComplete
+										? 'text-accent'
+										: 'text-muted'}"
+								>
+									{categoryLabel(currentBlock, category)}
+								</span>
+								<span
+									class="text-xs tabular-nums {catComplete
+										? 'font-semibold text-accent'
+										: 'text-muted'}"
+								>
+									{selected.length}/{MEAL_SELECTION_LIMIT}
+								</span>
+							</div>
+							<div class="grid grid-cols-3 gap-2">
+								{#each items as item (item.id)}
+									{@const isSelected = selected.includes(item.id)}
+									{@const isDisabled = !isSelected && selected.length >= MEAL_SELECTION_LIMIT}
+									<button
+										type="button"
+										role="checkbox"
+										aria-checked={isSelected}
+										aria-disabled={isDisabled}
+										disabled={isDisabled}
+										onclick={() => toggleItem(currentBlock.id, category, item.id)}
+										class="meal-food-btn @container flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+											{isSelected
+											? 'border-accent bg-accent text-bg font-medium'
+											: isDisabled
+												? 'border-line/40 bg-surface text-muted/50 cursor-not-allowed'
+												: 'border-line bg-surface text-body hover:border-accent/40 hover:bg-surface-2'}"
+									>
+										<span class="meal-food-emoji shrink-0" aria-hidden="true">{item.emoji}</span>
+										<span class="meal-food-label min-w-0 w-full text-balance">{item.label}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
 					{/each}
 				</div>
 			</div>
-		{/each}
+		{/key}
 	</div>
 </div>
 
@@ -232,6 +252,19 @@
 </div>
 
 <style>
+	.content-transition-root {
+		display: grid;
+		grid-template-rows: 1fr;
+		grid-template-columns: 1fr;
+		width: 100%;
+	}
+
+	.content-transition-root > * {
+		grid-row: 1;
+		grid-column: 1;
+		min-width: 0;
+	}
+
 	.meal-picker {
 		container-type: inline-size;
 		container-name: meal-picker;
