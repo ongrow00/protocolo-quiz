@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
 	import Logo from '$lib/components/ui/Logo.svelte';
 	import {
 		MEAL_BLOCKS,
 		MEAL_SELECTION_LIMIT,
 		type MealBlockId,
 		type MealBlock,
-		type MealFoodItem,
 		type MealSelections
 	} from '$lib/data/meal-preferences';
 
@@ -17,6 +15,8 @@
 
 	let { hideLogo = false, onComplete }: Props = $props();
 
+	type Category = 'carbs' | 'proteins';
+
 	const selections = $state<MealSelections>({
 		cafe: { carbs: [], proteins: [] },
 		almoco: { carbs: [], proteins: [] },
@@ -25,15 +25,11 @@
 		lancheNoite: { carbs: [], proteins: [] }
 	});
 
-	const expanded = $state<Record<MealBlockId, boolean>>({
-		cafe: true,
-		almoco: false,
-		lanche: false,
-		janta: false,
-		lancheNoite: false
-	});
+	let stepIndex = $state(0);
+	let completionNotified = $state(false);
 
-	type Category = 'carbs' | 'proteins';
+	const currentBlock = $derived(MEAL_BLOCKS[stepIndex]);
+	const isLastStep = $derived(stepIndex === MEAL_BLOCKS.length - 1);
 
 	function isCategoryComplete(blockId: MealBlockId, cat: Category): boolean {
 		return selections[blockId][cat].length >= MEAL_SELECTION_LIMIT;
@@ -43,30 +39,27 @@
 		return isCategoryComplete(blockId, 'carbs') && isCategoryComplete(blockId, 'proteins');
 	}
 
-	function isBlockAccessible(blockId: MealBlockId): boolean {
-		const idx = MEAL_BLOCKS.findIndex((b) => b.id === blockId);
-		if (idx <= 0) return true;
-		return MEAL_BLOCKS.slice(0, idx).every((b) => isBlockComplete(b.id));
-	}
+	const canAdvance = $derived(isBlockComplete(currentBlock.id));
 
-	function openBlock(blockId: MealBlockId) {
-		for (const block of MEAL_BLOCKS) {
-			expanded[block.id] = block.id === blockId;
+	function toggleItem(blockId: MealBlockId, cat: Category, itemId: string) {
+		const current = selections[blockId][cat];
+		if (current.includes(itemId)) {
+			selections[blockId][cat] = current.filter((id) => id !== itemId);
+			return;
 		}
+		if (current.length >= MEAL_SELECTION_LIMIT) return;
+		selections[blockId][cat] = [...current, itemId];
 	}
 
-	function openNextBlockAfter(currentId: MealBlockId) {
-		const idx = MEAL_BLOCKS.findIndex((b) => b.id === currentId);
-		const next = idx >= 0 ? MEAL_BLOCKS[idx + 1] : undefined;
-		if (next) openBlock(next.id);
-	}
+	function goNext() {
+		if (!canAdvance) return;
 
-	const allComplete = $derived(MEAL_BLOCKS.every((block) => isBlockComplete(block.id)));
+		if (!isLastStep) {
+			stepIndex += 1;
+			return;
+		}
 
-	let completionNotified = $state(false);
-
-	$effect(() => {
-		if (!allComplete || completionNotified) return;
+		if (completionNotified) return;
 		completionNotified = true;
 		onComplete?.({
 			cafe: { ...selections.cafe },
@@ -75,48 +68,6 @@
 			janta: { ...selections.janta },
 			lancheNoite: { ...selections.lancheNoite }
 		});
-	});
-
-	function toggleItem(blockId: MealBlockId, cat: Category, itemId: string) {
-		if (!expanded[blockId]) return;
-
-		const current = selections[blockId][cat];
-		if (current.includes(itemId)) {
-			selections[blockId][cat] = current.filter((id) => id !== itemId);
-			return;
-		}
-		if (current.length >= MEAL_SELECTION_LIMIT) return;
-
-		const next = [...current, itemId];
-		selections[blockId][cat] = next;
-
-		if (next.length >= MEAL_SELECTION_LIMIT && isBlockComplete(blockId)) {
-			expanded[blockId] = false;
-			openNextBlockAfter(blockId);
-		}
-	}
-
-	function toggleExpanded(blockId: MealBlockId) {
-		if (expanded[blockId]) {
-			expanded[blockId] = false;
-			return;
-		}
-		if (!isBlockAccessible(blockId)) return;
-		openBlock(blockId);
-	}
-
-	function selectedLabels(blockId: MealBlockId): string {
-		const block = MEAL_BLOCKS.find((b) => b.id === blockId);
-		if (!block) return '';
-		const carbLabels = selections[blockId].carbs
-			.map((id) => block.carbs.find((item) => item.id === id))
-			.filter((item): item is MealFoodItem => item != null)
-			.map((item) => `${item.emoji} ${item.label}`);
-		const protLabels = selections[blockId].proteins
-			.map((id) => block.proteins.find((item) => item.id === id))
-			.filter((item): item is MealFoodItem => item != null)
-			.map((item) => `${item.emoji} ${item.label}`);
-		return [...carbLabels, ...protLabels].join(' · ');
 	}
 
 	function categoryLabel(block: MealBlock, cat: Category): string {
@@ -137,131 +88,103 @@
 			<Logo class="block h-7 w-auto" />
 		</div>
 	{/if}
-	<div class="mb-4 px-1">
-		<h2 class="text-xl font-extrabold text-heading leading-snug">
-			Selecione suas preferências
-		</h2>
-		<p class="text-sm text-muted mt-1 leading-relaxed">
-			Escolha seus carboidratos e proteínas preferidos em cada refeição.
-		</p>
+
+	<div class="mb-4 flex items-start justify-between gap-3 px-1">
+		<div class="min-w-0">
+			<h2 class="text-xl font-extrabold text-heading leading-snug">
+				{currentBlock.title}
+			</h2>
+			<p class="text-sm text-muted mt-1 leading-relaxed">
+				Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
+			</p>
+			{#if currentBlock.hint}
+				<p class="text-[11px] text-muted/80 mt-1 leading-relaxed">{currentBlock.hint}</p>
+			{/if}
+		</div>
+		<span
+			class="shrink-0 text-sm tabular-nums {canAdvance
+				? 'font-semibold text-accent'
+				: 'text-muted'}"
+		>
+			{totalSelected(currentBlock.id)}/{totalLimit}
+		</span>
 	</div>
 
-	<div class="flex flex-col gap-4 pb-[50px]">
-		{#each MEAL_BLOCKS as block (block.id)}
-			{@const blockComplete = isBlockComplete(block.id)}
-			{@const isOpen = expanded[block.id]}
-			{@const isPending = !isBlockAccessible(block.id)}
-			<section
-				class="rounded-2xl border overflow-hidden transition-opacity duration-200 {isPending
-					? 'opacity-50 border-line/40 bg-surface-2 pointer-events-none'
-					: 'border-line/60 bg-surface'}"
-				aria-labelledby="meal-block-{block.id}"
-				aria-disabled={isPending}
-			>
-				<button
-					type="button"
-					id="meal-block-{block.id}"
-					class="w-full px-4 pt-4 pb-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset {isPending
-						? 'text-muted'
-						: 'hover:bg-surface-2/40'}"
-					onclick={() => toggleExpanded(block.id)}
-					aria-expanded={isOpen}
-					disabled={isPending}
-				>
-					<div class="flex items-start justify-between gap-3">
-						<div class="min-w-0">
-							<h3 class="text-base font-extrabold text-heading">
-								{block.title}
-							</h3>
-							<p class="text-xs text-muted mt-0.5">
-								{#if blockComplete}
-									{totalSelected(block.id)} alimentos selecionados
-								{:else}
-									Selecione {MEAL_SELECTION_LIMIT} opções de cada categoria
-								{/if}
-							</p>
-							{#if block.hint}
-								<p class="text-[11px] text-muted/80 mt-1 leading-relaxed">{block.hint}</p>
-							{/if}
-						</div>
-						<span
-							class="shrink-0 text-sm tabular-nums {blockComplete
-								? 'font-semibold text-accent'
-								: 'text-muted'}"
-						>
-							{totalSelected(block.id)}/{totalLimit}
-						</span>
-					</div>
-
-					{#if blockComplete && !isOpen}
-						<p class="mt-2 text-xs text-body leading-relaxed line-clamp-2">
-							{selectedLabels(block.id)}
-						</p>
-					{/if}
-				</button>
-
-				{#if isOpen}
-					<div class="h-px bg-line/60 mx-4" aria-hidden="true"></div>
-					<div
-						class="px-3 pb-4 pt-3 flex flex-col gap-5"
-						transition:slide={{ duration: 220 }}
+	<div class="flex flex-col gap-5 pb-fixed-cta-reserve">
+		{#each ['carbs', 'proteins'] as cat (cat)}
+			{@const category = cat as Category}
+			{@const items = category === 'carbs' ? currentBlock.carbs : currentBlock.proteins}
+			{@const selected = selections[currentBlock.id][category]}
+			{@const catComplete = selected.length >= MEAL_SELECTION_LIMIT}
+			<div>
+				<div class="flex items-center justify-between mb-2 px-1">
+					<span
+						class="text-xs font-bold uppercase tracking-wide {catComplete
+							? 'text-accent'
+							: 'text-muted'}"
 					>
-						{#each ['carbs', 'proteins'] as cat (cat)}
-							{@const category = cat as Category}
-							{@const items = category === 'carbs' ? block.carbs : block.proteins}
-							{@const selected = selections[block.id][category]}
-							{@const catComplete = selected.length >= MEAL_SELECTION_LIMIT}
-							<div>
-								<div class="flex items-center justify-between mb-2 px-1">
-									<span
-										class="text-xs font-bold uppercase tracking-wide {catComplete
-											? 'text-accent'
-											: 'text-muted'}"
-									>
-										{categoryLabel(block, category)}
-									</span>
-									<span
-										class="text-xs tabular-nums {catComplete
-											? 'font-semibold text-accent'
-											: 'text-muted'}"
-									>
-										{selected.length}/{MEAL_SELECTION_LIMIT}
-									</span>
-								</div>
-								<div class="grid grid-cols-3 gap-2">
-									{#each items as item (item.id)}
-										{@const isSelected = selected.includes(item.id)}
-										{@const isDisabled =
-											!isSelected && selected.length >= MEAL_SELECTION_LIMIT}
-										<button
-											type="button"
-											role="checkbox"
-											aria-checked={isSelected}
-											aria-disabled={isDisabled}
-											disabled={isDisabled}
-											onclick={() => toggleItem(block.id, category, item.id)}
-											class="meal-food-btn @container flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
-												{isSelected
-												? 'border-accent bg-accent text-bg font-medium'
-												: isDisabled
-													? 'border-line/40 bg-surface text-muted/50 cursor-not-allowed'
-													: 'border-line bg-surface text-body hover:border-accent/40 hover:bg-surface-2'}"
-										>
-											<span class="meal-food-emoji shrink-0" aria-hidden="true"
-												>{item.emoji}</span
-											>
-											<span class="meal-food-label min-w-0 w-full text-balance"
-												>{item.label}</span
-											>
-										</button>
-									{/each}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</section>
+						{categoryLabel(currentBlock, category)}
+					</span>
+					<span
+						class="text-xs tabular-nums {catComplete
+							? 'font-semibold text-accent'
+							: 'text-muted'}"
+					>
+						{selected.length}/{MEAL_SELECTION_LIMIT}
+					</span>
+				</div>
+				<div class="grid grid-cols-3 gap-2">
+					{#each items as item (item.id)}
+						{@const isSelected = selected.includes(item.id)}
+						{@const isDisabled = !isSelected && selected.length >= MEAL_SELECTION_LIMIT}
+						<button
+							type="button"
+							role="checkbox"
+							aria-checked={isSelected}
+							aria-disabled={isDisabled}
+							disabled={isDisabled}
+							onclick={() => toggleItem(currentBlock.id, category, item.id)}
+							class="meal-food-btn @container flex min-h-[4.25rem] flex-col items-center justify-center gap-1 rounded-xl border px-1.5 py-2 text-center transition-all duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent
+								{isSelected
+								? 'border-accent bg-accent text-bg font-medium'
+								: isDisabled
+									? 'border-line/40 bg-surface text-muted/50 cursor-not-allowed'
+									: 'border-line bg-surface text-body hover:border-accent/40 hover:bg-surface-2'}"
+						>
+							<span class="meal-food-emoji shrink-0" aria-hidden="true">{item.emoji}</span>
+							<span class="meal-food-label min-w-0 w-full text-balance">{item.label}</span>
+						</button>
+					{/each}
+				</div>
+			</div>
 		{/each}
+	</div>
+</div>
+
+<div
+	class="fixed bottom-0 left-0 right-0 z-20 bg-gradient-bottom-fade-white pt-20 pointer-events-none"
+>
+	<div
+		class="max-w-lg mx-auto w-full px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pointer-events-auto"
+	>
+		<button
+			type="button"
+			onclick={goNext}
+			disabled={!canAdvance}
+			class="w-full h-[60px] flex items-center justify-center gap-2 rounded-2xl font-bold text-base bg-accent text-bg transition-all duration-200 active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none hover:bg-accent-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+		>
+			<span>{isLastStep ? 'Finalizar' : 'Continuar'}</span>
+			<svg
+				class="w-4 h-4 shrink-0"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				viewBox="0 0 24 24"
+				aria-hidden="true"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+			</svg>
+		</button>
 	</div>
 </div>
 
