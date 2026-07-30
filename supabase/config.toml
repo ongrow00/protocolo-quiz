@@ -224,7 +224,7 @@ otp_expiry = 3600
 
 [auth.email.template.recovery]
 subject = "Seu código de recuperação — Protocolo Desbloqueio"
-content_path = "./templates/recovery.html"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
@@ -351,6 +351,10 @@ allow_dynamic_registration = false
 
 [functions.lastlink-webhook]
 # Lastlink sends x-lastlink-token, not a Supabase JWT.
+verify_jwt = false
+
+[functions.guru-webhook]
+# Guru sends api_token in the request body, not a Supabase JWT.
 verify_jwt = false
 
 [edge_runtime]
