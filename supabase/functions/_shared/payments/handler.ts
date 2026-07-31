@@ -407,6 +407,29 @@ export async function handleWebhook<P>(
 				return jsonResponse({ error: err.message ?? 'Failed to link transaction' }, 500);
 			}
 		}
+
+		// Revogação que falha responde 500 de propósito, para o gateway reenviar.
+		//
+		// O caso real: o reembolso chega antes de o `approved` ter criado o perfil,
+		// não há o que revogar, e um 200 faria o gateway considerar entregue — o
+		// cliente ficaria com acesso a um produto estornado, em silêncio. O Guru
+		// reenvia até 10 vezes, o que costuma dar tempo do perfil aparecer.
+		//
+		// A transação já está gravada neste ponto, e a chave de idempotência garante
+		// que o reenvio não duplique linha. Provisionamento que falha continua
+		// respondendo 200: ali o retry raramente resolve (e-mail inválido, por
+		// exemplo) e só geraria ruído.
+		if (revoke && !accessResult.revoked) {
+			console.error(`${tag} revogação não aplicada, pedindo reenvio:`, accessResult.provisionError);
+			return jsonResponse(
+				{
+					error: 'Revocation failed',
+					provisionError: accessResult.provisionError ?? undefined,
+					transactionId
+				},
+				500
+			);
+		}
 	}
 
 	return jsonResponse({
