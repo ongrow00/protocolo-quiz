@@ -1,6 +1,8 @@
 /** Conteúdo do paywall de treino (bottom sheet em `/treino`). */
 export const TREINO_PAYWALL = {
 	checkoutUrl: 'https://lastlink.com/p/CE7F06EBF/checkout-payment/',
+	/** Quem comprou pelo Guru continua no Guru (ver resolveGatewayCheckoutUrl). */
+	checkoutUrlGuru: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-de-treino-17',
 	checkoutSrc: 'upgrade-treino-interno',
 	headline: 'Libere seu treino agora!',
 	priceLabel: 'R$17,00',

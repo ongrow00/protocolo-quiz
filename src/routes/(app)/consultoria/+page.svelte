@@ -13,6 +13,7 @@
 	import { sessionStore } from '$lib/stores/session.store';
 	import {
 		buildAppCheckoutUrl,
+		resolveGatewayCheckoutUrl,
 		EMPTY_APP_CHECKOUT_STATE,
 		type AppCheckoutState
 	} from '$lib/utils/checkout-url';
@@ -60,11 +61,14 @@
 	);
 
 	const checkoutUrl = $derived(
-		buildAppCheckoutUrl(CONSULTORIA_OFFER.checkoutUrl, {
-			sessionUtm: $sessionStore.utm,
-			checkout: checkoutState,
-			extra: { src: CONSULTORIA_OFFER.checkoutSrc }
-		})
+		buildAppCheckoutUrl(
+			resolveGatewayCheckoutUrl(CONSULTORIA_OFFER, checkoutState.gateway),
+			{
+				sessionUtm: $sessionStore.utm,
+				checkout: checkoutState,
+				extra: { src: CONSULTORIA_OFFER.checkoutSrc }
+			}
+		)
 	);
 </script>
 

@@ -33,7 +33,8 @@ export type ResultsOfferConfig = {
 	/** Renderizado como "ou {label}" (ex.: '12x de R$7,14'). */
 	installmentLabel: string;
 	checkoutUrl: string;
-	video: ResultsOfferVideo;
+	/** Omitido ⇒ vídeo padrão de `/results`. */
+	video?: ResultsOfferVideo;
 	/** Preço riscado. Omitido ⇒ 'R$197'. */
 	compareAtPrice?: string;
 	/**
@@ -67,6 +68,23 @@ export const RESULTS_OFFERS: Record<string, ResultsOfferConfig> = {
 		installmentLabel: '12x de R$9,26',
 		checkoutUrl: 'https://lastlink.com/p/CEB4B9B8D/checkout-payment/',
 		video: vturbPlayer('6a5a0bca6ed0caeb794c28b4')
+	},
+
+	// Digital Manager Guru — mesmas ofertas de R$47 e R$37, com checkout no Guru.
+	// Servem para migrar tráfego aos poucos: a coluna `gateway` em transactions
+	// separa o que veio de cada lado. Os parâmetros (name, phone, sck, src e utm_*)
+	// são anexados por appendCheckoutParams, igual à Lastlink.
+	GROF47: {
+		mainPrice: 'R$47,00',
+		installmentLabel: RESULTS_OFFER.installmentLabel,
+		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-47'
+	},
+	GROF37: {
+		mainPrice: 'R$37,00',
+		installmentLabel: RESULTS_OFFER.installmentLabelOf002,
+		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-37',
+		video: vturbPlayer('6a5a0bf15bd6ca54b0033c33'),
+		disablesBonus: true
 	}
 };
 

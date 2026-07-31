@@ -39,6 +39,7 @@
 		buildAppCheckoutUrl,
 		EMPTY_APP_CHECKOUT_STATE,
 		mergeUtmParams,
+		resolveGatewayCheckoutUrl,
 		type AppCheckoutState
 	} from '$lib/utils/checkout-url';
 
@@ -145,8 +146,10 @@
 	export type OfferCta = {
 		primaryLabel: string;
 		declineLabel: string;
-		/** Checkout Lastlink do CTA principal (abre em nova aba com UTMs + src). */
+		/** Checkout do CTA principal (abre em nova aba com UTMs + src). */
 		checkoutUrl?: string;
+		/** Usado no lugar de `checkoutUrl` quando o usuário comprou pelo Guru. */
+		checkoutUrlGuru?: string;
 		checkoutSrc?: string;
 		declineModal?: OfferDeclineModal;
 	};
@@ -369,7 +372,15 @@
 	});
 
 	const primaryCheckoutUrl = $derived.by(() => {
-		const baseUrl = offerCta?.checkoutUrl ?? checkoutUrl;
+		// O upsell de ativação segue o gateway da compra do usuário; o funil público
+		// (sem login) não tem gateway conhecido e mantém o checkout padrão.
+		const ctaUrl = offerCta?.checkoutUrl
+			? resolveGatewayCheckoutUrl(
+					{ checkoutUrl: offerCta.checkoutUrl, checkoutUrlGuru: offerCta.checkoutUrlGuru },
+					appCheckoutState.gateway
+				)
+			: undefined;
+		const baseUrl = ctaUrl ?? checkoutUrl;
 		const src =
 			offerCta?.checkoutSrc ??
 			(isAtivacaoVariant
@@ -616,7 +627,7 @@
 	const resultsPlaybackGate = $derived({
 		seconds: isAtivacaoVariant
 			? ATIVACAO_VTURB_DELAY_SEC
-			: (activeOffer?.video.revealAtSec ?? RESULTS_VTURB_DELAY_SEC),
+			: (activeOffer?.video?.revealAtSec ?? RESULTS_VTURB_DELAY_SEC),
 		onReached: revealResultsAfterVideo
 	});
 
@@ -725,6 +736,18 @@
 				</div>
 			{/key}
 		</div>
+
+		{#if onExitCta}
+			<!-- Só no onboarding: na fase da oferta o vídeo entra e o SAIR sai. -->
+			<button
+				type="button"
+				aria-label="Sair da conta"
+				onclick={onExitCta}
+				class="mx-auto mt-6 mb-[var(--fixed-cta-reserve)] px-7 py-3.5 text-[10px] leading-none tracking-[0.08em] text-[#b0b0b0] transition-colors hover:text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+			>
+				SAIR
+			</button>
+		{/if}
 	{:else}
 	{#if heroProgress}
 		<div

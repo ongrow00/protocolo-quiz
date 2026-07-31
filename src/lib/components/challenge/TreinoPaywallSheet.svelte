@@ -6,6 +6,7 @@
 	import { sessionStore } from '$lib/stores/session.store';
 	import {
 		buildAppCheckoutUrl,
+		resolveGatewayCheckoutUrl,
 		EMPTY_APP_CHECKOUT_STATE,
 		type AppCheckoutState
 	} from '$lib/utils/checkout-url';
@@ -36,7 +37,8 @@
 	});
 
 	const checkoutBaseUrl = $derived(
-		import.meta.env.PUBLIC_CHECKOUT_URL || TREINO_PAYWALL.checkoutUrl
+		import.meta.env.PUBLIC_CHECKOUT_URL ||
+			resolveGatewayCheckoutUrl(TREINO_PAYWALL, checkoutState.gateway)
 	);
 
 	const checkoutUrl = $derived(
