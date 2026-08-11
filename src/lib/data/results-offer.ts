@@ -12,9 +12,9 @@ function vturbPlayer(hash: string, revealAtSec?: number): ResultsOfferVideo {
 /** Oferta principal (`/results`, bloco `#bloco-preco`). */
 export const RESULTS_OFFER = {
 	/** R$47,00 — oferta padrão */
-	checkoutUrl: 'https://lastlink.com/p/C1C84B971/checkout-payment/',
+	checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-47',
 	/** R$37,00 — `?offer=OF002` */
-	checkoutUrlOf002: 'https://lastlink.com/p/CC4FA15CD/checkout-payment/',
+	checkoutUrlOf002: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-37',
 	installmentLabel: '9x de R$6,32',
 	installmentLabelOf002: '7x de R$6,16'
 } as const;
@@ -53,36 +53,36 @@ export const RESULTS_OFFERS: Record<string, ResultsOfferConfig> = {
 	OF37: {
 		mainPrice: 'R$37,00',
 		installmentLabel: '7x de R$6,16',
-		checkoutUrl: 'https://lastlink.com/p/CC4FA15CD/checkout-payment/',
+		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-37',
 		video: vturbPlayer('6a5a0bf15bd6ca54b0033c33'),
 		disablesBonus: true
 	},
 	OF67: {
 		mainPrice: 'R$67,00',
 		installmentLabel: '12x de R$7,14',
-		checkoutUrl: 'https://lastlink.com/p/C13E08ABB/checkout-payment/',
+		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-67',
 		video: vturbPlayer('6a5a11082a8666c4f6765151')
 	},
 	OF87: {
 		mainPrice: 'R$87,00',
 		installmentLabel: '12x de R$9,26',
-		checkoutUrl: 'https://lastlink.com/p/CEB4B9B8D/checkout-payment/',
+		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-87',
 		video: vturbPlayer('6a5a0bca6ed0caeb794c28b4')
 	},
 
-	// Digital Manager Guru — mesmas ofertas de R$47 e R$37, com checkout no Guru.
-	// Servem para migrar tráfego aos poucos: a coluna `gateway` em transactions
-	// separa o que veio de cada lado. Os parâmetros (name, phone, sck, src e utm_*)
-	// são anexados por appendCheckoutParams, igual à Lastlink.
+	// Aliases dos anúncios que já rodam apontando para `?offer=GROF47`/`GROF37`.
+	// O padrão e o OF37 já vão para o Guru, então estes repetem a oferta padrão —
+	// existem só para não quebrar criativos no ar. Podem sair quando não houver
+	// mais tráfego nesses códigos.
 	GROF47: {
 		mainPrice: 'R$47,00',
 		installmentLabel: RESULTS_OFFER.installmentLabel,
-		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-47'
+		checkoutUrl: RESULTS_OFFER.checkoutUrl
 	},
 	GROF37: {
 		mainPrice: 'R$37,00',
 		installmentLabel: RESULTS_OFFER.installmentLabelOf002,
-		checkoutUrl: 'https://pay.protocolodesbloqueio.com.br/pay/protocolo-desbloqueio-37',
+		checkoutUrl: RESULTS_OFFER.checkoutUrlOf002,
 		video: vturbPlayer('6a5a0bf15bd6ca54b0033c33'),
 		disablesBonus: true
 	}
